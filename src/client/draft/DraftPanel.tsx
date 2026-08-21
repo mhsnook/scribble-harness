@@ -63,10 +63,17 @@ export function DraftPanel({
 			</div>
 
 			{/* Heading, subheading, and section-break styling is `.prose-draft` in
-			    theme.css, so a Draft preview is set the same way as the editor. */}
-			<div className="prose-draft min-w-0 flex-auto px-8 py-4 [&_.ProseMirror]:min-h-full [&_.ProseMirror]:outline-none">
-				<EditorContent editor={editor} />
-			</div>
+			    theme.css, so a Draft preview is set the same way as the editor.
+
+			    The measure is padding on `.ProseMirror` rather than on anything
+			    around it, and the editable grows to the foot of the Panel: every
+			    point below the toolbar is then inside the editable, so a click in
+			    the gutter or in the space under the last line puts the caret in
+			    the prose instead of landing on a dead wrapper. */}
+			<EditorContent
+				className="prose-draft flex min-w-0 flex-auto flex-col [&_.ProseMirror]:flex-auto [&_.ProseMirror]:px-8 [&_.ProseMirror]:py-4 [&_.ProseMirror]:outline-none"
+				editor={editor}
+			/>
 		</Panel>
 	)
 }

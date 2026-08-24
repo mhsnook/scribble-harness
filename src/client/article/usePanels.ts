@@ -50,9 +50,6 @@ export function usePanels(articleId: string): PanelState {
 	}
 }
 
-/** Storage throws in a few real places — a locked-down browser, a sandboxed
- * frame — and none of them is worth losing the screen over. A remembered
- * layout is a convenience, so failing to read one opens Chat and Plan. */
 function loadOpenPanels(articleId: string): PanelId[] {
 	try {
 		const stored = window.localStorage.getItem(key(articleId))
@@ -68,15 +65,11 @@ function writeOpenPanels(articleId: string, open: readonly PanelId[]): void {
 	try {
 		window.localStorage.setItem(key(articleId), JSON.stringify(open))
 	} catch {
-		// Held for this session, which is the whole of what is lost.
+		// Held for this session.
 	}
 }
 
-/** Reads a saved layout back, and returns `null` where there is none to read.
- * A stored value is whatever the last version of the app wrote, so a Panel it
- * names that no longer exists is dropped and the rest are put back into the
- * rail's own order. An empty set is not a layout: the rail never closes the
- * last Panel, so nothing on screen means the value is not one we wrote. */
+/** Returns the saved layout, or `null`. */
 export function readOpenPanels(value: unknown): PanelId[] | null {
 	if (!Array.isArray(value)) return null
 

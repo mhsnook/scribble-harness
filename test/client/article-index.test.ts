@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { nextOpenPanels, panelShare } from '../../src/client/article/usePanels'
+import {
+	nextOpenPanels,
+	panelShare,
+	readOpenPanels,
+} from '../../src/client/article/usePanels'
 import {
 	archivedArticles,
 	boardColumns,
@@ -164,6 +168,29 @@ describe('the Panel rail', () => {
 
 	it('keeps the last Panel open rather than leaving nothing on screen', () => {
 		expect(nextOpenPanels(['plan'], 'plan', false)).toEqual(['plan'])
+	})
+})
+
+describe('the layout a writer left open', () => {
+	it('reads a saved layout back into the rail order', () => {
+		expect(readOpenPanels(['notes', 'chat'])).toEqual(['chat', 'notes'])
+	})
+
+	it('has no layout to read on a first visit', () => {
+		expect(readOpenPanels(null)).toBe(null)
+	})
+
+	it('drops a Panel the app no longer has', () => {
+		expect(readOpenPanels(['plan', 'outline'])).toEqual(['plan'])
+	})
+
+	it('refuses a set that would leave nothing on screen', () => {
+		expect(readOpenPanels([])).toBe(null)
+		expect(readOpenPanels(['outline'])).toBe(null)
+	})
+
+	it('refuses a stored value that is not a list', () => {
+		expect(readOpenPanels('chat')).toBe(null)
 	})
 })
 

@@ -8,6 +8,14 @@ import { PANELS, type PanelId } from '../components/PanelRail'
  * Panel at a time. The query is the complement of Tailwind's `md:`. */
 const narrowQuery = '(width < 768px)'
 
+/** Which Panels are open is state about the Article. Nothing stores it beside
+ * the Article yet, so it is held per Article in `localStorage` until there is
+ * somewhere on the server to put it. */
+const key = (articleId: string) => `scribble.open-panels.${articleId}`
+
+/** Chat and Plan: what a writer who has never touched the rail opens on. */
+const FIRST_OPEN: PanelId[] = ['chat', 'plan']
+
 export type PanelState = {
 	/** Which Panels are visible. All four stay mounted. */
 	open: PanelId[]
@@ -18,9 +26,9 @@ export type PanelState = {
 	toggle: (panel: PanelId) => void
 }
 
-export function usePanels(): PanelState {
+export function usePanels(articleId: string): PanelState {
 	const narrow = useNarrow(narrowQuery)
-	const [open, setOpen] = useState<PanelId[]>(['chat', 'plan'])
+	const [open, setOpen] = useState<PanelId[]>(() => loadOpenPanels(articleId))
 
 	// The first is the one furthest left, and the one the writer was reading when
 	// the window shrank under them.
@@ -28,12 +36,46 @@ export function usePanels(): PanelState {
 		if (narrow) setOpen((held) => (held.length > 1 ? [held[0]] : held))
 	}, [narrow])
 
+	// A narrow rail picks a tab out of necessity, and saving that one Panel as
+	// the layout would open a wide window on one Panel too.
+	useEffect(() => {
+		if (!narrow) writeOpenPanels(articleId, open)
+	}, [articleId, narrow, open])
+
 	return {
 		open,
 		narrow,
 		scale: panelScale(open, narrow),
 		toggle: (panel) => setOpen((held) => nextOpenPanels(held, panel, narrow)),
 	}
+}
+
+function loadOpenPanels(articleId: string): PanelId[] {
+	try {
+		const stored = window.localStorage.getItem(key(articleId))
+		const held: unknown = JSON.parse(stored ?? 'null')
+
+		return readOpenPanels(held) ?? FIRST_OPEN
+	} catch {
+		return FIRST_OPEN
+	}
+}
+
+function writeOpenPanels(articleId: string, open: readonly PanelId[]): void {
+	try {
+		window.localStorage.setItem(key(articleId), JSON.stringify(open))
+	} catch {
+		// Held for this session.
+	}
+}
+
+/** Returns the saved layout, or `null`. */
+export function readOpenPanels(value: unknown): PanelId[] | null {
+	if (!Array.isArray(value)) return null
+
+	const open = PANELS.filter((panel) => value.includes(panel))
+
+	return open.length === 0 ? null : open
 }
 
 /** The Panel row's type-and-spacing scale — `.panel-scale` in theme.css reads

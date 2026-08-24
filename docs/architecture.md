@@ -435,10 +435,8 @@ already reactive through Article Agent state and, at 1b, party-db's TanStack DB 
 **The Article screen has four Panels** — Chat, Plan, Draft, Notes — which become tabs on a
 narrow screen, and which are all more or less their own little interfaces, with very specific
 and explicit, user-gated interactions between them. `usePanels` holds which are open, keeps
-them in the one order, drawn by a `Rail` component in the navbar. It remembers that set in
-`localStorage`, under one key for every Article, so a reload opens the Panels the writer left
-open; a narrow rail picks one Panel out of necessity rather than choice, so what it picks is
-not saved. It also sets how wide each one gets: Notes takes a fixed slice as the margin rail, and the Draft takes twice what a
+them in the one order, drawn by a `Rail` component in the navbar. It also sets how wide each
+one gets: Notes takes a fixed slice as the margin rail, and the Draft takes twice what a
 supporting Panel does out of what is left, so the prose keeps the room whatever is beside it.
 
 **Use Loading states instead of drawing empty values.** An empty title, a zero count and four

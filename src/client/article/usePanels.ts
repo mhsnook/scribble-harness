@@ -8,10 +8,10 @@ import { PANELS, type PanelId } from '../components/PanelRail'
  * Panel at a time. The query is the complement of Tailwind's `md:`. */
 const narrowQuery = '(width < 768px)'
 
-/** Which Panels a writer works with is a habit rather than a fact about an
- * Article, so one set is kept for every Article, on this machine — the same
- * place a Skill lives until the House lands at 1b. */
-const KEY = 'scribble.open-panels'
+/** Which Panels are open is state about the Article. Nothing stores it beside
+ * the Article yet, so it is held per Article in `localStorage` until there is
+ * somewhere on the server to put it. */
+const key = (articleId: string) => `scribble.open-panels.${articleId}`
 
 /** Chat and Plan: what a writer who has never touched the rail opens on. */
 const FIRST_OPEN: PanelId[] = ['chat', 'plan']
@@ -26,9 +26,9 @@ export type PanelState = {
 	toggle: (panel: PanelId) => void
 }
 
-export function usePanels(): PanelState {
+export function usePanels(articleId: string): PanelState {
 	const narrow = useNarrow(narrowQuery)
-	const [open, setOpen] = useState<PanelId[]>(loadOpenPanels)
+	const [open, setOpen] = useState<PanelId[]>(() => loadOpenPanels(articleId))
 
 	// The first is the one furthest left, and the one the writer was reading when
 	// the window shrank under them.
@@ -39,8 +39,8 @@ export function usePanels(): PanelState {
 	// A narrow rail picks a tab out of necessity, and saving that one Panel as
 	// the layout would open a wide window on one Panel too.
 	useEffect(() => {
-		if (!narrow) writeOpenPanels(open)
-	}, [narrow, open])
+		if (!narrow) writeOpenPanels(articleId, open)
+	}, [articleId, narrow, open])
 
 	return {
 		open,
@@ -53,9 +53,10 @@ export function usePanels(): PanelState {
 /** Storage throws in a few real places — a locked-down browser, a sandboxed
  * frame — and none of them is worth losing the screen over. A remembered
  * layout is a convenience, so failing to read one opens Chat and Plan. */
-function loadOpenPanels(): PanelId[] {
+function loadOpenPanels(articleId: string): PanelId[] {
 	try {
-		const held: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? 'null')
+		const stored = window.localStorage.getItem(key(articleId))
+		const held: unknown = JSON.parse(stored ?? 'null')
 
 		return readOpenPanels(held) ?? FIRST_OPEN
 	} catch {
@@ -63,9 +64,9 @@ function loadOpenPanels(): PanelId[] {
 	}
 }
 
-function writeOpenPanels(open: readonly PanelId[]): void {
+function writeOpenPanels(articleId: string, open: readonly PanelId[]): void {
 	try {
-		window.localStorage.setItem(KEY, JSON.stringify(open))
+		window.localStorage.setItem(key(articleId), JSON.stringify(open))
 	} catch {
 		// Held for this session, which is the whole of what is lost.
 	}

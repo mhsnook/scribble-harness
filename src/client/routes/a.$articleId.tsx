@@ -56,7 +56,7 @@ function ArticleWindow({
 	const navigate = useNavigate()
 	const connection = useArticle().plan
 	const { plan } = connection
-	const panels = usePanels()
+	const panels = usePanels(articleId)
 	const index = useEditArticle()
 	const entry = useArticleEntry(articleId)
 

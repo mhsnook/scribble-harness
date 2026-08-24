@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { Plan, Refusal } from '../../shared/plan'
 import { isPlanRefused } from '../../shared/plan'
@@ -23,8 +23,6 @@ export type PlanConnection = {
 	rejected: string | null
 }
 
-export type PlanSocket = { setState: (plan: Plan) => void }
-
 export type PlanChannel = {
 	connection: PlanConnection
 	/** The two `useAgent` handlers the Plan needs. */
@@ -34,20 +32,17 @@ export type PlanChannel = {
 	onFrame: (frame: unknown) => void
 }
 
-/** `socket` is a getter, because `useAgent` has none to give on the first render
- * and swaps it on reconnect. */
-export function usePlanChannel(socket: () => PlanSocket | null): PlanChannel {
+/** `send` reaches whichever client is current. `useArticleAgent` supplies one
+ * that keeps its identity, since the writer below is built once. */
+export function usePlanChannel(send: (plan: Plan) => void): PlanChannel {
 	const [plan, setPlan] = useState<Plan | null>(null)
 	const [refusal, setRefusal] = useState<Refusal | null>(null)
 	const [rejected, setRejected] = useState<string | null>(null)
 
-	const held = useRef<ReturnType<typeof createPlanWriter> | null>(null)
-	held.current ??= createPlanWriter({
-		send: (next) => socket()?.setState(next),
-		onPlan: setPlan,
-		onRefusal: setRefusal,
-	})
-	const writer = held.current
+	// One per mount: the cleanup below disposes on `writer` changing.
+	const [writer] = useState(() =>
+		createPlanWriter({ send, onPlan: setPlan, onRefusal: setRefusal }),
+	)
 
 	// Flushing on the way out is what keeps the last keystroke of a burst.
 	useEffect(() => () => writer.dispose(), [writer])

@@ -1,6 +1,13 @@
 import { getToolName, isTextUIPart, isToolUIPart, type UIMessage } from 'ai'
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import {
+	type ReactNode,
+	type RefObject,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from 'react'
 
 import { proposePlanChangeTool, recordOffersTool, webSearchTool } from '../../shared/chat'
 import type { Offer } from '../../shared/offer'
@@ -77,7 +84,7 @@ export function ChatPanel({
 	className,
 }: ChatPanelProps) {
 	const rows = new Map(offers.map((offer) => [offer.id, offer]))
-	const transcript = useFootOfTranscript()
+	const [scroller, transcript] = useFootOfTranscript()
 
 	return (
 		<Panel className={className} divider={divider} grow={grow} padded={false}>
@@ -89,7 +96,7 @@ export function ChatPanel({
 					data-scroller=""
 					className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-3.5"
 					onScroll={transcript.onScroll}
-					ref={transcript.ref}
+					ref={scroller}
 				>
 					{messages.map((message) => (
 						<Turn
@@ -161,10 +168,13 @@ const AT_THE_FOOT = 24
  * before the observer can re-pin, so distance from the foot cannot tell the
  * writer's paste apart from the writer scrolling away.
  *
- * Returns the ref for the scrolling element, the `onScroll` that tracks it,
- * whether it is at the foot, and a way back down.
+ * Returns the ref for the scrolling element, and separately the `onScroll` that
+ * tracks it, whether it is at the foot, and a way back down.
  */
-function useFootOfTranscript() {
+function useFootOfTranscript(): [
+	RefObject<HTMLDivElement | null>,
+	{ atFoot: boolean; onScroll: () => void; toFoot: () => void },
+] {
 	const panel = useRef<HTMLDivElement>(null)
 	const pinned = useRef(true)
 	const wasAt = useRef(0)
@@ -204,28 +214,30 @@ function useFootOfTranscript() {
 		// `foot` reads refs alone, so it cannot go stale.
 	}, [])
 
-	return {
-		ref: panel,
-		atFoot,
-		onScroll: () => {
-			const scroller = panel.current
-			if (scroller === null) return
+	return [
+		panel,
+		{
+			atFoot,
+			onScroll: () => {
+				const scroller = panel.current
+				if (scroller === null) return
 
-			const off = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
-			if (off <= AT_THE_FOOT) settle(true)
-			else if (scroller.scrollTop < wasAt.current) settle(false)
+				const off = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+				if (off <= AT_THE_FOOT) settle(true)
+				else if (scroller.scrollTop < wasAt.current) settle(false)
 
-			wasAt.current = scroller.scrollTop
+				wasAt.current = scroller.scrollTop
+			},
+			toFoot: () => {
+				const scroller = panel.current
+				if (scroller === null) return
+
+				settle(true)
+				wasAt.current = scroller.scrollHeight
+				scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
+			},
 		},
-		toFoot: () => {
-			const scroller = panel.current
-			if (scroller === null) return
-
-			settle(true)
-			wasAt.current = scroller.scrollHeight
-			scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' })
-		},
-	}
+	]
 }
 
 /** Why the composer will not send, and null when it will. Nothing expires an

@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import type { BlockRow } from '../../shared/draft'
 import type { DraftStore } from '../lib/article'
@@ -33,17 +33,21 @@ export function useDraft(store: DraftStore): DraftConnection {
 
 	const editorRef = useRef<Editor | null>(null)
 
-	const writerRef = useRef<ReturnType<typeof createDraftWriter> | null>(null)
-	writerRef.current ??= createDraftWriter({
-		read: (previous) =>
-			editorRef.current === null
-				? previous
-				: toRows(editorRef.current.state.doc, previous),
-		save: (change) => store.saveBlocks(change),
-		onStatus: setStatus,
-		describeFailure: (error) => failureText('The Draft did not save.', error) ?? '',
-	})
-	const writer = writerRef.current
+	// An Effect Event, so the writer can read the editor on save without the ref
+	// being touched during render.
+	const read = useEffectEvent((previous: readonly BlockRow[]) =>
+		editorRef.current === null ? previous : toRows(editorRef.current.state.doc, previous),
+	)
+
+	// One per mount: the cleanup below disposes on `writer` changing.
+	const [writer] = useState(() =>
+		createDraftWriter({
+			read,
+			save: (change) => store.saveBlocks(change),
+			onStatus: setStatus,
+			describeFailure: (error) => failureText('The Draft did not save.', error) ?? '',
+		}),
+	)
 
 	useEffect(() => {
 		let live = true

@@ -30,11 +30,9 @@ export function usePanels(articleId: string): PanelState {
 	const narrow = useNarrow(narrowQuery)
 	const [open, setOpen] = useState<PanelId[]>(() => loadOpenPanels(articleId))
 
-	// The first is the one furthest left, and the one the writer was reading when
-	// the window shrank under them.
-	useEffect(() => {
-		if (narrow) setOpen((held) => (held.length > 1 ? [held[0]] : held))
-	}, [narrow])
+	// A narrow window shows one Panel, the furthest left. `open` keeps the rest,
+	// so widening gives them back.
+	const shown = narrow && open.length > 1 ? [open[0]] : open
 
 	// A narrow rail picks a tab out of necessity, and saving that one Panel as
 	// the layout would open a wide window on one Panel too.
@@ -43,7 +41,7 @@ export function usePanels(articleId: string): PanelState {
 	}, [articleId, narrow, open])
 
 	return {
-		open,
+		open: shown,
 		narrow,
 		scale: panelScale(open, narrow),
 		toggle: (panel) => setOpen((held) => nextOpenPanels(held, panel, narrow)),

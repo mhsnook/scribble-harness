@@ -8,3 +8,10 @@ allowBuilds:
   core-js-pure: false
   esbuild: true
   workerd: true
+
+# The React Compiler's Babel plugin runs on Babel 7 — it depends on
+# @babel/types@^7 and, under Babel 8, skips every component with a default in
+# its props (facebook/react#36868). `agents` takes the 7.x decorators plugin for
+# `@callable`, which emits an identical worker. Undo once react#36956 ships.
+overrides:
+  "@babel/plugin-proposal-decorators": ^7.29.7

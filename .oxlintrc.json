@@ -9,12 +9,7 @@
     // cannot prove pure, without saying so. This is what says so: it reports the
     // Rules of React violations that cause a skip, so a component dropping out
     // of memoisation shows up here rather than as a slow Panel.
-    //
-    // A warning rather than an error, because five modules trip it today —
-    // useDraft, usePlan, useArticleAgent, usePanels, and the scroll hook in
-    // ChatPanel. Rewriting them is its own change; once they are clean this
-    // becomes an error.
-    "react/react-compiler": "warn"
+    "react/react-compiler": "error"
   },
   "env": {
     "builtin": true,

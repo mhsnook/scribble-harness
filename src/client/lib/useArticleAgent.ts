@@ -1,5 +1,5 @@
 import { useAgent } from 'agents/react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import type { BlockRow, DraftChange, DraftSaved } from '../../shared/draft'
 import { isFrame } from '../../shared/frame'
@@ -42,10 +42,12 @@ export function wakeArticleAgent(articleId: string): void {
 }
 
 export function useArticleAgent(articleId: string): ArticleConnection {
-	// `useAgent` hands back a new client on each reconnect, so both halves read
-	// this rather than closing over one generation of it.
+	// The Plan writer is built once, so it reaches the client through this rather
+	// than closing over one. Filled in an effect, which is late enough: nothing
+	// sends a Plan until the writer has typed.
 	const socket = useRef<ArticleSocket | null>(null)
-	const channel = usePlanChannel(() => socket.current)
+	const send = useEffectEvent((next: Plan) => socket.current?.setState(next))
+	const channel = usePlanChannel(send)
 
 	// The Round a `review_finished` frame last named. State rather than a
 	// listener registry, so nothing holds a mutable set across renders.
@@ -68,48 +70,45 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 		},
 	})
 
-	// In render, not an effect: React runs a child's effects first, so the Panels
-	// below would make their first RPC against a null socket.
-	socket.current = agent
+	useEffect(() => {
+		socket.current = agent
+	}, [agent])
 
-	// `[]` keeps the store's identity: `useOfferLedger` reads its rows once per
-	// store it is given, and `useDraft` loads once per store.
-	const offers = useMemo<OfferStore>(
-		() => ({
-			listOffers: () => call<Offer[]>(socket, 'listOffers'),
-			setOfferDisposition: (id: string, ruling: Ruling) =>
-				call<Offer>(socket, 'setOfferDisposition', [id, ruling]),
-			restoreOffer: (id: string) => call<Offer>(socket, 'restoreOffer', [id]),
-		}),
-		[],
+	/** One `@callable` RPC on whichever client is current. */
+	const call = useEffectEvent(
+		<T>(method: string, args?: unknown[], timeout?: number): Promise<T> =>
+			agent.call<T>(method, args, timeout === undefined ? undefined : { timeout }),
 	)
 
-	const draft = useMemo<DraftStore>(
-		() => ({
-			listBlocks: () => call<BlockRow[]>(socket, 'listBlocks'),
-			// Shorter than the SDK's 30-second default: a save that has not
-			// landed leaves "Saving…" on screen, and half a minute of that says
-			// something is fine when it is not.
-			saveBlocks: (change: DraftChange) =>
-				call<DraftSaved>(socket, 'saveBlocks', [change], SAVE_TIMEOUT),
-		}),
-		[],
-	)
+	// Lazy `useState` and not `useMemo`, because the identity is the contract:
+	// `useOfferLedger`, `useDraft` and `useNotes` each load once per store, and
+	// React may recompute a `useMemo`.
+	const [offers] = useState<OfferStore>(() => ({
+		listOffers: () => call<Offer[]>('listOffers'),
+		setOfferDisposition: (id: string, ruling: Ruling) =>
+			call<Offer>('setOfferDisposition', [id, ruling]),
+		restoreOffer: (id: string) => call<Offer>('restoreOffer', [id]),
+	}))
 
-	const notes = useMemo<NoteStore>(
-		() => ({
-			listRounds: () => call<Round[]>(socket, 'listRounds'),
-			listNotes: () => call<Note[]>(socket, 'listNotes'),
-			// A short call even for a thorough pass — `NoteStore.startReview`.
-			startReview: (request: ReviewRequest) =>
-				call<Round>(socket, 'startReview', [request]),
-			setNoteDisposition: (id: string, ruling: NoteRuling) =>
-				call<Note>(socket, 'setNoteDisposition', [id, ruling]),
-			resolveNote: (id: string) => call<Note>(socket, 'resolveNote', [id]),
-			restoreNote: (id: string) => call<Note>(socket, 'restoreNote', [id]),
-		}),
-		[],
-	)
+	const [draft] = useState<DraftStore>(() => ({
+		listBlocks: () => call<BlockRow[]>('listBlocks'),
+		// Shorter than the SDK's 30-second default: a save that has not
+		// landed leaves "Saving…" on screen, and half a minute of that says
+		// something is fine when it is not.
+		saveBlocks: (change: DraftChange) =>
+			call<DraftSaved>('saveBlocks', [change], SAVE_TIMEOUT),
+	}))
+
+	const [notes] = useState<NoteStore>(() => ({
+		listRounds: () => call<Round[]>('listRounds'),
+		listNotes: () => call<Note[]>('listNotes'),
+		// A short call even for a thorough pass — `NoteStore.startReview`.
+		startReview: (request: ReviewRequest) => call<Round>('startReview', [request]),
+		setNoteDisposition: (id: string, ruling: NoteRuling) =>
+			call<Note>('setNoteDisposition', [id, ruling]),
+		resolveNote: (id: string) => call<Note>('resolveNote', [id]),
+		restoreNote: (id: string) => call<Note>('restoreNote', [id]),
+	}))
 
 	return {
 		article: { offers, draft, notes, reviewFinished, plan: channel.connection },
@@ -119,22 +118,3 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 
 /** How long a save may be in flight before it is called failed. */
 const SAVE_TIMEOUT = 10_000
-
-/** An RPC on whichever socket is current. The client queues one made before the
- * socket opens, so only a caller ahead of the render above is refused. */
-function call<T>(
-	socket: { current: ArticleSocket | null },
-	method: string,
-	args?: unknown[],
-	timeout?: number,
-): Promise<T> {
-	if (socket.current === null) {
-		return Promise.reject(new Error('The Article Agent is not connected yet.'))
-	}
-
-	return socket.current.call<T>(
-		method,
-		args,
-		timeout === undefined ? undefined : { timeout },
-	)
-}

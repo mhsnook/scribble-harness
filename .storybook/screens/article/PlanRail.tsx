@@ -49,13 +49,13 @@ export function PlanRail({
 						<div className="flex items-baseline gap-1.5">
 							<p
 								className={cx(
-									'min-w-0 flex-1 text-[0.75rem] leading-snug',
+									'min-w-0 flex-1 text-12 leading-snug',
 									current ? 'font-medium text-ink' : 'text-muted',
 								)}
 							>
 								{node.title}
 							</p>
-							{current ? <span className="text-[0.625rem] text-faint">now</span> : null}
+							{current ? <span className="text-10 text-faint">now</span> : null}
 						</div>
 						<ProgressBar
 							value={part}
@@ -68,7 +68,7 @@ export function PlanRail({
 
 			<div className="mt-auto flex flex-col gap-1.5">
 				<ProgressBar value={share(done, target)} thickness={5} label="Whole piece" />
-				<p className="text-[0.6875rem] text-faint">whole piece</p>
+				<p className="text-11 text-faint">whole piece</p>
 			</div>
 
 			{counts?.length ? (

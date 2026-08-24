@@ -12,8 +12,8 @@ export function PhoneNotesScreen() {
 	return (
 		<Frame width={280}>
 			<div className="flex items-baseline justify-between px-3.5 py-2.5">
-				<span className="text-[0.8125rem] text-faint">The Long Tail of Batteries</span>
-				<span className="text-[0.6875rem] text-faint">draft 1</span>
+				<span className="text-13 text-faint">The Long Tail of Batteries</span>
+				<span className="text-11 text-faint">draft 1</span>
 			</div>
 			<FrameBody className="gap-3.5 px-3.5 pb-4">
 				<div className="flex gap-1.5">
@@ -55,7 +55,7 @@ export function PhoneNotesScreen() {
 					<MetaLabel>Read</MetaLabel>
 					<div className="prose-draft">
 						{draftShort.map((paragraph, i) => (
-							<p key={i} className={i > 0 ? 'mt-3 text-[0.8125rem]' : 'text-[0.8125rem]'}>
+							<p key={i} className={i > 0 ? 'mt-3 text-13' : 'text-13'}>
 								{paragraph}
 							</p>
 						))}

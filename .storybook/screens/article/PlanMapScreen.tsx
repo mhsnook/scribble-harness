@@ -108,7 +108,7 @@ export function PlanMapScreen({ branches = 'references' }: PlanMapScreenProps) {
 						<PlanOutline className="max-w-md" outline={edited.outline} />
 					)}
 
-					<p className="text-[0.6875rem] text-faint">
+					<p className="text-11 text-faint">
 						{view === 'list'
 							? 'The same Outline, listed. Both Views read one Plan, so neither can show a Section the other does not.'
 							: branches === 'sections'

@@ -14,7 +14,7 @@ export function ShowcaseScreen() {
 				<h1 className="font-serif text-[1.75rem] leading-tight text-paper">
 					Emmy Joarness
 				</h1>
-				<p className="max-w-[22rem] text-[0.8125rem] leading-relaxed text-paper/60">
+				<p className="max-w-[22rem] text-13 leading-relaxed text-paper/60">
 					Reported features and essays on cities, energy and the things that quietly
 					stopped working. Selected work, 2024—2026.
 				</p>
@@ -28,10 +28,10 @@ export function ShowcaseScreen() {
 								aria-hidden
 								className="h-14 rounded-md border border-dashed border-edge bg-hush"
 							/>
-							<h2 className="text-[0.875rem] leading-snug font-semibold text-ink">
+							<h2 className="text-14 leading-snug font-semibold text-ink">
 								{article.title}
 							</h2>
-							<p className="text-[0.6875rem] text-faint">
+							<p className="text-11 text-faint">
 								{article.outlet} · {article.date} ↗
 							</p>
 						</article>
@@ -44,13 +44,13 @@ export function ShowcaseScreen() {
 							key={item.id}
 							title={item.title}
 							note={item.outlet}
-							trailing={<span className="text-[0.6875rem] text-faint">{item.year}</span>}
+							trailing={<span className="text-11 text-faint">{item.year}</span>}
 						/>
 					))}
 				</div>
 
 				<div className="flex items-center gap-2.5 border-t border-edge pt-3">
-					<span className="text-[0.75rem] text-muted">joarness.app/em</span>
+					<span className="text-12 text-muted">joarness.app/em</span>
 					<Chip variant="accent" className="ml-auto">
 						public · on
 					</Chip>

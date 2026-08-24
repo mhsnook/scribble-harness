@@ -67,7 +67,7 @@ export function SettingsShell({
 								type="button"
 								aria-current={item.id === selectedId ? 'true' : undefined}
 								className={cx(
-									'-mx-1.5 rounded-md px-1.5 py-1 text-left text-[0.8125rem] transition-colors',
+									'-mx-1.5 rounded-md px-1.5 py-1 text-left text-13 transition-colors',
 									item.id === selectedId
 										? 'bg-accent font-medium text-accent-ink'
 										: 'text-muted hover:bg-hush hover:text-ink',
@@ -96,7 +96,7 @@ export function SettingsDetailHeader({ title, usage }: SettingsDetailHeaderProps
 	return (
 		<div className="flex items-baseline gap-2.5">
 			<h3 className="text-[1rem] font-semibold text-ink">{title}</h3>
-			<span className="text-[0.75rem] text-faint">{usage}</span>
+			<span className="text-12 text-faint">{usage}</span>
 		</div>
 	)
 }
@@ -111,7 +111,7 @@ export function RuleBlock({ label, children }: RuleBlockProps) {
 	return (
 		<div className="flex flex-col gap-1.5">
 			<p className="label-meta">{label}</p>
-			<p className="rounded-md border border-edge bg-sunk p-2.5 text-[0.8125rem] leading-relaxed text-ink">
+			<p className="rounded-md border border-edge bg-sunk p-2.5 text-13 leading-relaxed text-ink">
 				{children}
 			</p>
 		</div>
@@ -132,7 +132,7 @@ export function ScoreTest({ score, paragraph }: ScoreTestProps) {
 		<div className="flex items-center gap-3 rounded-md border border-edge bg-sunk p-2.5">
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<p className="label-meta">Paste to test a paragraph</p>
-				<p className="truncate text-[0.75rem] text-muted">{paragraph}</p>
+				<p className="truncate text-12 text-muted">{paragraph}</p>
 			</div>
 			<Chip variant="accent">{score}</Chip>
 		</div>

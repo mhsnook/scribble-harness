@@ -63,7 +63,7 @@ export function PanelCombosScreen() {
 									key={Panel}
 									style={{ flex }}
 									className={cx(
-										'grid place-items-center text-[0.625rem] text-faint',
+										'grid place-items-center text-10 text-faint',
 										j > 0 && 'border-l border-edge',
 										Panel === 'draft' ? 'bg-surface' : 'bg-sunk',
 									)}
@@ -74,7 +74,7 @@ export function PanelCombosScreen() {
 						</div>
 					</div>
 				))}
-				<p className="text-[0.6875rem] leading-relaxed text-faint">
+				<p className="text-11 leading-relaxed text-faint">
 					Notes is always the narrow one. Plan collapses to a rail when the draft is up.
 					Draft alone is the sixth state, and the most common.
 				</p>

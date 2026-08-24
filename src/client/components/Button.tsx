@@ -40,8 +40,8 @@ const variantClass: Record<ButtonVariant, string> = {
 }
 
 const sizeClass: Record<ButtonSize, string> = {
-	sm: 'h-6 gap-1.5 rounded-full px-2.5 text-[0.75rem]',
-	md: 'h-8 gap-2 rounded-full px-3.5 text-[0.8125rem]',
+	sm: 'h-6 gap-1.5 rounded-full px-2.5 text-12',
+	md: 'h-8 gap-2 rounded-full px-3.5 text-13',
 }
 
 /** The look on its own, for a `Link` that has to sit in a row of Buttons. A
@@ -54,7 +54,7 @@ export function buttonClass({
 }: Pick<ButtonProps, 'variant' | 'size' | 'pressed' | 'className'> = {}): string {
 	return cx(
 		'inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap transition-[background-color,border-color,color,filter] disabled:pointer-events-none disabled:opacity-40',
-		variant === 'link' ? 'h-auto text-[0.8125rem]' : sizeClass[size],
+		variant === 'link' ? 'h-auto text-13' : sizeClass[size],
 		pressed ? pressedClass : variantClass[variant],
 		className,
 	)

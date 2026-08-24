@@ -127,3 +127,51 @@ export const researchTurn: UIMessage[] = [
 		],
 	},
 ]
+
+/** A turn written in markdown — headings, nested lists, a table, a link and a
+ * rule. The writer's own message keeps its asterisks, so this transcript shows
+ * both halves of the rule in `ChatMessage`. */
+export const markdownTurn: UIMessage[] = [
+	{
+		id: 'md-1',
+		role: 'user',
+		parts: [
+			{
+				type: 'text',
+				text: 'Here are the notes I pasted from the ecologist: **captive-bred releases**, sorted by class. Which of these carries an article?',
+			},
+		],
+	},
+	{
+		id: 'md-2',
+		role: 'assistant',
+		parts: [
+			{
+				type: 'text',
+				text: `## What the releases turned up
+
+**Birds**
+
+- **Florida grasshopper sparrow** (USA) — fewer than 200 left, up from near-zero. Over 1,000 captive-reared birds released since 2019.
+- **Piping plover** (Great Lakes, USA) — 99 pairs and 155 fledged chicks, the most since the 1986 listing.
+  - The Michigan count is the one with a series behind it.
+- **White-rumped vulture** (India) — first confirmed post-release breeding, after the 1990s \`diclofenac\` collapse.
+
+**Fish**
+
+1. **Olive perchlet** (Victoria, Australia) — extinct in the state since the 1980s; 200 released back into the wild.
+
+| Species | Released | Year |
+| --- | --- | --- |
+| Sparrow | 1,000+ | 2019– |
+| Perchlet | 200 | 2024 |
+
+> The pattern is the same everywhere: the release is the easy half.
+
+---
+
+The [Journal of Threatened Taxa](https://www.threatenedtaxa.org) paper is the peer-reviewed one, so it is the spine if you want the piece to argue rather than list.`,
+			},
+		],
+	},
+]

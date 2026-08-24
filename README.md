@@ -1,4 +1,4 @@
-# Journo Harness
+# Scribble Harness
 
 An AI harness so you can have your own Clippy so good that even you want to use it 🖇️
 
@@ -79,8 +79,11 @@ to it whenever a file lands in `migrations/`:
 pnpm db:migrate:remote
 ```
 
-A different account needs a database of its own: `pnpm wrangler d1 create journo-harness`
-prints an id to paste into `database_id`.
+A different account needs a database of its own: `pnpm wrangler d1 create scribble` prints
+a name and an id to paste into `database_name` and `database_id`. The id is what binds and
+the name beside it is a label, so the two can disagree —
+[`docs/deploy.md`](./docs/deploy.md) has the case where they do, and the swap that settles
+it.
 
 ```sh
 pnpm deploy     # builds the client, then wrangler deploy
@@ -103,6 +106,15 @@ The search key goes the same way, as a secret rather than a var:
 ```sh
 pnpm wrangler secret put EXA_API_KEY
 ```
+
+The Worker is deployed as `scribble` and serves `scribble.msnook.xyz`, which
+`wrangler.jsonc` binds as a custom domain on every deploy. Deploying to a different account
+needs that `routes` entry changed to a hostname on a zone that account holds, or removed so
+the Worker answers on `workers.dev` alone.
+
+Declaring that route takes the `workers.dev` route away, so `wrangler.jsonc` turns
+`preview_urls` back on by hand — `wrangler versions upload` then puts a version on a URL of
+its own without making it production.
 
 The Worker needs the Workers Paid plan for the model, and Cloudflare Access gates it at the
 edge. Nothing in the app reads the `Cf-Access-Jwt-Assertion` header — localhost has no

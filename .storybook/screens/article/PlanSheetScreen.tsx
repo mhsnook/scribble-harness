@@ -43,7 +43,7 @@ export function PlanSheetScreen() {
 								height={188}
 							/>
 						</div>
-						<p className="text-[0.6875rem] text-faint">
+						<p className="text-11 text-faint">
 							Edit it by hand, or go back to the chat and argue about it — either way the
 							advice you get while drafting changes to match.
 						</p>
@@ -54,7 +54,7 @@ export function PlanSheetScreen() {
 					<section className="flex flex-col gap-3">
 						<PanelHeader title="References" meta="4 · 3 placed" />
 						<PlanReferences references={plan.references} placedAt={placedAt} />
-						<p className="text-[0.6875rem] text-faint">
+						<p className="text-11 text-faint">
 							Every Reference is a Link or a Quote, so one list holds both — drag one onto
 							a Section to place it.
 						</p>

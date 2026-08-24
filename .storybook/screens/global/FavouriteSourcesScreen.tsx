@@ -55,7 +55,7 @@ export function FavouriteSourcesScreen() {
 				<MetaLabel count="14 times">Pulled in research</MetaLabel>
 				<div className="flex items-center gap-2.5">
 					<Chip variant="accent">★ rank first</Chip>
-					<p className="text-[0.75rem] text-muted">
+					<p className="text-12 text-muted">
 						Ahead of equally relevant results, never instead of better ones.
 					</p>
 				</div>

@@ -17,7 +17,7 @@ export function Annotation({ children, align = 'left', className }: AnnotationPr
 	return (
 		<p
 			className={cx(
-				'flex max-w-[28rem] gap-2 pt-2.5 text-[0.75rem] leading-relaxed text-muted',
+				'flex max-w-[28rem] gap-2 pt-2.5 text-12 leading-relaxed text-muted',
 				align === 'right' && 'ml-auto flex-row-reverse text-right',
 				className,
 			)}

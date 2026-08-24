@@ -26,7 +26,7 @@ export function RuledProposal({ call, plan, ruling, className }: RuledProposalPr
 	const ruled = ruling === 'accepted' ? 'Proposal Accepted' : 'Proposal Declined'
 
 	return (
-		<details className={cx('text-[0.6875rem] text-faint', className)}>
+		<details className={cx('text-11 text-faint', className)}>
 			<summary className="cursor-pointer">
 				{call.ops === null ? `${ruled}.` : `${ruled} · ${changeCount(changes)}`}
 			</summary>

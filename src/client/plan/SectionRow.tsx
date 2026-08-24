@@ -105,7 +105,7 @@ export function SectionRow({
 				{placedReferences.map((held) => (
 					<span
 						key={held.reference.id}
-						className="flex w-full items-baseline gap-1.5 text-[0.6875rem] text-muted"
+						className="flex w-full items-baseline gap-1.5 text-11 text-muted"
 					>
 						<span className="label-meta shrink-0">{referenceMark(held)}</span>
 						{onShowReference === undefined ? (
@@ -153,7 +153,7 @@ export function SectionRow({
 				>
 					<OutlineRow node={node} ordinal={ordinal} />
 					{node.intent ? (
-						<p className="mt-1 truncate pl-[1.375rem] text-[0.75rem] text-muted">
+						<p className="mt-1 truncate pl-[1.375rem] text-12 text-muted">
 							{node.intent}
 						</p>
 					) : null}
@@ -186,15 +186,13 @@ export function SectionRow({
 			}}
 			style={{ marginLeft: depth * 20 }}
 		>
-			<span className="mt-1.5 w-3 shrink-0 font-mono text-[0.6875rem] text-faint">
-				{ordinal}
-			</span>
+			<span className="mt-1.5 w-3 shrink-0 font-mono text-11 text-faint">{ordinal}</span>
 
 			<div className="flex min-w-0 flex-1 flex-col gap-2">
 				<div className="flex items-center gap-2.5">
 					<InlineInput
 						ref={title}
-						className="min-w-0 flex-1 text-[0.8125rem] leading-snug font-medium"
+						className="min-w-0 flex-1 text-13 leading-snug font-medium"
 						label={`Title of ${scopeName}`}
 						onChange={(typed) => edit(setTitle(plan, node.id, typed))}
 						onKeyDown={doneOnEnter}
@@ -214,7 +212,7 @@ export function SectionRow({
 				{node.children.length > 0 ? (
 					<AllocationNote
 						allocation={allocation}
-						className="text-[0.6875rem] text-faint"
+						className="text-11 text-faint"
 						parts="Subsections"
 					/>
 				) : null}
@@ -333,7 +331,7 @@ function SelectReferenceToPlace({
 		// Styled as `InlineInput` is, to match the Adjective field beside it.
 		<select
 			aria-label={`Place a Reference at ${scopeName}`}
-			className="w-24 appearance-none rounded-sm border-b border-transparent bg-transparent text-[0.6875rem] text-faint outline-none hover:border-edge focus:border-edge"
+			className="w-24 appearance-none rounded-sm border-b border-transparent bg-transparent text-11 text-faint outline-none hover:border-edge focus:border-edge"
 			onChange={(event) => edit(placeReference(plan, event.target.value, nodeId))}
 			value=""
 		>

@@ -51,7 +51,7 @@ export function ArticleBar({
 			)}
 		>
 			{back}
-			<span className="min-w-0 flex-1 truncate text-[0.8125rem] text-faint">
+			<span className="min-w-0 flex-1 truncate text-13 text-faint">
 				{title === null ? (
 					<Skeleton className="w-40" label="Opening the Article" />
 				) : (
@@ -59,7 +59,7 @@ export function ArticleBar({
 				)}
 			</span>
 			{stacked ? null : rail}
-			<span className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right text-[0.75rem] whitespace-nowrap text-faint">
+			<span className="flex min-w-0 flex-1 items-center justify-end gap-2 text-right text-12 whitespace-nowrap text-faint">
 				{status}
 			</span>
 			{stacked ? (

@@ -32,6 +32,30 @@ about leaving the Gateway unauthenticated is unaffected.
 **No key means no search tool**, and the guide is told to answer from memory
 instead — `src/server/llm/search.ts`.
 
+## The database name
+
+**D1 does not rename a database.** `database_name` in `wrangler.jsonc` reads
+`scribble`, and the database the deploy binds was created under the project's
+previous name, so `wrangler d1 list` shows a name the config does not.
+
+**Nothing breaks while the two disagree.** `database_id` is what wrangler
+resolves, and `pnpm db:migrate` names the `DB` binding rather than either one, so
+the label is cosmetic.
+
+**Settling it takes a new database and a copy**, because there is nothing else to
+rename with. The export names the database by the id in `database_id` rather than
+by a name, because the deployed one does not answer to the name beside it:
+
+```sh
+pnpm wrangler d1 export <the database_id in wrangler.jsonc> --remote --output=index.sql
+pnpm wrangler d1 create scribble
+pnpm wrangler d1 execute scribble --remote --file=index.sql
+```
+
+Then paste the id `d1 create` prints into `database_id`, and the config and the
+account agree. The export is one point in time, so run it while nothing is
+writing, and keep the old database until the new one has served.
+
 ## The local database
 
 `pnpm db:migrate` puts the article index's schema into the local D1;

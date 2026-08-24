@@ -49,13 +49,13 @@ export function NotesRailScreen() {
 					<ul className="flex flex-col gap-2">
 						<li className="flex items-start gap-2">
 							<Check />
-							<span className="text-[0.75rem] leading-snug text-ink">
+							<span className="text-12 leading-snug text-ink">
 								Cut the second crane-index callback
 							</span>
 						</li>
 						<li className="flex items-start gap-2 opacity-55">
 							<Check checked />
-							<span className="text-[0.75rem] leading-snug text-ink line-through">
+							<span className="text-12 leading-snug text-ink line-through">
 								Attribute the £4,100 figure in-sentence
 							</span>
 						</li>

@@ -44,8 +44,8 @@ export function GuidanceNote({
 			{anchor || confidence ? (
 				<p className="label-meta">{[anchor, confidence].filter(Boolean).join(' · ')}</p>
 			) : null}
-			<h4 className="text-[0.8125rem] leading-snug font-semibold text-ink">{title}</h4>
-			{body ? <p className="text-[0.75rem] leading-relaxed text-muted">{body}</p> : null}
+			<h4 className="text-13 leading-snug font-semibold text-ink">{title}</h4>
+			{body ? <p className="text-12 leading-relaxed text-muted">{body}</p> : null}
 			{actions ? <div className="mt-0.5 flex flex-wrap gap-1.5">{actions}</div> : null}
 			{accepted ? (
 				<Chip variant="outline" className="self-start">
@@ -74,7 +74,7 @@ export function NoteDot({ count, className, onClick }: NoteDotProps) {
 			onClick={onClick}
 			aria-label={count ? `${count} notes waiting` : 'Notes waiting'}
 			className={cx(
-				'inline-flex items-center gap-1.5 rounded-full border border-accent-edge bg-accent px-2 py-1 text-[0.6875rem] leading-none font-medium text-accent-ink',
+				'inline-flex items-center gap-1.5 rounded-full border border-accent-edge bg-accent px-2 py-1 text-11 leading-none font-medium text-accent-ink',
 				className,
 			)}
 		>

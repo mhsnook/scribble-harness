@@ -16,14 +16,14 @@ export function MarginNotesScreen() {
 			<FrameBody className="h-[19rem] gap-5 px-5 py-5">
 				<div className="flex gap-5">
 					<div className="prose-draft min-w-0 flex-1">
-						<p className="text-[0.9375rem]">{draftParagraphs[0]}</p>
+						<p className="text-15">{draftParagraphs[0]}</p>
 					</div>
 					<div className="w-[11rem] shrink-0" />
 				</div>
 
 				<div className="flex gap-5">
 					<div className="prose-draft min-w-0 flex-1 border-l-2 border-accent-edge pl-4">
-						<p className="text-[0.9375rem]">{draftParagraphs[1]}</p>
+						<p className="text-15">{draftParagraphs[1]}</p>
 					</div>
 					<GuidanceNote
 						anchor="§3"
@@ -47,9 +47,9 @@ export function MarginNotesScreen() {
 
 				<div className="flex gap-5">
 					<div className="prose-draft min-w-0 flex-1">
-						<p className="text-[0.9375rem]">{draftParagraphs[2]}</p>
+						<p className="text-15">{draftParagraphs[2]}</p>
 					</div>
-					<p className="flex w-[11rem] shrink-0 items-center text-[0.6875rem] text-faint">
+					<p className="flex w-[11rem] shrink-0 items-center text-11 text-faint">
 						Notes hold their place beside the paragraph they're about, and scroll with it.
 					</p>
 				</div>

@@ -13,7 +13,7 @@ export type Skill = {
 	prompt: string
 }
 
-const KEY = 'journo.review-skills'
+const KEY = 'scribble.review-skills'
 
 /** Storage throws in a few real places — a locked-down browser, a sandboxed
  * frame — and none of them is worth losing the Panel over. A Skill is a

@@ -32,7 +32,8 @@
 	--color-edge: #c2bda9; /* card borders, inputs */
 	--color-strong: #2b2229; /* the one heavy divider per frame */
 
-	/* "You are here": a selected tab, filter or pressed button */
+	/* "You are here": a selected tab, filter or pressed button — and the
+	   headings in the Draft's prose, where it marks structure. */
 	--color-green: #4c6141;
 	--color-green-ink: #eef2e2; /* text sitting on green */
 
@@ -50,7 +51,19 @@
 		'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, ui-serif, serif;
 	--font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-	/* Meta label: the small mono labels used all over the design */
+	/* The type ladder, named by px height at the base scale (`text-13`).
+	   Never write a font-size in rem — use a step, so the text follows
+	   `.panel-scale` when a scaled container holds it. */
+	--text-10: 0.625rem;
+	--text-11: 0.6875rem;
+	--text-12: 0.75rem;
+	--text-13: 0.8125rem;
+	--text-14: 0.875rem;
+	--text-15: 0.9375rem;
+
+	/* Meta label: the small mono labels used all over the design. Separate
+	   from `--text-11` because it also carries the label's line-height and
+	   tracking (`.label-meta`). */
 	--text-meta: 0.6875rem;
 	--text-meta--line-height: 1.4;
 	--text-meta--letter-spacing: 0.02em;
@@ -72,6 +85,9 @@
 	html {
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
+		/* 18px everywhere, chrome included. Panel-count scaling is
+		   `.panel-scale`, not this. */
+		font-size: 112.5%;
 	}
 
 	body {
@@ -90,6 +106,25 @@
 }
 
 @layer components {
+	/* The Panel row. ArticlePanels sets `--panel-scale` on it (`panelScale`,
+	   usePanels.ts); the row's font-size, the type ladder, and Tailwind's
+	   `--spacing` all follow it, and nothing outside the row does.
+
+	   The steps repeat the @theme values on purpose: a custom property
+	   computes where it is declared, so only a redeclaration here can pick
+	   the scale up. Keep the two lists equal. */
+	.panel-scale {
+		font-size: calc(1rem * var(--panel-scale, 1));
+		--spacing: calc(0.25rem * var(--panel-scale, 1));
+		--text-10: calc(0.625rem * var(--panel-scale, 1));
+		--text-11: calc(0.6875rem * var(--panel-scale, 1));
+		--text-12: calc(0.75rem * var(--panel-scale, 1));
+		--text-13: calc(0.8125rem * var(--panel-scale, 1));
+		--text-14: calc(0.875rem * var(--panel-scale, 1));
+		--text-15: calc(0.9375rem * var(--panel-scale, 1));
+		--text-meta: calc(0.6875rem * var(--panel-scale, 1));
+	}
+
 	/* The small mono label. Used often enough to earn a class, and it labels
      every field in the app as well as every list.
 
@@ -103,10 +138,11 @@
 		color: var(--color-faint);
 	}
 
-	/* Prose in the writing surface and the draft previews. */
+	/* Prose in the writing surface and the draft previews. Sized in em, so it
+	   follows the Panel row's base when the Draft has room. */
 	.prose-draft {
 		font-family: var(--font-serif);
-		font-size: 1rem;
+		font-size: 1em;
 		line-height: 1.75;
 		color: var(--color-ink);
 	}
@@ -115,32 +151,30 @@
 		margin-top: 1.1em;
 	}
 
-	/* A heading is a different voice from the prose, not a louder one. Bold
-	   serif reads as a stressed sentence, so the sans face carries the headings
-	   instead: the reader sees the structure before they read the words. */
+	/* A heading is a different voice from the prose: the sans face and the
+	   green say "structure" before the reader reads the words, so a heading
+	   never scans as a stressed sentence. Size carries the rank — each level a
+	   visible tick over the one below, and the body below them both. */
 	.prose-draft :is(h1, h2, h3, h4) {
 		font-family: var(--font-sans);
 		font-weight: 600;
 		line-height: 1.3;
+		/* ≈1px at the compact scale, and it grows with the type. */
+		letter-spacing: 0.045em;
 		/* Closer to what it opens than to what it closes, so a heading reads as
 		   the top of the passage under it. */
 		margin-bottom: 0.4em;
-		color: var(--color-ink);
+		color: var(--color-green);
 	}
 
 	.prose-draft h2 {
 		margin-top: 1.75em;
-		font-size: 1.0625rem;
-		letter-spacing: -0.01em;
+		font-size: 1.25em;
 	}
 
-	/* Smaller than the prose rather than larger, and spaced out: a subheading
-	   ranks under its heading, and the sans face still separates it from the
-	   sentences around it. */
 	.prose-draft h3 {
 		margin-top: 1.5em;
-		font-size: 0.9375rem;
-		letter-spacing: 0.02em;
+		font-size: 1.125em;
 	}
 
 	/* A heading opening the Draft sits against the top of the surface, not a
@@ -184,5 +218,126 @@
 		padding-left: 1em;
 		border-left: 2px solid var(--color-edge);
 		color: var(--color-muted);
+	}
+
+	/* Markdown in a Chat turn: `prose-draft` at chat size, in the sans face. */
+	.prose-chat > :first-child {
+		margin-top: 0;
+	}
+
+	.prose-chat > :last-child {
+		margin-bottom: 0;
+	}
+
+	.prose-chat p + p {
+		margin-top: 0.75em;
+	}
+
+	.prose-chat :is(h1, h2, h3, h4, h5, h6) {
+		margin-top: 1.5em;
+		margin-bottom: 0.4em;
+		font-weight: 600;
+		line-height: 1.3;
+	}
+
+	.prose-chat :is(h1, h2) {
+		font-size: 1.0625em;
+		letter-spacing: -0.01em;
+	}
+
+	.prose-chat :is(h3, h4, h5, h6) {
+		font-size: 1em;
+		color: var(--color-muted);
+	}
+
+	.prose-chat :is(ul, ol) {
+		margin-top: 0.6em;
+		margin-bottom: 0.6em;
+		padding-left: 1.35em;
+	}
+
+	.prose-chat ul {
+		list-style: disc;
+	}
+
+	.prose-chat ol {
+		list-style: decimal;
+	}
+
+	.prose-chat li + li {
+		margin-top: 0.3em;
+	}
+
+	.prose-chat li > :is(ul, ol) {
+		margin-top: 0.3em;
+		margin-bottom: 0;
+	}
+
+	.prose-chat li::marker {
+		color: var(--color-faint);
+	}
+
+	.prose-chat strong {
+		font-weight: 600;
+	}
+
+	.prose-chat a {
+		color: var(--color-accent-ink);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.prose-chat blockquote {
+		margin: 0.75em 0;
+		padding-left: 0.85em;
+		border-left: 2px solid var(--color-edge);
+		color: var(--color-muted);
+	}
+
+	.prose-chat hr {
+		margin: 1em 0;
+		border-top: 1px solid var(--color-rule);
+	}
+
+	.prose-chat code {
+		padding: 0.1em 0.3em;
+		border-radius: 3px;
+		background: var(--color-hush);
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+	}
+
+	.prose-chat pre {
+		margin: 0.75em 0;
+		padding: 0.6em 0.75em;
+		overflow-x: auto;
+		border: 1px solid var(--color-rule);
+		border-radius: 6px;
+		background: var(--color-sunk);
+	}
+
+	.prose-chat pre code {
+		padding: 0;
+		background: none;
+		font-size: 0.85em;
+	}
+
+	.prose-chat table {
+		display: block;
+		margin: 0.75em 0;
+		overflow-x: auto;
+		border-collapse: collapse;
+		font-size: 0.95em;
+	}
+
+	.prose-chat :is(th, td) {
+		padding: 0.3em 0.6em;
+		border: 1px solid var(--color-rule);
+		text-align: left;
+	}
+
+	.prose-chat th {
+		background: var(--color-sunk);
+		font-weight: 600;
 	}
 }

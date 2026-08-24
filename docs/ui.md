@@ -28,3 +28,28 @@ superseded as those routes arrive, so none is worth preserving out of politeness
 wired one renders the live component against mock data rather than a copy of it. The
 components live in the app rather than in a package of their own, which is what lets
 Tailwind scan them with no configuration.
+
+## Markdown in the Chat
+
+A guide turn is markdown, and it is rendered as markdown. The renderer is
+[`react-markdown`](https://github.com/remarkjs/react-markdown) with
+[`remark-gfm`](https://github.com/remarkjs/remark-gfm) for tables, strikethrough and
+task lists, and [`remend`](https://streamdown.ai/docs/termination) to close a mark the
+turn has not finished typing yet — without it a `**` sits on screen as two asterisks
+until its partner arrives, so a streaming turn flickers.
+
+Three decisions worth keeping:
+
+- **The writer's own message is left as they typed it.** The asterisks they pasted in
+  are part of what they said, and a message that restyles itself on send is one they
+  have to read twice. The rule lives in `ChatMessage`: a guide turn given text renders
+  it as markdown, and yours is shown verbatim.
+- **No raw HTML.** react-markdown drops it unless `rehype-raw` is added, and a model's
+  output is not markup we trust.
+- **The blocks are styled by `.prose-chat` in `theme.css`**, the way the draft is styled
+  by `.prose-draft`. react-markdown renders plain tags, so the styling stays in one
+  place rather than spreading through component props.
+
+It costs about 50 kB gzipped on the Article route's chunk, which is what a real markdown
+parser weighs. `streamdown` is the same idea packaged whole, and it was passed over
+because it hard-depends on Mermaid and ships its own Tailwind palette.

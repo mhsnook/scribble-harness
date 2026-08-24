@@ -65,7 +65,7 @@ export function AddSection({ outline, onAdd }: AddSectionProps) {
 			{outline.slice(0, -1).map((node, index) => (
 				<button
 					key={node.id}
-					className="w-full truncate rounded-md border border-edge bg-surface px-2.5 py-1.5 text-left text-[0.75rem] text-ink hover:border-ink/40 hover:bg-hush"
+					className="w-full truncate rounded-md border border-edge bg-surface px-2.5 py-1.5 text-left text-12 text-ink hover:border-ink/40 hover:bg-hush"
 					onClick={() => add({ parentId: null, afterId: node.id })}
 					type="button"
 				>

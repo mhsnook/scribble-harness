@@ -78,7 +78,7 @@ export function ReferenceCard({
 
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				{headingText === undefined ? null : (
-					<h4 className="text-[0.8125rem] leading-snug font-semibold text-ink">
+					<h4 className="text-13 leading-snug font-semibold text-ink">
 						{headingLinks ? (
 							<SourceLink url={url}>{headingText}</SourceLink>
 						) : (
@@ -87,18 +87,18 @@ export function ReferenceCard({
 					</h4>
 				)}
 				{offer.text === undefined ? null : (
-					<blockquote className="border-l-2 border-rule pl-2.5 text-[0.8125rem] leading-relaxed text-ink">
+					<blockquote className="border-l-2 border-rule pl-2.5 text-13 leading-relaxed text-ink">
 						“{offer.text}”
 					</blockquote>
 				)}
 				<CitedLine className="break-all" parts={cited} />
 				{!compact && offer.note !== undefined ? (
-					<p className="text-[0.75rem] leading-relaxed text-muted">{offer.note}</p>
+					<p className="text-12 leading-relaxed text-muted">{offer.note}</p>
 				) : null}
 				<div className="mt-0.5 flex flex-wrap items-center gap-1.5">
 					{offer.type === 'quote' ? <Chip variant="outline">quote</Chip> : null}
 					{variant === 'ledger' && offer.disposition === 'undecided' ? (
-						<span className="text-[0.6875rem] text-faint">undecided</span>
+						<span className="text-11 text-faint">undecided</span>
 					) : null}
 				</div>
 			</div>

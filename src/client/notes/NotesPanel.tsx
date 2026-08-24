@@ -109,9 +109,9 @@ export function NotesPanel({
 							onClick={() => onRead(latest)}
 							type="button"
 						>
-							<span className="text-[0.75rem] text-ink">Round {latest.ordinal}</span>
+							<span className="text-12 text-ink">Round {latest.ordinal}</span>
 							<span className="label-meta">{dateAndTime(latest.startedAt)}</span>
-							<span className="ml-auto text-[0.75rem] text-muted">read →</span>
+							<span className="ml-auto text-12 text-muted">read →</span>
 						</button>
 					)}
 
@@ -132,7 +132,7 @@ export function NotesPanel({
 					)}
 
 					{running === null ? null : (
-						<p className="text-[0.75rem] leading-relaxed text-faint">
+						<p className="text-12 leading-relaxed text-faint">
 							Round {running.ordinal} is reading the Draft. It carries on if you close
 							this — come back and the findings will be here.
 						</p>
@@ -168,13 +168,13 @@ function Queue({
 	'queue' | 'view' | 'loading' | 'naming' | 'actions' | 'rounds'
 >) {
 	if (loading) {
-		return <p className="text-[0.75rem] text-faint">Opening the Notes…</p>
+		return <p className="text-12 text-faint">Opening the Notes…</p>
 	}
 
 	if (queue.counts.all === 0) {
 		if (rounds.length === 0) {
 			return (
-				<p className="text-[0.75rem] leading-relaxed text-faint">
+				<p className="text-12 leading-relaxed text-faint">
 					No Reviews yet. Say what this one should look for, and the Guide reads the Draft
 					against the Plan.
 				</p>
@@ -185,7 +185,7 @@ function Queue({
 		if (!rounds.some((round) => round.state === 'done')) return null
 
 		return (
-			<p className="text-[0.75rem] leading-relaxed text-faint">
+			<p className="text-12 leading-relaxed text-faint">
 				No Notes from these Reviews. The reasoning is in the written response.
 			</p>
 		)
@@ -193,7 +193,7 @@ function Queue({
 
 	if (queue.visible.length === 0) {
 		return (
-			<p className="text-[0.75rem] leading-relaxed text-faint">
+			<p className="text-12 leading-relaxed text-faint">
 				{view.acceptedOnly
 					? 'No Notes accepted yet.'
 					: `${queue.counts.resolved} Notes, all resolved.`}

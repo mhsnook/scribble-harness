@@ -61,14 +61,14 @@ export function NotesToChatScreen() {
 							<MetaLabel>Quotes</MetaLabel>
 							<div className="flex items-center gap-2.5">
 								<Chip variant="accent">3 / 4</Chip>
-								<span className="text-[0.75rem] text-faint">was 3 / 5</span>
+								<span className="text-12 text-faint">was 3 / 5</span>
 							</div>
 							<div className="flex items-start gap-2.5 opacity-55">
-								<span className="text-[0.6875rem] text-faint">dropped</span>
-								<blockquote className="min-w-0 flex-1 border-l-2 border-rule pl-2.5 text-[0.75rem] leading-relaxed text-muted">
+								<span className="text-11 text-faint">dropped</span>
+								<blockquote className="min-w-0 flex-1 border-l-2 border-rule pl-2.5 text-12 leading-relaxed text-muted">
 									“The meter runs on an empty lot exactly as fast as it runs on a finished
 									one.”
-									<span className="mt-0.5 block text-[0.6875rem] text-faint">
+									<span className="mt-0.5 block text-11 text-faint">
 										no longer needed in §3
 									</span>
 								</blockquote>
@@ -77,7 +77,7 @@ export function NotesToChatScreen() {
 					</div>
 					<div className="flex items-center gap-3 border-t border-edge px-3.5 py-3">
 						<Button>back to the draft →</Button>
-						<span className="text-[0.75rem] text-faint">round 3 whenever</span>
+						<span className="text-12 text-faint">round 3 whenever</span>
 					</div>
 				</Panel>
 			</FrameBody>

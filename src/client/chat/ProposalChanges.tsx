@@ -19,16 +19,14 @@ export function ProposalChanges({
 }: ProposalChangesProps) {
 	if (unreadable !== null) {
 		return (
-			<p className={cx('text-[0.8125rem] leading-snug text-ink', className)}>
-				{unreadableText}
-			</p>
+			<p className={cx('text-13 leading-snug text-ink', className)}>{unreadableText}</p>
 		)
 	}
 
 	return (
 		<ul className={cx('flex list-none flex-col gap-1', className)}>
 			{changes.map((change) => (
-				<li key={change} className="text-[0.8125rem] leading-snug text-ink">
+				<li key={change} className="text-13 leading-snug text-ink">
 					{change}
 				</li>
 			))}

@@ -55,14 +55,14 @@ export function ReviewPanel({
 	return (
 		<Panel className={className} divider={divider} grow={grow} variant="sunk">
 			<div className="flex items-baseline gap-2.5">
-				<h3 className="text-[0.875rem] font-semibold text-ink">Round {round.ordinal}</h3>
+				<h3 className="text-14 font-semibold text-ink">Round {round.ordinal}</h3>
 				<span className="label-meta">{dateAndTime(round.startedAt)}</span>
 
 				<div className="ml-auto flex items-center gap-2">
 					{rounds.length < 2 ? null : (
 						<select
 							aria-label="Earlier Rounds"
-							className="rounded-full border border-edge bg-surface px-2.5 py-1 text-[0.75rem] text-ink"
+							className="rounded-full border border-edge bg-surface px-2.5 py-1 text-12 text-ink"
 							onChange={(event) => {
 								const picked = rounds.find((one) => one.id === event.target.value)
 								if (picked !== undefined) onOpenRound(picked)
@@ -85,7 +85,7 @@ export function ReviewPanel({
 			<TheAsk onSave={onSaveSkill} round={round} />
 
 			{round.state === 'running' ? (
-				<p className="text-[0.8125rem] leading-relaxed text-faint">
+				<p className="text-13 leading-relaxed text-faint">
 					Reading the Draft. This carries on if you leave — the findings will be here when
 					you come back.
 				</p>
@@ -132,7 +132,7 @@ function TheAsk({ round, onSave }: { round: Round; onSave: (name: string) => voi
 	return (
 		<div className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-3">
 			<MetaLabel>you asked · {round.depth}</MetaLabel>
-			<p className="text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink">
+			<p className="text-13 leading-relaxed whitespace-pre-wrap text-ink">
 				{round.prompt}
 			</p>
 
@@ -188,7 +188,7 @@ function Passage({
 	return (
 		<section className="flex flex-col gap-2.5">
 			{passage.prose.split('\n\n').map((paragraph, index) => (
-				<p className="text-[0.8125rem] leading-relaxed text-ink" key={index}>
+				<p className="text-13 leading-relaxed text-ink" key={index}>
 					{paragraph}
 				</p>
 			))}

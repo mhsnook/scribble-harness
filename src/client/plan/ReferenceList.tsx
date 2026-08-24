@@ -153,7 +153,7 @@ function ReferenceRow({
 					{referenceMark(entry)}
 				</Chip>
 				{source?.title ? (
-					<p className="min-w-0 flex-1 text-[0.75rem] leading-snug font-medium text-ink">
+					<p className="min-w-0 flex-1 text-12 leading-snug font-medium text-ink">
 						{url === undefined ? (
 							source.title
 						) : (
@@ -169,19 +169,17 @@ function ReferenceRow({
 			</div>
 
 			{reference.text ? (
-				<blockquote className="border-l-2 border-rule pl-2.5 text-[0.8125rem] leading-relaxed text-ink">
+				<blockquote className="border-l-2 border-rule pl-2.5 text-13 leading-relaxed text-ink">
 					“{reference.text}”
 				</blockquote>
 			) : null}
 
 			<CitedLine className="break-all" parts={cited} />
-			{reference.note ? (
-				<p className="text-[0.75rem] text-muted">{reference.note}</p>
-			) : null}
+			{reference.note ? <p className="text-12 text-muted">{reference.note}</p> : null}
 
 			<select
 				aria-label={`Where ${referenceMark(entry)}, ${referenceName(reference)}, sits`}
-				className="h-7 rounded-md border border-edge bg-surface px-2 text-[0.75rem] text-ink"
+				className="h-7 rounded-md border border-edge bg-surface px-2 text-12 text-ink"
 				onChange={(event) =>
 					onPlace(event.target.value === '' ? null : event.target.value)
 				}

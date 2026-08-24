@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { expect, userEvent, within } from 'storybook/test'
 
 import { Button } from '../src/client/components/Button'
-import { ChatComposer } from '../src/client/components/Chat'
+import { ChatComposer, ChatMessage } from '../src/client/components/Chat'
 import { Check } from '../src/client/components/Check'
 import { Chip } from '../src/client/components/Chip'
 import { Divider } from '../src/client/components/Divider'
@@ -81,7 +81,7 @@ export const PanelToggle: Story = {
 						)
 					}
 				/>
-				<p className="text-[0.8125rem] text-muted">
+				<p className="text-13 text-muted">
 					Open:{' '}
 					{open.length ? open.join(' · ') : 'nothing — the app would keep the draft up'}
 				</p>
@@ -106,7 +106,7 @@ export const Composer: Story = {
 					{sent.map((text, index) => (
 						<li
 							key={index}
-							className="rounded-md bg-hush px-3 py-2 text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink"
+							className="rounded-md bg-hush px-3 py-2 text-13 leading-relaxed whitespace-pre-wrap text-ink"
 						>
 							{text}
 						</li>
@@ -134,6 +134,49 @@ export const Composer: Story = {
 		await userEvent.keyboard('again{Meta>}{Enter}{/Meta}')
 		await expect(field.value).toBe('')
 		await expect(sent.getAllByRole('listitem')).toHaveLength(2)
+	},
+}
+
+/** One guide turn, cut where a model would still be typing it. Each cut leaves a
+ * mark open, which is the case the renderer has to hold. */
+const frames = [
+	'The **Florida grasshopper',
+	'The **Florida grasshopper sparrow** is the one with a series behind it — see the [Journal of Threatened Taxa](https://www.threa',
+	'The **Florida grasshopper sparrow** is the one with a series behind it — see the [Journal of Threatened Taxa](https://www.threatenedtaxa.org) paper on the `diclofenac` collapse.',
+]
+
+export const Streaming: Story = {
+	render: () => (
+		<div className="flex w-[34rem] flex-col">
+			{frames.map((text, index) => (
+				<Row key={index} label={`Guide turn, ${index + 1} of ${frames.length}`}>
+					<div aria-label={`Frame ${index + 1}`} className="w-full">
+						<ChatMessage from="guide">{text}</ChatMessage>
+					</div>
+				</Row>
+			))}
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement)
+
+		// A mark the turn has not closed yet is closed for it, so the reader never
+		// sees the asterisks or the half-typed URL that made the mark.
+		for (const [index] of frames.entries()) {
+			const frame = canvas.getByLabelText(`Frame ${index + 1}`)
+
+			await expect(frame.textContent).not.toContain('**')
+			await expect(frame.textContent).not.toContain('](')
+			await expect(within(frame).getByText(/Florida grasshopper/).tagName).toBe('STRONG')
+		}
+
+		// The link is a link once its URL has landed, and not before.
+		await expect(within(canvas.getByLabelText('Frame 2')).queryByRole('link')).toBeNull()
+		await expect(
+			within(canvas.getByLabelText('Frame 3')).getByRole('link', {
+				name: 'Journal of Threatened Taxa',
+			}),
+		).toHaveAttribute('href', 'https://www.threatenedtaxa.org')
 	},
 }
 
@@ -171,7 +214,7 @@ export const Research: Story = {
 			<ReferenceCard offer={offers[4]} variant="ledger" compact />
 			<ReferenceCard offer={offers[6]} variant="ledger" compact />
 			<Divider />
-			<p className="max-w-[28rem] text-[0.75rem] leading-relaxed text-muted">
+			<p className="max-w-[28rem] text-12 leading-relaxed text-muted">
 				<strong>The QuoteRow component (2 examples below) is unused.</strong> It was added
 				to show a read-only summary of the Plan Panel, which we stopped using, but may go
 				back to in Phase 2.

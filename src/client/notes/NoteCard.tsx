@@ -44,7 +44,7 @@ export function NoteCard({ note, naming, actions, ordinal, className }: NoteCard
 
 			<p
 				className={cx(
-					'text-[0.8125rem] leading-relaxed text-ink',
+					'text-13 leading-relaxed text-ink',
 					note.disposition === 'declined' && 'line-through',
 				)}
 			>

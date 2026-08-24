@@ -13,6 +13,7 @@ import { BlankPlanScreen } from './BlankPlanScreen'
 import { ChatWithReferencesScreen } from './ChatWithReferencesScreen'
 import { LedgerDrawerScreen } from './LedgerDrawerScreen'
 import { LedgerPopoverScreen } from './LedgerPopoverScreen'
+import { MarkdownTurnScreen } from './MarkdownTurnScreen'
 import { MidChatScreen } from './MidChatScreen'
 import { PlanMapScreen } from './PlanMapScreen'
 import { PlanSheetScreen } from './PlanSheetScreen'
@@ -156,6 +157,54 @@ export const B2_ComposerGrows: Story = {
 		await waitFor(() =>
 			expect(canvas.queryByLabelText('Scroll to the latest')).toBeNull(),
 		)
+	},
+}
+
+export const B3_MarkdownTurn: Story = {
+	name: '2(b·ii) A turn in markdown',
+	render: () => (
+		<div className="flex flex-col">
+			<MockArticle>
+				<MarkdownTurnScreen />
+			</MockArticle>
+			<Annotation>
+				The guide writes markdown, so a guide turn renders it: headings, lists, a table
+				that scrolls inside the turn, and a link that opens away from the harness. Your
+				own message is left exactly as you typed it — the asterisks in the first line are
+				yours, and a message that restyles itself on send is one you have to read twice.
+				Mid-stream the marks are closed as they arrive, so a half-typed{' '}
+				<code>**bold</code> never flashes its asterisks.
+			</Annotation>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement)
+
+		// The guide's markdown is elements, not the characters that made them.
+		await expect(
+			canvas.getByRole('heading', { name: 'What the releases turned up' }),
+		).toBeVisible()
+		await expect(canvas.getByText('Florida grasshopper sparrow').tagName).toBe('STRONG')
+		await expect(canvas.getByRole('table')).toBeVisible()
+		await expect(canvasElement.querySelectorAll('li').length).toBeGreaterThan(4)
+		await expect(canvas.queryByText(/\*\*Florida grasshopper sparrow\*\*/)).toBeNull()
+
+		// A citation opens in its own tab, so the draft behind it stays put.
+		const cited = canvas.getByRole('link', { name: 'Journal of Threatened Taxa' })
+		await expect(cited).toHaveAttribute('target', '_blank')
+		await expect(cited).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
+
+		// The writer's own asterisks are still asterisks.
+		await expect(canvas.getByText(/\*\*captive-bred releases\*\*/)).toBeVisible()
+
+		// The table is wider than the Panel and scrolls inside the turn rather
+		// than stretching the transcript under it.
+		const table = canvas.getByRole('table')
+		const scroller = canvasElement.querySelector('[data-scroller]')!
+		await expect(table.getBoundingClientRect().right).toBeLessThanOrEqual(
+			scroller.getBoundingClientRect().right + 1,
+		)
+		await expect(scroller.scrollWidth).toBe(scroller.clientWidth)
 	},
 }
 

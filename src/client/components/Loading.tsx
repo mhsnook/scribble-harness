@@ -11,7 +11,7 @@ export function Loading({ children, className }: LoadingProps) {
 	return (
 		<p
 			className={cx(
-				'flex flex-auto items-center justify-center gap-2 p-6 text-[0.75rem] text-faint',
+				'flex flex-auto items-center justify-center gap-2 p-6 text-12 text-faint',
 				className,
 			)}
 		>

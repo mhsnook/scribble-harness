@@ -28,7 +28,7 @@ export function FinishScreen() {
 						<Chip variant="outline" interactive>
 							docx
 						</Chip>
-						<span className="ml-1 text-[0.75rem] text-faint">footnotes included</span>
+						<span className="ml-1 text-12 text-faint">footnotes included</span>
 					</div>
 
 					<section className="flex flex-col gap-2">
@@ -36,16 +36,16 @@ export function FinishScreen() {
 						<div className="flex flex-col gap-2 rounded-md border border-edge bg-sunk p-2.5">
 							<div className="flex flex-wrap items-center gap-1.5">
 								<Chip variant="default">author</Chip>
-								<span className="text-[0.75rem] text-muted">,</span>
+								<span className="text-12 text-muted">,</span>
 								<Chip variant="default">title</Chip>
-								<span className="text-[0.75rem] text-muted">,</span>
+								<span className="text-12 text-muted">,</span>
 								<Chip variant="default">publication</Chip>
-								<span className="text-[0.75rem] text-muted">(</span>
+								<span className="text-12 text-muted">(</span>
 								<Chip variant="default">date</Chip>
-								<span className="text-[0.75rem] text-muted">),</span>
+								<span className="text-12 text-muted">),</span>
 								<Chip variant="default">url</Chip>
 							</div>
-							<p className="text-[0.6875rem] text-faint">
+							<p className="text-11 text-faint">
 								Drag the fields into order; type literal text between them.
 							</p>
 						</div>
@@ -53,7 +53,7 @@ export function FinishScreen() {
 
 					<section className="flex flex-col gap-2">
 						<MetaLabel>Preview</MetaLabel>
-						<ol className="flex flex-col gap-1.5 text-[0.75rem] leading-relaxed text-muted">
+						<ol className="flex flex-col gap-1.5 text-12 leading-relaxed text-muted">
 							<li>
 								1. R. Okonkwo, “Permit throughput in six mid-sized cities”, the Quarterly
 								(2023), quarterly.example/permit-throughput

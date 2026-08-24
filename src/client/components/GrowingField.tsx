@@ -59,7 +59,7 @@ export function GrowingField({
 			ref={field}
 			aria-label={label}
 			className={cx(
-				'max-h-[8lh] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent text-[0.8125rem] leading-relaxed text-ink outline-none placeholder:text-faint',
+				'max-h-[8lh] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent text-13 leading-relaxed text-ink outline-none placeholder:text-faint',
 				className,
 			)}
 			disabled={disabled}

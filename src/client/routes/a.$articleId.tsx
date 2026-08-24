@@ -56,7 +56,7 @@ function ArticleWindow({
 	const navigate = useNavigate()
 	const connection = useArticle().plan
 	const { plan } = connection
-	const panels = usePanels()
+	const panels = usePanels(articleId)
 	const index = useEditArticle()
 	const entry = useArticleEntry(articleId)
 
@@ -102,7 +102,7 @@ function ArticleWindow({
 					<Notice>{failure}</Notice>
 				</div>
 			)}
-			<ArticlePanels agent={agent} open={panels.open} />
+			<ArticlePanels agent={agent} open={panels.open} scale={panels.scale} />
 		</Screen>
 	)
 }

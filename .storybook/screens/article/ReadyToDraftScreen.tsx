@@ -17,9 +17,7 @@ export function ReadyToDraftScreen() {
 			<ArticleBar title={ARTICLE_TITLE} open={['chat', 'plan']} status="planning" />
 			<FrameBody row className="h-[21rem]">
 				<Panel divider="right" className="gap-3">
-					<p className="text-center text-[0.6875rem] text-faint">
-						↑ earlier in this chat
-					</p>
+					<p className="text-center text-11 text-faint">↑ earlier in this chat</p>
 					<ChatMessage from="guide">
 						That gives §3 the human cost and keeps the numbers in §2 where they belong.
 					</ChatMessage>
@@ -39,11 +37,11 @@ export function ReadyToDraftScreen() {
 						<PlanBlock title="Outline" meta="4 sections">
 							<PlanOutline outline={plan.outline} dense />
 						</PlanBlock>
-						<p className="text-[0.75rem] text-muted">13 references · 8 quotes</p>
+						<p className="text-12 text-muted">13 references · 8 quotes</p>
 					</div>
 					<div className="flex items-center gap-3 border-t border-edge px-3.5 py-3">
 						<Button variant="accent">start drafting →</Button>
-						<span className="text-[0.75rem] text-faint">or keep talking</span>
+						<span className="text-12 text-faint">or keep talking</span>
 					</div>
 				</Panel>
 			</FrameBody>

@@ -27,7 +27,7 @@ const variantClass: Record<ChipVariant, string> = {
  * the status `<select>` in the ArticleBar sits beside real ones. */
 export function chipClass(variant: ChipVariant, interactive = false): string {
 	return cx(
-		'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-[0.1875rem] text-[0.6875rem] leading-none font-medium whitespace-nowrap',
+		'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-[0.1875rem] text-11 leading-none font-medium whitespace-nowrap',
 		variantClass[variant],
 		interactive && 'transition-colors hover:border-ink/30 hover:text-ink',
 	)

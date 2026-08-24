@@ -80,7 +80,7 @@ export function OfferLedgerDrawer({
 				actions={
 					<button
 						type="button"
-						className="text-[0.75rem] text-faint hover:text-ink"
+						className="text-12 text-faint hover:text-ink"
 						onClick={onClose}
 					>
 						close ×
@@ -104,7 +104,7 @@ export function OfferLedgerDrawer({
 					))}
 				</div>
 				{failure === null ? null : <Notice>{failure}</Notice>}
-				{loading ? <p className="text-[0.75rem] text-faint">Reading…</p> : null}
+				{loading ? <p className="text-12 text-faint">Reading…</p> : null}
 				{shown.map((offer) => (
 					<ReferenceCard
 						key={offer.id}

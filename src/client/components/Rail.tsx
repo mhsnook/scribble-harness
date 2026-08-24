@@ -48,7 +48,7 @@ export function Rail<Item extends string>({
 								}
 							: {})}
 						className={cx(
-							'rounded-full px-2.5 py-1 text-[0.6875rem] leading-none font-medium transition-colors',
+							'rounded-full px-2.5 py-1 text-11 leading-none font-medium transition-colors',
 							isOn ? 'bg-green text-green-ink' : 'text-faint',
 							onPick && !isOn && 'hover:bg-surface hover:text-muted',
 						)}

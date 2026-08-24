@@ -13,7 +13,7 @@ export function Notice({ children, className }: NoticeProps) {
 	return (
 		<p
 			className={cx(
-				'rounded-md border border-accent-edge bg-accent-soft p-2 text-[0.75rem] text-accent-ink',
+				'rounded-md border border-accent-edge bg-accent-soft p-2 text-12 text-accent-ink',
 				className,
 			)}
 		>

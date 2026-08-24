@@ -38,7 +38,7 @@ export function ReviewComposer({ skills, running, onRun }: ReviewComposerProps) 
 				<label className="flex items-center gap-2">
 					<span className="label-meta shrink-0 text-muted">review skill</span>
 					<select
-						className="min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 py-1 text-[0.75rem] text-ink"
+						className="min-w-0 flex-1 rounded-md border border-edge bg-surface px-2 py-1 text-12 text-ink"
 						onChange={(event) => setPrompt(event.target.value)}
 						value=""
 					>

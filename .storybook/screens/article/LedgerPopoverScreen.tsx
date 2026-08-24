@@ -25,12 +25,9 @@ export function LedgerPopoverScreen() {
 	return (
 		<Frame width={340}>
 			<div className="flex items-center gap-2.5 border-b border-edge bg-sunk px-3.5 py-2.5">
-				<h3 className="text-[0.875rem] font-semibold text-ink">Offer ledger</h3>
-				<span className="text-[0.75rem] text-faint">{ledger.counts.all}</span>
-				<button
-					type="button"
-					className="ml-auto text-[0.75rem] text-faint hover:text-ink"
-				>
+				<h3 className="text-14 font-semibold text-ink">Offer ledger</h3>
+				<span className="text-12 text-faint">{ledger.counts.all}</span>
+				<button type="button" className="ml-auto text-12 text-faint hover:text-ink">
 					⌄
 				</button>
 			</div>
@@ -49,7 +46,7 @@ export function LedgerPopoverScreen() {
 								{group.label}
 							</MetaLabel>
 							{ledger.byDisposition[group.disposition].map((offer) => (
-								<p key={offer.id} className="min-w-0 truncate text-[0.75rem] text-muted">
+								<p key={offer.id} className="min-w-0 truncate text-12 text-muted">
 									{referenceName(offer)}
 								</p>
 							))}

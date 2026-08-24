@@ -1,4 +1,4 @@
-# Journo Harness
+# Scribble Harness
 
 A writing harness where the writer writes the prose and an AI acts as a guide. What is
 true now is [docs/architecture.md](./architecture.md), and what is deferred is

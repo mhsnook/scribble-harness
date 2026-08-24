@@ -57,7 +57,7 @@ export function LengthBar({
 					{segments.map((segment, i) => (
 						<span
 							key={i}
-							className="font-mono text-[0.6875rem] leading-none text-faint"
+							className="font-mono text-11 leading-none text-faint"
 							style={{ flex: segment.words, display: 'flex', alignItems: 'center' }}
 						>
 							{segment.words.toLocaleString()}

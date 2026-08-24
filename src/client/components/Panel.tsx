@@ -66,8 +66,8 @@ export interface PanelHeaderProps {
 export function PanelHeader({ title, meta, actions, className }: PanelHeaderProps) {
 	return (
 		<div className={cx('flex items-baseline gap-2.5', className)}>
-			<h3 className="text-[0.875rem] font-semibold text-ink">{title}</h3>
-			{meta ? <span className="text-[0.75rem] text-faint">{meta}</span> : null}
+			<h3 className="text-14 font-semibold text-ink">{title}</h3>
+			{meta ? <span className="text-12 text-faint">{meta}</span> : null}
 			{actions ? <div className="ml-auto flex items-center gap-2">{actions}</div> : null}
 		</div>
 	)

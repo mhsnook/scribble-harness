@@ -31,23 +31,19 @@ export function OutlineRow({
 
 	return (
 		<div className={cx('flex items-start gap-2.5', className)}>
-			<span className="mt-px w-3 shrink-0 font-mono text-[0.6875rem] text-faint">
-				{ordinal}
-			</span>
+			<span className="mt-px w-3 shrink-0 font-mono text-11 text-faint">{ordinal}</span>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex items-baseline gap-2">
 					<span
 						className={cx(
-							'min-w-0 flex-1 text-[0.8125rem] leading-snug',
+							'min-w-0 flex-1 text-13 leading-snug',
 							current ? 'font-medium text-ink' : 'text-ink',
 							dense && 'truncate',
 						)}
 					>
 						{node.title}
 					</span>
-					{current ? (
-						<span className="shrink-0 text-[0.6875rem] text-faint">now</span>
-					) : null}
+					{current ? <span className="shrink-0 text-11 text-faint">now</span> : null}
 					{/* The count sits on the title line, where the eye can run down a
 					    column of them rather than hunting each row for it. */}
 					{target !== null ? (

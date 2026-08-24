@@ -55,9 +55,9 @@ export function Dialog({
 		>
 			<div className="flex flex-col gap-3.5 p-4">
 				<div className="flex flex-col gap-1">
-					<h2 className="text-[0.9375rem] leading-tight font-medium text-ink">{title}</h2>
+					<h2 className="text-15 leading-tight font-medium text-ink">{title}</h2>
 					{subtitle ? (
-						<p className="text-[0.75rem] leading-relaxed text-faint">{subtitle}</p>
+						<p className="text-12 leading-relaxed text-faint">{subtitle}</p>
 					) : null}
 				</div>
 				{children}

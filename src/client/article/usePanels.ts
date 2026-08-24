@@ -4,30 +4,84 @@ import { PANELS, type PanelId } from '../components/PanelRail'
 
 /** Which Panels the Article screen shows, and the tabs a narrow one gets — §8. */
 
-/** Two Panels of any use need about this much. Below it, one at a time. */
-const narrowQuery = '(max-width: 56rem)'
+/** Below the md breakpoint (`--breakpoint-md`, theme.css) the rail shows one
+ * Panel at a time. The query is the complement of Tailwind's `md:`. */
+const narrowQuery = '(width < 768px)'
+
+/** Which Panels are open is state about the Article. Nothing stores it beside
+ * the Article yet, so it is held per Article in `localStorage` until there is
+ * somewhere on the server to put it. */
+const key = (articleId: string) => `scribble.open-panels.${articleId}`
+
+/** Chat and Plan: what a writer who has never touched the rail opens on. */
+const FIRST_OPEN: PanelId[] = ['chat', 'plan']
 
 export type PanelState = {
 	/** Which Panels are visible. All four stay mounted. */
 	open: PanelId[]
 	/** The rail is a set of tabs rather than a set of toggles. */
 	narrow: boolean
+	/** The Panel row's type-and-spacing scale — `panelScale`. */
+	scale: number
 	toggle: (panel: PanelId) => void
 }
 
-export function usePanels(): PanelState {
+export function usePanels(articleId: string): PanelState {
 	const narrow = useNarrow(narrowQuery)
-	const [open, setOpen] = useState<PanelId[]>(['chat', 'plan'])
+	const [open, setOpen] = useState<PanelId[]>(() => loadOpenPanels(articleId))
 
 	// A narrow window shows one Panel, the furthest left. `open` keeps the rest,
 	// so widening gives them back.
 	const shown = narrow && open.length > 1 ? [open[0]] : open
 
+	// A narrow rail picks a tab out of necessity, and saving that one Panel as
+	// the layout would open a wide window on one Panel too.
+	useEffect(() => {
+		if (!narrow) writeOpenPanels(articleId, open)
+	}, [articleId, narrow, open])
+
 	return {
 		open: shown,
 		narrow,
+		scale: panelScale(open, narrow),
 		toggle: (panel) => setOpen((held) => nextOpenPanels(held, panel, narrow)),
 	}
+}
+
+function loadOpenPanels(articleId: string): PanelId[] {
+	try {
+		const stored = window.localStorage.getItem(key(articleId))
+		const held: unknown = JSON.parse(stored ?? 'null')
+
+		return readOpenPanels(held) ?? FIRST_OPEN
+	} catch {
+		return FIRST_OPEN
+	}
+}
+
+function writeOpenPanels(articleId: string, open: readonly PanelId[]): void {
+	try {
+		window.localStorage.setItem(key(articleId), JSON.stringify(open))
+	} catch {
+		// Held for this session.
+	}
+}
+
+/** Returns the saved layout, or `null`. */
+export function readOpenPanels(value: unknown): PanelId[] | null {
+	if (!Array.isArray(value)) return null
+
+	const open = PANELS.filter((panel) => value.includes(panel))
+
+	return open.length === 0 ? null : open
+}
+
+/** The Panel row's type-and-spacing scale — `.panel-scale` in theme.css reads
+ * it as `--panel-scale`. Fewer open Panels leave more room; a narrow window
+ * shows one Panel out of necessity, not room, so it stays compact. */
+export function panelScale(open: readonly PanelId[], narrow: boolean): number {
+	if (narrow || open.length > 2) return 1
+	return open.length === 1 ? 1.25 : 1.125
 }
 
 /** Narrow selects; wide toggles, never down to nothing, and always back into the

@@ -76,27 +76,23 @@ export function TableScreen() {
 						key={row.title}
 						className="flex items-baseline gap-3 border-b border-rule py-2.5"
 					>
-						<span className="min-w-0 flex-1 truncate text-[0.8125rem] text-ink">
-							{row.title}
-						</span>
+						<span className="min-w-0 flex-1 truncate text-13 text-ink">{row.title}</span>
 						<span className="w-20">
 							{row.attention ? (
 								<Chip variant="accent">{row.status}</Chip>
 							) : (
-								<span className="text-[0.75rem] text-muted">{row.status}</span>
+								<span className="text-12 text-muted">{row.status}</span>
 							)}
 						</span>
-						<span className="w-14 text-right font-mono text-[0.6875rem] text-faint">
+						<span className="w-14 text-right font-mono text-11 text-faint">
 							{row.words}
 						</span>
-						<span className="w-10 text-right font-mono text-[0.6875rem] text-faint">
+						<span className="w-10 text-right font-mono text-11 text-faint">
 							{row.touched}
 						</span>
 					</div>
 				))}
-				<p className="pt-3 text-[0.6875rem] text-faint">
-					+ 18 more · sorted by last touched
-				</p>
+				<p className="pt-3 text-11 text-faint">+ 18 more · sorted by last touched</p>
 			</FrameBody>
 		</Frame>
 	)

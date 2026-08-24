@@ -87,18 +87,18 @@ export function PlanOutline({
 			))}
 			{typing ? (
 				<div className="flex items-start gap-2.5">
-					<span className="mt-px w-3 shrink-0 font-mono text-[0.6875rem] text-faint">
+					<span className="mt-px w-3 shrink-0 font-mono text-11 text-faint">
 						{entries.length + 1}
 					</span>
 					<div className="flex min-w-0 flex-1 flex-col gap-1">
-						<div className="rounded-md border border-edge bg-surface px-2 py-1 text-[0.8125rem] text-ink">
+						<div className="rounded-md border border-edge bg-surface px-2 py-1 text-13 text-ink">
 							{typing}
 							<span
 								aria-hidden
 								className="ml-0.5 inline-block h-[1em] w-px translate-y-[0.15em] bg-ink"
 							/>
 						</div>
-						<p className="text-[0.6875rem] text-faint">typing here yourself</p>
+						<p className="text-11 text-faint">typing here yourself</p>
 					</div>
 				</div>
 			) : null}
@@ -141,16 +141,16 @@ export function PlanReferences({
 						<p className="label-meta">★ just added</p>
 					) : null}
 					{reference.source?.title ? (
-						<p className="text-[0.75rem] leading-snug font-medium text-ink">
+						<p className="text-12 leading-snug font-medium text-ink">
 							{reference.source.title}
 						</p>
 					) : null}
 					{reference.text ? (
-						<blockquote className="border-l-2 border-rule pl-2 text-[0.8125rem] leading-relaxed text-ink">
+						<blockquote className="border-l-2 border-rule pl-2 text-13 leading-relaxed text-ink">
 							“{reference.text}”
 						</blockquote>
 					) : null}
-					<p className="text-[0.6875rem] text-faint">
+					<p className="text-11 text-faint">
 						{[
 							reference.type,
 							reference.source?.publication,

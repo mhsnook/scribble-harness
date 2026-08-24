@@ -313,7 +313,7 @@ function Box({
 			onMouseLeave={onLeave}
 		>
 			{node.ordinal === '' ? null : (
-				<span className="mt-px shrink-0 font-mono text-[0.6875rem] text-faint">
+				<span className="mt-px shrink-0 font-mono text-11 text-faint">
 					{node.ordinal}
 				</span>
 			)}
@@ -322,7 +322,7 @@ function Box({
 				{onOpen === undefined ? (
 					<span
 						className={cx(
-							'line-clamp-2 text-[0.8125rem] leading-snug',
+							'line-clamp-2 text-13 leading-snug',
 							subject.kind === 'article' && 'font-medium',
 							subject.kind === 'reference' ? 'text-muted' : 'text-ink',
 						)}
@@ -333,7 +333,7 @@ function Box({
 					<button
 						aria-expanded={open}
 						className={cx(
-							'line-clamp-2 text-left text-[0.8125rem] leading-snug',
+							'line-clamp-2 text-left text-13 leading-snug',
 							untitled ? 'text-faint italic' : 'text-ink',
 						)}
 						onClick={(event) => {
@@ -351,7 +351,7 @@ function Box({
 				) : null}
 
 				{target === undefined && intent === undefined ? null : (
-					<span className="flex min-w-0 items-baseline gap-1.5 text-[0.6875rem] text-muted">
+					<span className="flex min-w-0 items-baseline gap-1.5 text-11 text-muted">
 						{target === undefined ? null : (
 							<span className="shrink-0 font-mono text-faint">{target}w</span>
 						)}
@@ -361,7 +361,7 @@ function Box({
 
 				{/* Only drawn where References are not boxes of their own. */}
 				{node.referenceNumbers.length === 0 ? null : (
-					<span className="truncate font-mono text-[0.625rem] text-faint">
+					<span className="truncate font-mono text-10 text-faint">
 						{`refs ${node.referenceNumbers.map((number) => `[${number}]`).join(' ')}`}
 					</span>
 				)}
@@ -409,4 +409,4 @@ function Box({
 }
 
 const CONTROL =
-	'shrink-0 rounded-full border border-edge px-1 font-mono text-[0.625rem] leading-[1.05rem] text-muted transition-colors hover:border-ink hover:text-ink'
+	'shrink-0 rounded-full border border-edge px-1 font-mono text-10 leading-[1.05rem] text-muted transition-colors hover:border-ink hover:text-ink'

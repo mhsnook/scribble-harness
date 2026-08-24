@@ -1,5 +1,5 @@
 {
-  "name": "journo-harness",
+  "name": "scribble-harness",
   "version": "0.1.0",
   "private": true,
   "description": "A writing harness where the writer writes the prose and an AI acts as a guide.",
@@ -11,8 +11,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "vite build && wrangler deploy",
-    "db:migrate": "wrangler d1 migrations apply journo-harness --local",
-    "db:migrate:remote": "wrangler d1 migrations apply journo-harness --remote",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "test": "vite build && vitest run",
     "test:shared": "vitest run --project shared",
     "test:client": "vitest run --project client",
@@ -41,6 +41,9 @@
     "lucide-react": "^1.30.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "remend": "^1.3.0",
     "workers-ai-provider": "^4.0.0",
     "zod": "^4.4.3"
   },

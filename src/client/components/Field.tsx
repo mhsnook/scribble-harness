@@ -13,8 +13,8 @@ const frameClass =
 	'flex min-w-0 flex-1 items-center gap-2 rounded-md border border-edge bg-surface px-2.5'
 
 const sizeClass = {
-	sm: 'h-7 text-[0.75rem]',
-	md: 'h-8 text-[0.8125rem]',
+	sm: 'h-7 text-12',
+	md: 'h-8 text-13',
 }
 
 /** One label style for every field, and it is the same mono label a list gets.
@@ -101,9 +101,7 @@ export function TextField({
 			{label ? (
 				<span className={cx(labelClass, rows > 1 && 'pt-1.5')}>{label}</span>
 			) : null}
-			<div
-				className={cx(frameClass, rows > 1 ? 'py-1.5 text-[0.75rem]' : sizeClass[size])}
-			>
+			<div className={cx(frameClass, rows > 1 ? 'py-1.5 text-12' : sizeClass[size])}>
 				{rows > 1 ? (
 					<textarea
 						aria-label={hiddenLabel}
@@ -188,7 +186,7 @@ export function EmptySlot({ children, className }: EmptySlotProps) {
 	return (
 		<div
 			className={cx(
-				'flex items-center justify-center rounded-md border border-dashed border-edge px-3 py-2.5 text-center text-[0.75rem] text-faint',
+				'flex items-center justify-center rounded-md border border-dashed border-edge px-3 py-2.5 text-center text-12 text-faint',
 				className,
 			)}
 		>

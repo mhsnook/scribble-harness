@@ -173,3 +173,41 @@ export const UndoKeepsIds: Story = {
 		await waitFor(() => expect(blockIds(canvasElement)).toEqual(before))
 	},
 }
+
+export const ClickAnywhere: Story = {
+	name: 'Clicking anywhere on an empty Draft',
+	render: () => <DraftScreen store={memoryDraftStore()} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement)
+		await waitFor(() => expect(surface(canvasElement)).toBeInTheDocument())
+		const editable = surface(canvasElement)
+
+		// A drafting surface takes the caret wherever the writer clicks in it, so
+		// the whole Panel below the toolbar has to be the editable — the gutter
+		// beside the first line and the empty space far under it included.
+		const box = editable.getBoundingClientRect()
+		const corners = [
+			[box.left + 4, box.top + 4],
+			[box.right - 4, box.top + 4],
+			[box.left + 4, box.bottom - 4],
+			[box.right - 4, box.bottom - 4],
+		] as const
+
+		for (const [x, y] of corners) {
+			await expect(editable.contains(document.elementFromPoint(x, y))).toBe(true)
+		}
+
+		// And the editable reaches the foot of the Panel it sits in.
+		const panel = canvasElement.querySelector('[data-panel]') as HTMLElement
+		await expect(box.bottom).toBeCloseTo(panel.getBoundingClientRect().bottom, 0)
+
+		// Clicking that far-down space writes into the Draft.
+		await userEvent.pointer({
+			target: editable,
+			coords: { clientX: box.left + 8, clientY: box.bottom - 8 },
+			keys: '[MouseLeft]',
+		})
+		await userEvent.keyboard('Clicked low, typed anyway.')
+		await expect(canvas.getByText('Clicked low, typed anyway.')).toBeVisible()
+	},
+}

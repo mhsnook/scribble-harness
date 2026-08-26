@@ -115,10 +115,6 @@ function toBlock(row: BlockDbRow): BlockRow {
 	return { id: row.id, ord: row.ord, json: JSON.parse(row.json) as BlockJson }
 }
 
-/** The Note and Round row shapes and their readers live in `shared/sync.ts`
- * now, because the rows travel: a synced client reads the same columns this
- * class writes. What stays here is the writing. */
-
 /** The connection tag party-db subscribers carry, so a broadcast can leave
  * them out and the sync fan-out can find them — tags survive hibernation
  * where a field would not. */
@@ -247,24 +243,12 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		// A Review runs under `waitUntil`, which holds this Agent awake until it
 		// settles — so a `running` row seen at wake is one a crash or deploy cut
 		// off. Failing it here frees the one-at-a-time guard and puts the reason
-		// where the writer looks. Through `commit`, not raw SQL: a subscriber
-		// that watched the Round start has to hear it fail.
+		// where the writer looks. Through `failRound`, not raw SQL: a subscriber
+		// that watched the Round start has to hear it fail. At most one row can
+		// be running, because the index above allows no second.
 		const cut = this.sql<{ id: string }>`SELECT id FROM round WHERE state = 'running'`
 		if (cut.length > 0) {
-			await this.db.commit([
-				{
-					channel: 'round',
-					ops: cut.map(({ id }) => ({
-						type: 'update' as const,
-						value: roundSettled(
-							id,
-							'failed',
-							'[]',
-							'The Review was cut off by a restart.',
-						),
-					})),
-				},
-			])
+			await this.failRound(cut[0].id, 'The Review was cut off by a restart.')
 		}
 	}
 
@@ -286,7 +270,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * through here. A sync subscriber hears `SequencedBatch` frames and nothing
 	 * else; the core's fan-out is scoped by the tag in `onStart`. */
 	broadcast(message: string | ArrayBuffer | ArrayBufferView, without?: string[]): void {
-		const skip = without === undefined ? [] : [...without]
+		const skip = [...(without ?? [])]
 		for (const connection of this.getConnections(PARTY_DB_TAG)) {
 			skip.push(connection.id)
 		}
@@ -709,25 +693,23 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			}
 		})
 
-		await this.db.commit([
-			...(notes.length === 0
-				? []
-				: [
-						{
-							channel: 'note',
-							ops: notes.map((value) => ({ type: 'insert' as const, value })),
-						},
-					]),
-			{
-				channel: 'round',
-				ops: [
-					{
-						type: 'update' as const,
-						value: roundSettled(round.id, 'done', JSON.stringify(passages), null),
-					},
-				],
-			},
-		])
+		const inserts = {
+			channel: 'note',
+			ops: notes.map((value) => ({ type: 'insert' as const, value })),
+		}
+		const settle = {
+			channel: 'round',
+			ops: [
+				{
+					type: 'update' as const,
+					value: roundSettled(round.id, 'done', JSON.stringify(passages), null),
+				},
+			],
+		}
+
+		// The empty-batch guard is load-bearing: a batch with no ops would still
+		// reach every subscriber.
+		await this.db.commit(notes.length === 0 ? [settle] : [inserts, settle])
 	}
 
 	/**

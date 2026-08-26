@@ -66,6 +66,38 @@ export const roundCollection = definePartyCollection({
 
 export const syncCollections = [noteCollection, roundCollection]
 
+/** The inverse of `toNote`, so a fixture or a mock states the columns through
+ * this module rather than keeping its own copy of the wire shape. */
+export function fromNote(note: Note, seq: number): NoteRow {
+	return {
+		seq,
+		id: note.id,
+		round_id: note.roundId,
+		type: note.type,
+		anchor: JSON.stringify(note.anchor),
+		label: note.label ?? null,
+		body: note.body,
+		disposition: note.disposition,
+		created_at: note.createdAt,
+		decided_at: note.decidedAt,
+	}
+}
+
+/** The inverse of `toRound`. */
+export function fromRound(round: Round): RoundRow {
+	return {
+		seq: round.ordinal,
+		id: round.id,
+		state: round.state,
+		prompt: round.prompt,
+		depth: round.depth,
+		passages: JSON.stringify(round.passages),
+		failure: round.failure,
+		started_at: round.startedAt,
+		finished_at: round.finishedAt,
+	}
+}
+
 export function toNote(row: NoteRow): Note {
 	return {
 		id: row.id,

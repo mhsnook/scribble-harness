@@ -1,4 +1,4 @@
-import { createCollection } from '@tanstack/db'
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { type ReactNode, useState } from 'react'
 
 import {
@@ -28,7 +28,14 @@ import {
 } from '../../src/shared/offer'
 import { emptyPlan, type Plan, type Refusal } from '../../src/shared/plan'
 import type { ReviewRequest, Round } from '../../src/shared/review'
-import { type NoteRow, type RoundRow, toNote, toRound } from '../../src/shared/sync'
+import {
+	fromNote,
+	fromRound,
+	type NoteRow,
+	type RoundRow,
+	toNote,
+	toRound,
+} from '../../src/shared/sync'
 import { offers as seeded, plan as seededPlan } from './content'
 
 /**
@@ -56,7 +63,7 @@ export function MockArticle({ children }: { children: ReactNode }) {
 	// each load once per store identity, and the collections hold the rows.
 	const [offers] = useState(() => memoryOfferStore(seeded))
 	const [draft] = useState(() => memoryDraftStore())
-	const [{ store: notes, sync }] = useState(() => memoryNotes())
+	const [{ notes, sync }] = useState(() => memoryNotes())
 
 	const edit = (next: Parameters<typeof writer.edit>[0]) => {
 		setRefusal(null)
@@ -129,74 +136,20 @@ export function memoryDraftStore(
 	}
 }
 
-/** One synced collection held in memory: seeded on sync, written to by the
- * memory store the way the Article Agent's `commit` fans out. */
-function memoryCollection<Row extends { id: string }>(seed: readonly Row[]) {
-	type Sink = {
-		begin: () => void
-		write: (op: { type: 'insert' | 'update' | 'delete'; value: Row }) => void
-		commit: () => void
-		markReady: () => void
-	}
-
-	let sink: Sink | null = null
-
-	const collection = createCollection<Row>({
-		getKey: (row) => row.id,
-		startSync: true,
-		sync: {
-			sync: (params: Sink) => {
-				sink = params
-				params.begin()
-				for (const row of seed) params.write({ type: 'insert', value: { ...row } })
-				params.commit()
-				params.markReady()
-			},
-		},
-	})
-
-	const write = (op: { type: 'insert' | 'update'; value: Row }) => {
-		sink?.begin()
-		sink?.write(op)
-		sink?.commit()
-	}
-
-	return { collection, write }
-}
-
-function noteToRow(note: Note, seq: number): NoteRow {
-	return {
-		seq,
-		id: note.id,
-		round_id: note.roundId,
-		type: note.type,
-		anchor: JSON.stringify(note.anchor),
-		label: note.label ?? null,
-		body: note.body,
-		disposition: note.disposition,
-		created_at: note.createdAt,
-		decided_at: note.decidedAt,
-	}
-}
-
-function roundToRow(round: Round): RoundRow {
-	return {
-		seq: round.ordinal,
-		id: round.id,
-		state: round.state,
-		prompt: round.prompt,
-		depth: round.depth,
-		passages: JSON.stringify(round.passages),
-		failure: round.failure,
-		started_at: round.startedAt,
-		finished_at: round.finishedAt,
-	}
+/** One local-only collection standing in for a synced one: TanStack's own
+ * loopback sync, seeded up front, written to with the ordinary collection
+ * methods. */
+function memoryCollection<Row extends { id: string }>(seed: Row[]) {
+	return createCollection(
+		localOnlyCollectionOptions({ getKey: (row: Row) => row.id, initialData: seed }),
+	)
 }
 
 /**
- * The Notes and Rounds held in memory: real synced collections behind the
- * real live queries, plus a store running the real ruling rules — the same
- * two halves `useArticleAgent` hands the Panels.
+ * The Notes and Rounds held in memory: real collections behind the real live
+ * queries, plus a store running the real ruling rules — the same two halves
+ * `useArticleAgent` hands the Panels. The wire rows come from the shared
+ * `fromNote`/`fromRound`, so the mock cannot drift from the columns.
  *
  * `answer` is what a Review comes back with, after a beat — enough for a story
  * to run the whole loop: ask, wait, read the response, rule on what it found.
@@ -211,29 +164,28 @@ export function memoryNotes(
 		/** How long a Review takes to come back. */
 		takes?: number
 	} = {},
-): { store: NoteStore; sync: ArticleSync } {
+): { notes: NoteStore; sync: ArticleSync } {
 	let noteSeq = 0
 	const note = memoryCollection<NoteRow>(
-		(options.notes ?? []).map((one) => noteToRow(one, ++noteSeq)),
+		(options.notes ?? []).map((one) => fromNote(one, ++noteSeq)),
 	)
-	const round = memoryCollection<RoundRow>((options.rounds ?? []).map(roundToRow))
+	const round = memoryCollection<RoundRow>((options.rounds ?? []).map(fromRound))
 
 	const find = (id: string): NoteRow => {
-		const row = note.collection.get(id)
+		const row = note.get(id)
 		if (row === undefined) throw missingNote(id)
 
 		return row
 	}
 
 	const move = (row: NoteRow, disposition: NoteDisposition) => {
-		const moved: NoteRow = {
-			...row,
-			disposition,
-			decided_at: disposition === 'proposed' ? null : Date.now(),
-		}
-		note.write({ type: 'update', value: moved })
+		const decidedAt = disposition === 'proposed' ? null : Date.now()
+		note.update(row.id, (draft) => {
+			draft.disposition = disposition
+			draft.decided_at = decidedAt
+		})
 
-		return Promise.resolve(toNote(moved))
+		return Promise.resolve(toNote({ ...row, disposition, decided_at: decidedAt }))
 	}
 
 	const store: NoteStore = {
@@ -241,7 +193,7 @@ export function memoryNotes(
 			// Minted, not counted off the length: a story seeds Rounds whose ids and
 			// ordinals start past 1.
 			const ordinal =
-				[...round.collection.values()].reduce(
+				[...round.values()].reduce(
 					(highest, held) => Math.max(highest, held.seq ?? 0),
 					0,
 				) + 1
@@ -256,25 +208,18 @@ export function memoryNotes(
 				started_at: Date.now(),
 				finished_at: null,
 			}
-			round.write({ type: 'insert', value: row })
+			round.insert(row)
 
 			const { answer } = options
 			if (answer !== undefined) {
 				setTimeout(() => {
 					for (const found of answer.notes) {
-						note.write({
-							type: 'insert',
-							value: noteToRow({ ...found, roundId: row.id }, ++noteSeq),
-						})
+						note.insert(fromNote({ ...found, roundId: row.id }, ++noteSeq))
 					}
-					round.write({
-						type: 'update',
-						value: {
-							...row,
-							state: 'done',
-							passages: JSON.stringify(answer.passages),
-							finished_at: Date.now(),
-						},
+					round.update(row.id, (draft) => {
+						draft.state = 'done'
+						draft.passages = JSON.stringify(answer.passages)
+						draft.finished_at = Date.now()
 					})
 				}, options.takes ?? 600)
 			}
@@ -309,7 +254,7 @@ export function memoryNotes(
 		},
 	}
 
-	return { store, sync: { note: note.collection, round: round.collection } }
+	return { notes: store, sync: { note, round } }
 }
 
 export function memoryOfferStore(seed: readonly Offer[]): OfferStore {

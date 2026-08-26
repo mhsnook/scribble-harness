@@ -82,10 +82,7 @@ export function MockNotes({
 	return (
 		<ArticleProvider
 			value={{
-				draft: seam.draft,
-				offers: seam.offers,
-				notes: seam.store,
-				sync: seam.sync,
+				...seam,
 				plan: { plan, edit: () => null, refusal: null, rejected: null },
 			}}
 		>

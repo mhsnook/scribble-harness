@@ -590,6 +590,11 @@ Settings and known defects. None is a decision to make; all are things to get ri
   hot row the reconnect delta measured 400× the snapshot, and party-db has no large-delta
   bail-out. Low retention pushes a returning client onto the cheap snapshot path. The
   Article Agent's core sets 200; the House's room should too.
+- **The per-Article sync client is cached for the session, and its collections are
+  pinned.** party-db exposes no way to close a transport (party-db#46), and a collection
+  that restarts after TanStack DB's GC gets no second snapshot (party-db#47) — so
+  `articleSync` holds one client per Article and a standing subscription per collection.
+  Both carries undo when the upstream teardown lands.
 - **party-db never compares `previousValue`.** Any concurrent write clobbers the whole row.
   The Block shape limits the blast radius; nothing removes it.
 - **party-db has no per-row access control.** `src/server/access.ts` warns that `access` and

@@ -36,12 +36,6 @@ export type NotesHandle = {
 	runReview: (prompt: string, depth: ReviewDepth) => void
 }
 
-/** In the order they were written. `seq` orders the wire rows the way it
- * orders the tables; a fresh insert has none until its own frame lands. */
-function bySeq<Row extends { seq?: number }>(rows: readonly Row[]): Row[] {
-	return [...rows].sort((one, two) => (one.seq ?? 0) - (two.seq ?? 0))
-}
-
 export function useNotes(): NotesHandle {
 	const { notes: store, draft, sync, plan: connection } = useArticle()
 
@@ -49,20 +43,30 @@ export function useNotes(): NotesHandle {
 	const [failure, setFailure] = useState<string | null>(null)
 	const [view, setView] = useState<QueueView>(wholeQueue)
 
-	const noteRows = useLiveQuery((q) => q.from({ note: sync.note }), [sync.note])
-	const roundRows = useLiveQuery((q) => q.from({ round: sync.round }), [sync.round])
+	// Ordered by `seq` in the query, the way the server orders the tables.
+	const noteRows = useLiveQuery(
+		(q) => q.from({ note: sync.note }).orderBy(({ note }) => note.seq),
+		[sync.note],
+	)
+	const roundRows = useLiveQuery(
+		(q) => q.from({ round: sync.round }).orderBy(({ round }) => round.seq),
+		[sync.round],
+	)
 
-	const notes = bySeq(noteRows.data ?? []).map(toNote)
-	const rounds = bySeq(roundRows.data ?? []).map(toRound)
+	const notes = noteRows.data.map(toNote)
+	const rounds = roundRows.data.map(toRound)
 
 	// A Note's anchor is read against the Draft the Review itself read — so
 	// "¶3" on a card is the paragraph the model was looking at, even if the
 	// writer has typed since. The Blocks reload when a Round settles, which the
-	// synced rows now announce.
-	const lastSettled =
-		[...rounds].reverse().find((round) => round.state !== 'running')?.id ?? null
+	// synced rows now announce; nothing loads until the snapshot has landed,
+	// because a load keyed on the empty pre-snapshot list would run twice.
+	const ready = noteRows.isReady && roundRows.isReady
+	const lastSettled = rounds.findLast((round) => round.state !== 'running')?.id ?? null
 
 	useEffect(() => {
+		if (!ready) return
+
 		let live = true
 
 		draft.listBlocks().then(
@@ -77,7 +81,7 @@ export function useNotes(): NotesHandle {
 		return () => {
 			live = false
 		}
-	}, [draft, lastSettled])
+	}, [draft, ready, lastSettled])
 
 	/** The write is the whole move: the ruled row comes back down the sync, so
 	 * a success has nothing to patch and a failure has something to say. */
@@ -108,7 +112,7 @@ export function useNotes(): NotesHandle {
 		queue,
 		notes,
 		rounds,
-		loading: !(noteRows.isReady && roundRows.isReady),
+		loading: !ready,
 		failure,
 		view,
 		setView,

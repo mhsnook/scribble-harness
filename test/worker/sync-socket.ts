@@ -1,5 +1,5 @@
 import { SELF } from 'cloudflare:test'
-import type { SequencedBatch } from 'party-db'
+import { PROTO_PARAM, PROTO_VALUE, type SequencedBatch } from 'party-db'
 
 /**
  * A test client on the Article Agent's party-db socket — the second socket of
@@ -13,7 +13,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export async function openSyncSocket(name: string, since?: number) {
 	const query = since === undefined ? '' : `&since=${since}`
 	const response = await SELF.fetch(
-		`https://harness.test/parties/article-agent/${name}?proto=party-db${query}`,
+		`https://harness.test/parties/article-agent/${name}?${PROTO_PARAM}=${PROTO_VALUE}${query}`,
 		{ headers: { Upgrade: 'websocket' } },
 	)
 
@@ -29,10 +29,6 @@ export async function openSyncSocket(name: string, since?: number) {
 	socket.addEventListener('message', (event) => {
 		frames.push(JSON.parse(event.data as string))
 	})
-
-	function batches(): SequencedBatch[] {
-		return frames.filter(isBatch)
-	}
 
 	return {
 		/** The first untaken batch on this channel. Polls, because a commit lands
@@ -54,12 +50,15 @@ export async function openSyncSocket(name: string, since?: number) {
 		async settled(): Promise<{ batches: SequencedBatch[]; strays: unknown[] }> {
 			await wait(50)
 
-			return { batches: batches(), strays: frames.filter((frame) => !isBatch(frame)) }
+			return {
+				batches: frames.filter(isBatch),
+				strays: frames.filter((frame) => !isBatch(frame)),
+			}
 		},
 	}
 }
 
-/** A `SequencedBatch` and nothing else carries a channel, a seq, and ops. */
+/** A `SequencedBatch` and nothing else carries a channel and its ops. */
 export function isBatch(frame: unknown): frame is SequencedBatch {
 	return (
 		typeof frame === 'object' &&

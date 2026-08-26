@@ -1,10 +1,10 @@
-import { MockLanguageModelV3 } from 'ai/test'
 import { SELF } from 'cloudflare:test'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { ReviewOutput, Round } from '../../src/shared/review'
+import type { Round } from '../../src/shared/review'
 import type { NoteRow } from '../../src/shared/sync'
-import { inAgent, noUsage, scriptModel, stopped } from './scripted'
+import { answers, ask, response, settled } from './review-fixtures'
+import { inAgent, scriptModel } from './scripted'
 import { isBatch, openSyncSocket, postWrite } from './sync-socket'
 
 /**
@@ -15,52 +15,18 @@ import { isBatch, openSyncSocket, postWrite } from './sync-socket'
  * write path stays closed.
  */
 
-/** A model that answers `generateObject` with this JSON, once per call. */
-function answers(body: string) {
-	return new MockLanguageModelV3({
-		doGenerate: async () => ({
-			content: [{ type: 'text' as const, text: body }],
-			finishReason: stopped,
-			usage: noUsage,
-			warnings: [],
-		}),
-	})
-}
-
-/** One response carrying one Note on the whole piece. */
-const response: string = JSON.stringify({
-	passages: [
-		{
-			prose: 'The middle section re-argues the opening.',
-			notes: [
-				{
-					type: 'repetition',
-					anchor: { kind: 'article' },
-					body: 'Cut to a clause.',
-				},
-			],
-		},
-	],
-} satisfies ReviewOutput)
-
-const ask = { prompt: 'Review for repetition.', depth: 'quick' as const }
-
 /** Run one scripted Review to its settled Round. */
 async function reviewed(name: string): Promise<Round> {
 	// A plain GET runs the cold Agent's onStart, the way the app's wake does —
 	// `runInDurableObject` alone reaches an instance whose tables don't exist.
 	await SELF.fetch(`https://harness.test/agents/article-agent/${name}`)
-	await scriptModel(name, 'reviewModel', answers(response))
+	await scriptModel(name, 'reviewModel', answers(response({ kind: 'article' })))
 	await inAgent(name, (agent) => agent.startReview(ask))
 
-	return vi.waitFor(async () => {
-		const rounds = await inAgent(name, (agent) => agent.listRounds())
-		const round = rounds[rounds.length - 1]
+	const round = await settled(name)
+	expect(round.state).toBe('done')
 
-		expect(round?.state).toBe('done')
-
-		return round
-	})
+	return round
 }
 
 describe('the sync socket', () => {
@@ -92,7 +58,7 @@ describe('the sync socket', () => {
 		expect((await reader.next('note')).ops).toEqual([])
 		expect((await reader.next('round')).ops).toEqual([])
 
-		await scriptModel('sync-live', 'reviewModel', answers(response))
+		await scriptModel('sync-live', 'reviewModel', answers(response({ kind: 'article' })))
 		const started = await inAgent('sync-live', (agent) => agent.startReview(ask))
 
 		// The Round starts as an insert...

@@ -1,32 +1,16 @@
 import { MockLanguageModelV3 } from 'ai/test'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { NoteAnchor } from '../../src/shared/note'
-import type { ReviewOutput, Round } from '../../src/shared/review'
 import { makeNode, makePlan } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
-import { inAgent, noUsage, scriptModel, stopped } from './scripted'
+import { answers, ask, response, settled } from './review-fixtures'
+import { inAgent, scriptModel } from './scripted'
 
 /**
  * The Review, end to end inside the Article Agent — `docs/architecture.md` §3,
  * §7, and §12. What these drive is `reviewModel()`, replaced with a scripted
  * one — `scripted.ts` for why no test calls a real model.
  */
-
-/** A model that answers `generateObject` with this JSON, once per call. A
- * second element is what a refused first answer retries into. */
-function answers(...bodies: string[]) {
-	let call = 0
-
-	return new MockLanguageModelV3({
-		doGenerate: async () => ({
-			content: [{ type: 'text' as const, text: bodies[call++] ?? '' }],
-			finishReason: stopped,
-			usage: noUsage,
-			warnings: [],
-		}),
-	})
-}
 
 /** A model that fails the way a provider outage does. */
 function fails(why: string) {
@@ -61,20 +45,6 @@ function stalls() {
 const scriptReview = (name: string, model: MockLanguageModelV3) =>
 	scriptModel(name, 'reviewModel', model)
 
-/** The Round, once it has stopped running. `startReview` answers as soon as the
- * row exists and the model call carries on under `waitUntil`, so every test
- * waits on the row rather than on the call. */
-function settled(name: string): Promise<Round> {
-	return vi.waitFor(async () => {
-		const rounds = await inAgent(name, (agent) => agent.listRounds())
-		const round = rounds[rounds.length - 1]
-
-		expect(round?.state).not.toBe('running')
-
-		return round
-	})
-}
-
 const plan = makePlan({
 	title: 'The permit queue',
 	outline: [makeNode({ id: 'n1', title: 'The opening' })],
@@ -92,34 +62,6 @@ const blocks = [
 		json: { type: 'paragraph', content: [{ type: 'text', text: 'Two.' }] },
 	},
 ]
-
-/** One response: prose, then the Notes it produced. */
-function response(anchor: NoteAnchor): string {
-	const output: ReviewOutput = {
-		passages: [
-			{
-				prose: 'Two supporting points do most of the work in this section.',
-				label: 'on the first point',
-				notes: [
-					{
-						type: 'repetition',
-						anchor,
-						label: 're-argued',
-						body: 'Cut to a clause.',
-					},
-				],
-			},
-			{ prose: 'The thesis itself appears twice, and that is within reason.', notes: [] },
-		],
-	}
-
-	return JSON.stringify(output)
-}
-
-const ask = {
-	prompt: 'Review for repetition of the supporting logic.',
-	depth: 'quick' as const,
-}
 
 describe('running a Review', () => {
 	it('answers with a running Round before the model has said anything', async () => {
@@ -314,9 +256,6 @@ describe('running a Review', () => {
 		expect(sent).toContain('already accepted from earlier Rounds')
 		expect(sent.match(/Cut to a clause/g)).toHaveLength(1)
 	})
-
-	// What used to be announced with a `review_finished` frame is now the
-	// synced rows landing — test/worker/sync.test.ts proves that path.
 })
 
 describe('ruling on a Note', () => {

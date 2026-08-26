@@ -15,8 +15,7 @@ import { reviewDepths, type Round, type RoundPassage, roundStates } from './revi
  * The JSON columns (`anchor`, `passages`) are declared `z.string()` on
  * purpose: party-db's column codec reads Zod v3 internals to spot a JSON
  * column, and this repo is on Zod v4, so an object-typed field would come back
- * from a snapshot as unparsed text anyway (reported upstream). Declaring the
- * text is
+ * from a snapshot as unparsed text anyway (party-db#45). Declaring the text is
  * the honest shape either way, and the converters parse it once.
  */
 

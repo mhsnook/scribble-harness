@@ -669,7 +669,7 @@ what deleted the `review_finished` frame, the Notes Panel's poll, and its reload
 schemas as the columns stand — snake_case, JSON columns as the text they store — and owns
 the one mapping to the shapes the app reads. JSON-typed fields would arrive unparsed
 anyway: party-db's column codec reads Zod v3 internals and this repo is on Zod v4
-(reported upstream).
+(party-db#45).
 
 **A Note's anchor is settled once, at write time, against the Plan and Draft the model was
 shown.** An anchor the client cannot resolve reads as the whole piece and breaks nothing,

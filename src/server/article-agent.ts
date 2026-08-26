@@ -1,6 +1,12 @@
 import { AIChatAgent, type OnChatMessageOptions } from '@cloudflare/ai-chat'
-import { callable, type Connection } from 'agents'
+import { callable, type Connection, type ConnectionContext } from 'agents'
 import { type GenerateTextOnFinishCallback, type LanguageModel, type ToolSet } from 'ai'
+import {
+	isPartyDbRequest,
+	PartyDbCore,
+	type SqlEngine,
+	SqliteAdapter,
+} from 'party-db/server'
 import { z } from 'zod'
 
 import { chatRequestBody } from '../shared/chat'
@@ -17,7 +23,6 @@ import {
 	alreadyRuled,
 	missingNote,
 	type Note,
-	type NoteAnchor,
 	type NoteContent,
 	type NoteDisposition,
 	type NoteRuling,
@@ -49,7 +54,6 @@ import {
 	type Source,
 } from '../shared/plan'
 import {
-	type ReviewFinished,
 	type ReviewOutput,
 	reviewAlreadyRunning,
 	type ReviewRequest,
@@ -58,6 +62,13 @@ import {
 	type RoundPassage,
 	type RoundState,
 } from '../shared/review'
+import {
+	type NoteRow,
+	type RoundRow,
+	syncCollections,
+	toNote,
+	toRound,
+} from '../shared/sync'
 import { chatTurn } from './llm/chat-turn'
 import { model } from './llm/model'
 import { reviewTurn } from './llm/review'
@@ -104,61 +115,14 @@ function toBlock(row: BlockDbRow): BlockRow {
 	return { id: row.id, ord: row.ord, json: JSON.parse(row.json) as BlockJson }
 }
 
-/** One Round row, read the same way `OfferRow` is. `parts` is the response
- * body as JSON, holding note ids rather than note contents. */
-type RoundDbRow = {
-	seq: number
-	id: string
-	state: RoundState
-	prompt: string
-	depth: Round['depth']
-	passages: string
-	failure: string | null
-	started_at: number
-	finished_at: number | null
-}
+/** The Note and Round row shapes and their readers live in `shared/sync.ts`
+ * now, because the rows travel: a synced client reads the same columns this
+ * class writes. What stays here is the writing. */
 
-function toRound(row: RoundDbRow): Round {
-	return {
-		id: row.id,
-		ordinal: row.seq,
-		state: row.state,
-		prompt: row.prompt,
-		depth: row.depth,
-		passages: JSON.parse(row.passages) as RoundPassage[],
-		failure: row.failure,
-		startedAt: row.started_at,
-		finishedAt: row.finished_at,
-	}
-}
-
-/** One Note row. */
-type NoteDbRow = {
-	seq: number
-	id: string
-	round_id: string
-	type: string
-	anchor: string
-	label: string | null
-	body: string
-	disposition: NoteDisposition
-	created_at: number
-	decided_at: number | null
-}
-
-function toNote(row: NoteDbRow): Note {
-	return {
-		id: row.id,
-		roundId: row.round_id,
-		type: row.type,
-		anchor: JSON.parse(row.anchor) as NoteAnchor,
-		...(row.label === null ? {} : { label: row.label }),
-		body: row.body,
-		disposition: row.disposition,
-		createdAt: row.created_at,
-		decidedAt: row.decided_at,
-	}
-}
+/** The connection tag party-db subscribers carry, so a broadcast can leave
+ * them out and the sync fan-out can find them — tags survive hibernation
+ * where a field would not. */
+const PARTY_DB_TAG = 'party-db'
 
 /** `duplicate` means the row was already there and nothing was written. */
 export type RecordedOffer = { offer: Offer; duplicate: boolean }
@@ -172,12 +136,17 @@ export type RecordedOffer = { offer: Offer; duplicate: boolean }
 export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	initialState = emptyPlan()
 
+	/** The party-db room composed into this Agent — architecture.md §12. Built
+	 * fresh on every wake in `onStart`, which partyserver runs before any
+	 * connect, request, or RPC reaches this class. */
+	db!: PartyDbCore
+
 	/** Runs on every wake, so every statement here has to be idempotent. A new
 	 * table can join this one. A new column cannot go in bare — SQLite has no
 	 * ADD COLUMN IF NOT EXISTS, so the second wake throws on a duplicate and
 	 * takes the Chat and the Plan down with it. `pragma_table_info` is what makes
 	 * a guarded ALTER possible when a column does have to change. */
-	onStart(): void {
+	async onStart(): Promise<void> {
 		this.sql`
 			CREATE TABLE IF NOT EXISTS offer (
 				seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -244,20 +213,116 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		`
 		this.sql`CREATE INDEX IF NOT EXISTS note_by_round ON note (round_id)`
 
+		// One Review at a time per Article, enforced by the table itself: at most
+		// one row may read `running`. The pre-check in `startReview` gives the
+		// friendly refusal; this index is what holds when two calls interleave
+		// across `commit`'s await (#9).
+		this.sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS round_one_running
+			ON round (state) WHERE state = 'running'
+		`
+
+		// The party-db core, held rather than inherited: this class already
+		// extends AIChatAgent. The tables above stay this class's own DDL — the
+		// core only CRUDs over them, adds its `_oplog`, and fans committed
+		// batches out to the connections tagged party-db.
+		//
+		// Retention 200 against the default 10,000 — §11: low retention pushes a
+		// returning client onto the cheap snapshot path.
+		const engine: SqlEngine = {
+			exec: (query, ...bindings) => this.ctx.storage.sql.exec(query, ...bindings),
+			transaction: (fn) => this.ctx.storage.transactionSync(fn),
+		}
+		this.db = new PartyDbCore({
+			collections: syncCollections,
+			adapter: new SqliteAdapter(engine, syncCollections, { oplogRetention: 200 }),
+			broadcast: (message) => {
+				for (const connection of this.getConnections(PARTY_DB_TAG)) {
+					connection.send(message)
+				}
+			},
+		})
+		await this.db.init()
+
 		// A Review runs under `waitUntil`, which holds this Agent awake until it
 		// settles — so a `running` row seen at wake is one a crash or deploy cut
 		// off. Failing it here frees the one-at-a-time guard and puts the reason
-		// where the writer looks.
-		this.sql`
-			UPDATE round
-			SET state = 'failed',
-				failure = 'The Review was cut off by a restart.',
-				finished_at = ${Date.now()}
-			WHERE state = 'running'
-		`
+		// where the writer looks. Through `commit`, not raw SQL: a subscriber
+		// that watched the Round start has to hear it fail.
+		const cut = this.sql<{ id: string }>`SELECT id FROM round WHERE state = 'running'`
+		if (cut.length > 0) {
+			await this.db.commit([
+				{
+					channel: 'round',
+					ops: cut.map(({ id }) => ({
+						type: 'update' as const,
+						value: roundSettled(
+							id,
+							'failed',
+							'[]',
+							'The Review was cut off by a restart.',
+						),
+					})),
+				},
+			])
+		}
 	}
 
-	async onRequest(_request: Request): Promise<Response> {
+	/** party-db marks its own traffic with `?proto=party-db`, so routing needs no
+	 * configuration; tags are what survive hibernation, so the broadcast override
+	 * and the sync fan-out both read them rather than the request. */
+	getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
+		return isPartyDbRequest(ctx.request) ? [PARTY_DB_TAG] : []
+	}
+
+	/** Keeps the SDK's connect handshake — identity, `cf_agent_state`, MCP — off
+	 * sync subscribers, and keeps them out of its protocol broadcasts. */
+	shouldSendProtocolMessages(_connection: Connection, ctx: ConnectionContext): boolean {
+		return !isPartyDbRequest(ctx.request)
+	}
+
+	/** Every broadcast leaves the party-db connections out — the SDK's own
+	 * (state sync, Chat streams) and this class's (`plan_refused`) all pass
+	 * through here. A sync subscriber hears `SequencedBatch` frames and nothing
+	 * else; the core's fan-out is scoped by the tag in `onStart`. */
+	broadcast(message: string | ArrayBuffer | ArrayBufferView, without?: string[]): void {
+		const skip = without === undefined ? [] : [...without]
+		for (const connection of this.getConnections(PARTY_DB_TAG)) {
+			skip.push(connection.id)
+		}
+		super.broadcast(message, skip)
+	}
+
+	/** A marked connect is a sync subscriber: the core answers it — a snapshot,
+	 * or the delta after its `?since` cursor — and nothing else on this class
+	 * speaks to it again. */
+	onConnect(connection: Connection, ctx: ConnectionContext): void | Promise<void> {
+		const url = new URL(ctx.request.url)
+		if (isPartyDbRequest(url)) {
+			return this.db.connect((message) => connection.send(message), url)
+		}
+
+		return super.onConnect(connection, ctx)
+	}
+
+	/**
+	 * The pilot syncs reads only, so a party-db write POST is refused rather
+	 * than routed to the core: rulings are server-side state-machine moves and
+	 * party-db has no per-row policy layer to hold their guards yet (party-db
+	 * #33). The refusal keeps that a decision — forwarding to
+	 * `this.db.handleWrite` is the whole change when a client-authored
+	 * collection arrives.
+	 */
+	async onRequest(request: Request): Promise<Response> {
+		if (isPartyDbRequest(request)) {
+			return Response.json(
+				{
+					error: 'This Article accepts no client collection writes. Rulings go over RPC.',
+				},
+				{ status: 403 },
+			)
+		}
+
 		return Response.json({ agent: 'ArticleAgent', name: this.name })
 	}
 
@@ -501,16 +566,16 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** Every Round on this Article, oldest first. `seq` orders it and numbers it,
 	 * for the reason `listOffers` gives: a Worker's clock barely moves across
-	 * local writes. */
-	@callable()
+	 * local writes. Not `@callable`: a client reads Rounds off its synced
+	 * collection now, so this reader serves this class and its tests. */
 	listRounds(): Round[] {
-		return this.sql<RoundDbRow>`SELECT * FROM round ORDER BY seq`.map(toRound)
+		return this.sql<RoundRow>`SELECT * FROM round ORDER BY seq`.map(toRound)
 	}
 
-	/** Every Note on this Article, in the order the Guide wrote them. */
-	@callable()
+	/** Every Note on this Article, in the order the Guide wrote them. Not
+	 * `@callable`, for the reason `listRounds` gives. */
 	listNotes(): Note[] {
-		return this.sql<NoteDbRow>`SELECT * FROM note ORDER BY seq`.map(toNote)
+		return this.sql<NoteRow>`SELECT * FROM note ORDER BY seq`.map(toNote)
 	}
 
 	/**
@@ -521,13 +586,13 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * runs at a time, guarded by the running row — §12 for the full argument.
 	 */
 	@callable()
-	startReview(request: unknown): Round {
+	async startReview(request: unknown): Promise<Round> {
 		const asked = reviewRequestSchema.parse(request)
 
 		const running = this.runningRound()
 		if (running !== null) throw reviewAlreadyRunning(running)
 
-		const round = this.createRound(asked)
+		const round = await this.createRound(asked)
 		this.ctx.waitUntil(this.finishReview(round, asked))
 
 		return round
@@ -535,30 +600,43 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** The Review in flight, and null when none is. */
 	private runningRound(): Round | null {
-		const rows = this.sql<RoundDbRow>`
+		const rows = this.sql<RoundRow>`
 			SELECT * FROM round WHERE state = 'running' ORDER BY seq LIMIT 1
 		`
 
 		return rows.length === 0 ? null : toRound(rows[0])
 	}
 
-	private createRound(asked: ReviewRequest): Round {
-		const rows = this.sql<RoundDbRow>`
-			INSERT INTO round (id, state, prompt, depth, passages, failure, started_at, finished_at)
-			VALUES (
-				${crypto.randomUUID()},
-				'running',
-				${asked.prompt},
-				${asked.depth},
-				'[]',
-				NULL,
-				${Date.now()},
-				NULL
-			)
-			RETURNING *
-		`
+	/** The insert goes through `commit`, so every subscriber sees the Round
+	 * start; the resolved row carries the `seq` the table assigned, which is
+	 * the ordinal the writer reads. */
+	private async createRound(asked: ReviewRequest): Promise<Round> {
+		const value: RoundRow = {
+			id: crypto.randomUUID(),
+			state: 'running',
+			prompt: asked.prompt,
+			depth: asked.depth,
+			passages: '[]',
+			failure: null,
+			started_at: Date.now(),
+			finished_at: null,
+		}
 
-		return toRound(rows[0])
+		try {
+			const [batch] = await this.db.commit([
+				{ channel: 'round', ops: [{ type: 'insert', value }] },
+			])
+
+			return toRound(batch.ops[0].value as RoundRow)
+		} catch (error) {
+			// The `round_one_running` index refused a second running row — the
+			// race the pre-check above cannot close, since two calls interleave
+			// across this await (#9). Re-read to name the Round that won.
+			const running = this.runningRound()
+			if (running !== null) throw reviewAlreadyRunning(running)
+
+			throw error
+		}
 	}
 
 	/**
@@ -589,31 +667,40 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 				pack,
 			})
 
-			this.writeReview(round, output, pack)
+			await this.writeReview(round, output, pack)
 		} catch (error) {
-			this.failRound(round.id, reasonFor(error))
+			await this.failRound(round.id, reasonFor(error))
 		}
-
-		// Rows have no sync (§3), so this is the only thing that tells a waiting
-		// client the Round it started has settled. A client that was away reads
-		// the rows when the Panel opens instead.
-		const finished: ReviewFinished = { type: 'review_finished', roundId: round.id }
-		this.broadcast(JSON.stringify(finished))
+		// Nothing announces the settle: the commits above are the announcement.
+		// Every subscriber hears the rows land, and a client that was away
+		// catches up from its `?since` cursor when it reconnects.
 	}
 
 	/**
-	 * The response, as rows. Each Note becomes a row and the part keeps its id,
-	 * so the written response and the Notes queue are two readings of one set of
-	 * records and a ruling made on either is made on both.
+	 * The response, as rows — the Notes and the settled Round in one `commit`,
+	 * so a subscriber that hears the Round settle already holds its Notes.
+	 * Each Note keeps the id its passage names it by, so the written response
+	 * and the Notes queue are two readings of one set of records and a ruling
+	 * made on either is made on both.
 	 */
-	private writeReview(round: Round, output: ReviewOutput, pack: ReviewPack): void {
+	private async writeReview(
+		round: Round,
+		output: ReviewOutput,
+		pack: ReviewPack,
+	): Promise<void> {
 		const known = {
 			nodeIds: sectionIds(pack.plan),
 			blockIds: pack.blocks.map((block) => block.id),
 		}
 
+		const notes: NoteRow[] = []
 		const passages = output.passages.map((passage): RoundPassage => {
-			const noteIds = passage.notes.map((note) => this.createNote(round.id, note, known))
+			const noteIds = passage.notes.map((content) => {
+				const note = noteRow(round.id, content, known)
+				notes.push(note)
+
+				return note.id
+			})
 
 			return {
 				prose: passage.prose,
@@ -622,40 +709,25 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			}
 		})
 
-		this.settleRound(round.id, 'done', passages, null)
-	}
-
-	/**
-	 * One Note row, and the id the part names it by. Starts proposed.
-	 *
-	 * Not `@callable`: the Guide writes the Notes, and the client has no path
-	 * that authors one (§3, rule 4). It answers with the id rather than the Note, because the id is
-	 * all a part carries and reading the row back would parse the anchor this just
-	 * wrote.
-	 */
-	private createNote(
-		roundId: string,
-		content: NoteContent,
-		known: { nodeIds: ReadonlySet<string>; blockIds: readonly string[] },
-	): string {
-		const id = crypto.randomUUID()
-
-		this.sql`
-			INSERT INTO note (id, round_id, type, anchor, label, body, disposition, created_at, decided_at)
-			VALUES (
-				${id},
-				${roundId},
-				${content.type},
-				${JSON.stringify(settleAnchor(content.anchor, known))},
-				${content.label ?? null},
-				${content.body},
-				'proposed',
-				${Date.now()},
-				NULL
-			)
-		`
-
-		return id
+		await this.db.commit([
+			...(notes.length === 0
+				? []
+				: [
+						{
+							channel: 'note',
+							ops: notes.map((value) => ({ type: 'insert' as const, value })),
+						},
+					]),
+			{
+				channel: 'round',
+				ops: [
+					{
+						type: 'update' as const,
+						value: roundSettled(round.id, 'done', JSON.stringify(passages), null),
+					},
+				],
+			},
+		])
 	}
 
 	/**
@@ -667,36 +739,31 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * `JSON.parse` of its anchor to produce a handful the pack will use.
 	 */
 	private openNotes(): Note[] {
-		return this.sql<NoteDbRow>`
+		return this.sql<NoteRow>`
 			SELECT * FROM note WHERE disposition = 'accepted' ORDER BY seq
 		`.map(toNote)
 	}
 
-	private settleRound(
-		id: string,
-		state: RoundState,
-		passages: RoundPassage[],
-		failure: string | null,
-	): void {
-		this.sql`
-			UPDATE round
-			SET state = ${state},
-				passages = ${JSON.stringify(passages)},
-				failure = ${failure},
-				finished_at = ${Date.now()}
-			WHERE id = ${id}
-		`
-	}
-
 	/** A Review that threw. The reason goes on the row because the writer may
-	 * have left, and a thrown call has nowhere to land — §12. */
-	private failRound(id: string, failure: string): void {
-		this.settleRound(id, 'failed', [], failure)
+	 * have left, and a thrown call has nowhere to land — §12. A commit that
+	 * fails here has no row left to land on either, so it is logged and
+	 * swallowed rather than thrown into `waitUntil`. */
+	private async failRound(id: string, failure: string): Promise<void> {
+		try {
+			await this.db.commit([
+				{
+					channel: 'round',
+					ops: [{ type: 'update', value: roundSettled(id, 'failed', '[]', failure) }],
+				},
+			])
+		} catch (error) {
+			console.error('The failed Round could not be recorded:', error)
+		}
 	}
 
 	/** The writer's ruling on one proposed Note. */
 	@callable()
-	setNoteDisposition(id: string, ruling: NoteRuling): Note {
+	async setNoteDisposition(id: string, ruling: NoteRuling): Promise<Note> {
 		const ruled = noteRulingSchema.parse(ruling)
 
 		// Read first, so a Note that has already been ruled on and one that does
@@ -709,7 +776,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** The writer has dealt with an accepted Note. */
 	@callable()
-	resolveNote(id: string): Note {
+	async resolveNote(id: string): Promise<Note> {
 		const note = this.readNote(id)
 		if (note.disposition !== 'accepted') throw notAccepted(note)
 
@@ -719,7 +786,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	/** Undo the last move: a declined Note goes back to proposed, and a resolved
 	 * one back to accepted. */
 	@callable()
-	restoreNote(id: string): Note {
+	async restoreNote(id: string): Promise<Note> {
 		const note = this.readNote(id)
 		const back = restoredTo(note.disposition)
 		if (back === null) throw notRestorable(note)
@@ -728,22 +795,64 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/** `decided_at` is the moment the Note stopped being the Guide's and became
-	 * the writer's, so restoring to proposed clears it. */
-	private moveNote(id: string, disposition: NoteDisposition): Note {
-		const rows = this.sql<NoteDbRow>`
-			UPDATE note
-			SET disposition = ${disposition},
-				decided_at = ${disposition === 'proposed' ? null : Date.now()}
-			WHERE id = ${id} RETURNING *
-		`
+	 * the writer's, so restoring to proposed clears it. The move goes through
+	 * `commit` — RPC keeps the guards above, `commit` makes the ruled row sync —
+	 * and the update names only the columns it moves. */
+	private async moveNote(id: string, disposition: NoteDisposition): Promise<Note> {
+		const [batch] = await this.db.commit([
+			{
+				channel: 'note',
+				ops: [
+					{
+						type: 'update',
+						value: {
+							id,
+							disposition,
+							decided_at: disposition === 'proposed' ? null : Date.now(),
+						},
+					},
+				],
+			},
+		])
 
-		return toNote(rows[0])
+		return toNote(batch.ops[0].value as NoteRow)
 	}
 
 	private readNote(id: string): Note {
-		const rows = this.sql<NoteDbRow>`SELECT * FROM note WHERE id = ${id}`
+		const rows = this.sql<NoteRow>`SELECT * FROM note WHERE id = ${id}`
 		if (rows.length === 0) throw missingNote(id)
 
 		return toNote(rows[0])
 	}
+}
+
+/** One Note as a row, ready to commit. Starts proposed; the anchor is settled
+ * here, once, against what the Review was shown (§12). */
+function noteRow(
+	roundId: string,
+	content: NoteContent,
+	known: { nodeIds: ReadonlySet<string>; blockIds: readonly string[] },
+): NoteRow {
+	return {
+		id: crypto.randomUUID(),
+		round_id: roundId,
+		type: content.type,
+		anchor: JSON.stringify(settleAnchor(content.anchor, known)),
+		label: content.label ?? null,
+		body: content.body,
+		disposition: 'proposed',
+		created_at: Date.now(),
+		decided_at: null,
+	}
+}
+
+/** The columns that settle a Round, as one update value. `passages` arrives
+ * already as JSON text, because the wire carries the column. */
+function roundSettled(
+	id: string,
+	state: RoundState,
+	passages: string,
+	failure: string | null,
+): Partial<RoundRow> & { id: string } {
+	return { id, state, passages, failure, finished_at: Date.now() }
 }

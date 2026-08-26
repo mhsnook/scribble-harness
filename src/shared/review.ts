@@ -73,11 +73,3 @@ export type Round = {
 export function reviewAlreadyRunning(round: Round): Error {
 	return new Error(`Round ${round.ordinal} is still running on this Article.`)
 }
-
-/** Broadcast when a Review settles, because rows have no sync — §12. */
-export type ReviewFinished = {
-	type: 'review_finished'
-	roundId: string
-}
-
-export const reviewFinishedFrame = 'review_finished'

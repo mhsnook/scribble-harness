@@ -270,11 +270,13 @@ describe('running a Review', () => {
 		await openAgentSocket('review-one')
 		await scriptReview('review-one', answers(response({ kind: 'article' })))
 
+		// Both in flight at once — the double-click. The pre-check cannot close
+		// this race on its own, because `startReview` awaits its commit (#9);
+		// the `round_one_running` index is what refuses the second insert.
 		await expect(
-			inAgent('review-one', (agent) => {
-				agent.startReview(ask)
-				agent.startReview(ask)
-			}),
+			inAgent('review-one', (agent) =>
+				Promise.all([agent.startReview(ask), agent.startReview(ask)]),
+			),
 		).rejects.toThrow(/still running/)
 	})
 
@@ -294,11 +296,11 @@ describe('running a Review', () => {
 		}
 
 		const notes = await inAgent('review-bound', (agent) => agent.listNotes())
-		await inAgent('review-bound', (agent) => {
-			agent.setNoteDisposition(notes[0].id, 'accepted')
-			agent.setNoteDisposition(notes[1].id, 'declined')
-			agent.setNoteDisposition(notes[2].id, 'accepted')
-			agent.resolveNote(notes[2].id)
+		await inAgent('review-bound', async (agent) => {
+			await agent.setNoteDisposition(notes[0].id, 'accepted')
+			await agent.setNoteDisposition(notes[1].id, 'declined')
+			await agent.setNoteDisposition(notes[2].id, 'accepted')
+			await agent.resolveNote(notes[2].id)
 		})
 
 		await inAgent('review-bound', (agent) => agent.startReview(ask))
@@ -313,16 +315,8 @@ describe('running a Review', () => {
 		expect(sent.match(/Cut to a clause/g)).toHaveLength(1)
 	})
 
-	it('says which Round settled, because nothing else would', async () => {
-		const reader = await openAgentSocket('review-frame')
-		await scriptReview('review-frame', answers(response({ kind: 'article' })))
-
-		const round = await inAgent('review-frame', (agent) => agent.startReview(ask))
-
-		await expect(reader.next('review_finished')).resolves.toMatchObject({
-			roundId: round.id,
-		})
-	})
+	// What used to be announced with a `review_finished` frame is now the
+	// synced rows landing — test/worker/sync.test.ts proves that path.
 })
 
 describe('ruling on a Note', () => {

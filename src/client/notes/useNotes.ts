@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useLiveQuery } from '@tanstack/react-db'
+import { useEffect, useState } from 'react'
 
 import type { BlockRow } from '../../shared/draft'
 import type { Note } from '../../shared/note'
@@ -9,13 +10,16 @@ import {
 	wholeQueue,
 } from '../../shared/notes-queue'
 import type { ReviewDepth, Round } from '../../shared/review'
+import { toNote, toRound } from '../../shared/sync'
 import { useArticle } from '../lib/article'
 import { failureText } from '../lib/failure'
 import type { NoteActions } from './actions'
 import { type AnchorNaming, anchorNaming } from './anchors'
 
-/** The Notes Panel's half of one Article Agent. Rows come down once, since
- * nothing announces a row changing (§3). */
+/** The Notes Panel's half of one Article Agent. The rows are synced party-db
+ * collections (architecture.md §12): they arrive as the Guide commits them,
+ * and a ruling comes back the same way — so nothing here polls, reloads, or
+ * patches local copies. */
 
 export type NotesHandle = {
 	queue: NotesQueue
@@ -32,119 +36,79 @@ export type NotesHandle = {
 	runReview: (prompt: string, depth: ReviewDepth) => void
 }
 
-/** The broadcast is the signal a Review settled; this only covers a socket that
- * dropped while one ran. */
-const WAITING_POLL = 5_000
-
-/** The next tick tries again, and the writer is already told a Review is
- * running. */
-const ignore = () => {}
+/** In the order they were written. `seq` orders the wire rows the way it
+ * orders the tables; a fresh insert has none until its own frame lands. */
+function bySeq<Row extends { seq?: number }>(rows: readonly Row[]): Row[] {
+	return [...rows].sort((one, two) => (one.seq ?? 0) - (two.seq ?? 0))
+}
 
 export function useNotes(): NotesHandle {
-	const { notes: store, draft, reviewFinished, plan: connection } = useArticle()
+	const { notes: store, draft, sync, plan: connection } = useArticle()
 
-	const [notes, setNotes] = useState<Note[] | null>(null)
-	const [rounds, setRounds] = useState<Round[] | null>(null)
 	const [blocks, setBlocks] = useState<BlockRow[]>([])
 	const [failure, setFailure] = useState<string | null>(null)
 	const [view, setView] = useState<QueueView>(wholeQueue)
-	const [reads, setReads] = useState(0)
 
-	const reload = useCallback(() => setReads((count) => count + 1), [])
+	const noteRows = useLiveQuery((q) => q.from({ note: sync.note }), [sync.note])
+	const roundRows = useLiveQuery((q) => q.from({ round: sync.round }), [sync.round])
 
-	// The Blocks ride along because a Note's anchor is read against them, and
-	// this is the Draft as the Review itself read it — so "¶3" on a card is the
-	// paragraph the model was looking at, even if the writer has typed since.
+	const notes = bySeq(noteRows.data ?? []).map(toNote)
+	const rounds = bySeq(roundRows.data ?? []).map(toRound)
+
+	// A Note's anchor is read against the Draft the Review itself read — so
+	// "¶3" on a card is the paragraph the model was looking at, even if the
+	// writer has typed since. The Blocks reload when a Round settles, which the
+	// synced rows now announce.
+	const lastSettled =
+		[...rounds].reverse().find((round) => round.state !== 'running')?.id ?? null
+
 	useEffect(() => {
 		let live = true
 
-		Promise.all([store.listRounds(), store.listNotes(), draft.listBlocks()]).then(
-			([listedRounds, listedNotes, listedBlocks]) => {
-				if (!live) return
-
-				setRounds(listedRounds)
-				setNotes(listedNotes)
-				setBlocks(listedBlocks)
+		draft.listBlocks().then(
+			(listed) => {
+				if (live) setBlocks(listed)
 			},
 			(error: unknown) => {
-				if (live) setFailure(failureText('The Notes did not load.', error))
+				if (live) setFailure(failureText('The Draft did not load.', error))
 			},
 		)
 
 		return () => {
 			live = false
 		}
-		// `reviewFinished` is a dependency rather than its own effect: a Review
-		// settling is another reason to read, not a reason to set state that then
-		// causes one.
-	}, [store, draft, reads, reviewFinished])
+	}, [draft, lastSettled])
 
-	// The Panel derives the running Round for itself off `rounds`; this one is
-	// for the poll below.
-	const running = (rounds ?? []).find((round) => round.state === 'running') ?? null
-	const waitingOn = running === null ? null : running.id
+	/** The write is the whole move: the ruled row comes back down the sync, so
+	 * a success has nothing to patch and a failure has something to say. */
+	const rule = (what: string, write: () => Promise<Note>) => {
+		setFailure(null)
+		write().catch((error: unknown) => setFailure(failureText(what, error)))
+	}
 
-	// Reads the Rounds alone: the full load would pull the whole Draft back on
-	// every tick to answer one question about one row.
-	useEffect(() => {
-		if (waitingOn === null) return
+	const actions: NoteActions = {
+		accept: (note) =>
+			rule('This Note was not accepted.', () =>
+				store.setNoteDisposition(note.id, 'accepted'),
+			),
+		decline: (note) =>
+			rule('This Note was not declined.', () =>
+				store.setNoteDisposition(note.id, 'declined'),
+			),
+		resolve: (note) =>
+			rule('This Note was not resolved.', () => store.resolveNote(note.id)),
+		restore: (note) =>
+			rule('This Note was not restored.', () => store.restoreNote(note.id)),
+	}
 
-		let live = true
-
-		const check = () => {
-			store.listRounds().then((listed) => {
-				if (!live) return
-
-				setRounds(listed)
-				const still = listed.find((round) => round.id === waitingOn)
-				if (still?.state !== 'running') reload()
-			}, ignore)
-		}
-
-		const timer = setInterval(check, WAITING_POLL)
-
-		return () => {
-			live = false
-			clearInterval(timer)
-		}
-	}, [store, waitingOn, reload])
-
-	const actions: NoteActions = (() => {
-		/** In place: a ruling does not change the order the Guide wrote them in. */
-		const replace = (ruled: Note) =>
-			setNotes((held) =>
-				(held ?? []).map((note) => (note.id === ruled.id ? ruled : note)),
-			)
-
-		const rule = (what: string, write: () => Promise<Note>) => {
-			setFailure(null)
-			write().then(replace, (error: unknown) => setFailure(failureText(what, error)))
-		}
-
-		return {
-			accept: (note) =>
-				rule('This Note was not accepted.', () =>
-					store.setNoteDisposition(note.id, 'accepted'),
-				),
-			decline: (note) =>
-				rule('This Note was not declined.', () =>
-					store.setNoteDisposition(note.id, 'declined'),
-				),
-			resolve: (note) =>
-				rule('This Note was not resolved.', () => store.resolveNote(note.id)),
-			restore: (note) =>
-				rule('This Note was not restored.', () => store.restoreNote(note.id)),
-		}
-	})()
-
-	const queue = notesQueue(notes ?? [], view)
+	const queue = notesQueue(notes, view)
 	const naming = anchorNaming(connection.plan, blocks)
 
 	return {
 		queue,
-		notes: notes ?? [],
-		rounds: rounds ?? [],
-		loading: notes === null,
+		notes,
+		rounds,
+		loading: !(noteRows.isReady && roundRows.isReady),
 		failure,
 		view,
 		setView,
@@ -157,6 +121,8 @@ export function useNotes(): NotesHandle {
 			const asked = prompt.trim()
 			if (asked === '') return
 
+			// The Round arrives through the synced collection; the call's own
+			// answer only matters when it is a refusal.
 			store
 				.startReview({
 					prompt: asked,
@@ -164,9 +130,8 @@ export function useNotes(): NotesHandle {
 					// May be newer than the Plan the Article Agent has stored — §6.
 					...(connection.plan === null ? {} : { plan: connection.plan }),
 				})
-				.then(
-					(round) => setRounds((held) => [...(held ?? []), round]),
-					(error: unknown) => setFailure(failureText('The Review did not start.', error)),
+				.catch((error: unknown) =>
+					setFailure(failureText('The Review did not start.', error)),
 				)
 		},
 	}

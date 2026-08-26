@@ -10,11 +10,7 @@ import type { Note } from '../../../src/shared/note'
 import { restoredTo } from '../../../src/shared/note'
 import type { Round } from '../../../src/shared/review'
 import { ARTICLE_TITLE, plan } from '../../mock/content'
-import {
-	memoryDraftStore,
-	memoryNoteStore,
-	memoryOfferStore,
-} from '../../mock/MockArticle'
+import { memoryDraftStore, memoryNotes, memoryOfferStore } from '../../mock/MockArticle'
 import { reviewNotes, reviewRound, reviewRounds } from '../../mock/review'
 
 /**
@@ -65,10 +61,10 @@ export interface MockNotesProps {
 
 /**
  * The Article seam a Review reads: the Plan for its Section numbers, the Draft
- * for its paragraph numbers, and the rows themselves.
+ * for its paragraph numbers, and the synced collections holding the rows.
  *
- * The stores are built once per screen, because the hooks over them read once
- * per store — rebuilding on every render would reload the rows and throw away
+ * The seam is built once per screen, because the hooks over it read once per
+ * store — rebuilding on every render would reload the rows and throw away
  * every ruling the story had made.
  */
 export function MockNotes({
@@ -77,22 +73,19 @@ export function MockNotes({
 	notes = reviewNotes,
 	answer,
 }: MockNotesProps) {
-	// Stands in for the socket frame the Article Agent broadcasts.
-	const [reviewFinished, setReviewFinished] = useState<string | null>(null)
-
-	// One seam per story, built lazily so each keeps its own rows: the hooks over
-	// it read once per store.
-	const [stores] = useState(() => ({
+	const [seam] = useState(() => ({
 		draft: memoryDraftStore({ seed: draft }),
 		offers: memoryOfferStore([]),
-		notes: memoryNoteStore({ rounds, notes, answer, onFinished: setReviewFinished }),
+		...memoryNotes({ rounds, notes, answer }),
 	}))
 
 	return (
 		<ArticleProvider
 			value={{
-				...stores,
-				reviewFinished,
+				draft: seam.draft,
+				offers: seam.offers,
+				notes: seam.store,
+				sync: seam.sync,
 				plan: { plan, edit: () => null, refusal: null, rejected: null },
 			}}
 		>

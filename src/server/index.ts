@@ -3,6 +3,7 @@
 
 import { routeAgentRequest } from 'agents'
 import { Hono } from 'hono'
+import { routePartykitRequest } from 'partyserver'
 
 import { ArticleAgent } from './article-agent'
 import { articleIndex } from './article-index'
@@ -23,6 +24,15 @@ app.route('/api/articles', articleIndex)
 app.all('/agents/*', async (c) => {
 	const response = await routeAgentRequest(c.req.raw, c.env)
 	return response ?? c.text('No such Agent route', 404)
+})
+
+// The party-db sync socket — architecture.md §12. partyTransport speaks
+// partyserver's own /parties/:party/:room path, and routePartykitRequest maps
+// /parties/article-agent/:name onto the same ArticleAgent binding the route
+// above serves, so both sockets land on the one Durable Object per Article.
+app.all('/parties/*', async (c) => {
+	const response = await routePartykitRequest(c.req.raw, c.env)
+	return response ?? c.text('No such party route', 404)
 })
 
 // Without this, notFound below would answer an unknown /api path with the

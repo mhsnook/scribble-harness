@@ -1,3 +1,4 @@
+import { createCollection } from '@tanstack/db'
 import { type ReactNode, useState } from 'react'
 
 import {
@@ -7,6 +8,7 @@ import {
 	type OfferStore,
 	useArticle,
 } from '../../src/client/lib/article'
+import type { ArticleSync } from '../../src/client/lib/sync'
 import { createPlanWriter } from '../../src/client/plan/writer'
 import type { BlockRow, DraftChange } from '../../src/shared/draft'
 import {
@@ -26,6 +28,7 @@ import {
 } from '../../src/shared/offer'
 import { emptyPlan, type Plan, type Refusal } from '../../src/shared/plan'
 import type { ReviewRequest, Round } from '../../src/shared/review'
+import { type NoteRow, type RoundRow, toNote, toRound } from '../../src/shared/sync'
 import { offers as seeded, plan as seededPlan } from './content'
 
 /**
@@ -49,11 +52,11 @@ export function MockArticle({ children }: { children: ReactNode }) {
 		return held
 	})
 
-	// One store per story, for the reason `useArticleAgent` gives: the three
-	// readers each load once per store identity.
+	// One store per story, for the reason `useArticleAgent` gives: the readers
+	// each load once per store identity, and the collections hold the rows.
 	const [offers] = useState(() => memoryOfferStore(seeded))
 	const [draft] = useState(() => memoryDraftStore())
-	const [notes] = useState(() => memoryNoteStore())
+	const [{ store: notes, sync }] = useState(() => memoryNotes())
 
 	const edit = (next: Parameters<typeof writer.edit>[0]) => {
 		setRefusal(null)
@@ -67,7 +70,7 @@ export function MockArticle({ children }: { children: ReactNode }) {
 				offers,
 				draft,
 				notes,
-				reviewFinished: null,
+				sync,
 				plan: { plan, edit, refusal, rejected: null },
 			}}
 		>
@@ -126,106 +129,187 @@ export function memoryDraftStore(
 	}
 }
 
+/** One synced collection held in memory: seeded on sync, written to by the
+ * memory store the way the Article Agent's `commit` fans out. */
+function memoryCollection<Row extends { id: string }>(seed: readonly Row[]) {
+	type Sink = {
+		begin: () => void
+		write: (op: { type: 'insert' | 'update' | 'delete'; value: Row }) => void
+		commit: () => void
+		markReady: () => void
+	}
+
+	let sink: Sink | null = null
+
+	const collection = createCollection<Row>({
+		getKey: (row) => row.id,
+		startSync: true,
+		sync: {
+			sync: (params: Sink) => {
+				sink = params
+				params.begin()
+				for (const row of seed) params.write({ type: 'insert', value: { ...row } })
+				params.commit()
+				params.markReady()
+			},
+		},
+	})
+
+	const write = (op: { type: 'insert' | 'update'; value: Row }) => {
+		sink?.begin()
+		sink?.write(op)
+		sink?.commit()
+	}
+
+	return { collection, write }
+}
+
+function noteToRow(note: Note, seq: number): NoteRow {
+	return {
+		seq,
+		id: note.id,
+		round_id: note.roundId,
+		type: note.type,
+		anchor: JSON.stringify(note.anchor),
+		label: note.label ?? null,
+		body: note.body,
+		disposition: note.disposition,
+		created_at: note.createdAt,
+		decided_at: note.decidedAt,
+	}
+}
+
+function roundToRow(round: Round): RoundRow {
+	return {
+		seq: round.ordinal,
+		id: round.id,
+		state: round.state,
+		prompt: round.prompt,
+		depth: round.depth,
+		passages: JSON.stringify(round.passages),
+		failure: round.failure,
+		started_at: round.startedAt,
+		finished_at: round.finishedAt,
+	}
+}
+
 /**
- * The Notes and Rounds held in memory, running the real queue and the real
- * ruling rules.
+ * The Notes and Rounds held in memory: real synced collections behind the
+ * real live queries, plus a store running the real ruling rules — the same
+ * two halves `useArticleAgent` hands the Panels.
  *
  * `answer` is what a Review comes back with, after a beat — enough for a story
  * to run the whole loop: ask, wait, read the response, rule on what it found.
  * Leaving it out leaves every Review running, which is the state a story shows
  * when it is about the waiting.
  */
-export function memoryNoteStore(
+export function memoryNotes(
 	options: {
 		rounds?: readonly Round[]
 		notes?: readonly Note[]
 		answer?: { passages: Round['passages']; notes: readonly Note[] }
 		/** How long a Review takes to come back. */
 		takes?: number
-		/** Called with the Round id when one settles, as the socket frame does. */
-		onFinished?: (roundId: string) => void
 	} = {},
-): NoteStore {
-	const rounds = (options.rounds ?? []).map((round) => ({ ...round }))
-	const rows = (options.notes ?? []).map((note) => ({ ...note }))
+): { store: NoteStore; sync: ArticleSync } {
+	let noteSeq = 0
+	const note = memoryCollection<NoteRow>(
+		(options.notes ?? []).map((one) => noteToRow(one, ++noteSeq)),
+	)
+	const round = memoryCollection<RoundRow>((options.rounds ?? []).map(roundToRow))
 
-	const find = (id: string): Note => {
-		const note = rows.find((held) => held.id === id)
-		if (note === undefined) throw missingNote(id)
+	const find = (id: string): NoteRow => {
+		const row = note.collection.get(id)
+		if (row === undefined) throw missingNote(id)
 
-		return note
+		return row
 	}
 
-	const move = (note: Note, disposition: NoteDisposition) => {
-		const moved = {
-			...note,
+	const move = (row: NoteRow, disposition: NoteDisposition) => {
+		const moved: NoteRow = {
+			...row,
 			disposition,
-			decidedAt: disposition === 'proposed' ? null : Date.now(),
+			decided_at: disposition === 'proposed' ? null : Date.now(),
 		}
-		rows.splice(rows.indexOf(note), 1, moved)
+		note.write({ type: 'update', value: moved })
 
-		return Promise.resolve(moved)
+		return Promise.resolve(toNote(moved))
 	}
 
-	return {
-		listRounds: () => Promise.resolve(rounds.map((round) => ({ ...round }))),
-		listNotes: () => Promise.resolve(rows.map((note) => ({ ...note }))),
-
+	const store: NoteStore = {
 		startReview: (request: ReviewRequest) => {
 			// Minted, not counted off the length: a story seeds Rounds whose ids and
 			// ordinals start past 1.
-			const round: Round = {
+			const ordinal =
+				[...round.collection.values()].reduce(
+					(highest, held) => Math.max(highest, held.seq ?? 0),
+					0,
+				) + 1
+			const row: RoundRow = {
+				seq: ordinal,
 				id: crypto.randomUUID(),
-				ordinal: rounds.reduce((highest, held) => Math.max(highest, held.ordinal), 0) + 1,
 				state: 'running',
 				prompt: request.prompt,
 				depth: request.depth,
-				passages: [],
+				passages: '[]',
 				failure: null,
-				startedAt: Date.now(),
-				finishedAt: null,
+				started_at: Date.now(),
+				finished_at: null,
 			}
-			rounds.push(round)
+			round.write({ type: 'insert', value: row })
 
 			const { answer } = options
 			if (answer !== undefined) {
 				setTimeout(() => {
-					rows.push(...answer.notes.map((note) => ({ ...note, roundId: round.id })))
-					rounds.splice(rounds.indexOf(round), 1, {
-						...round,
-						state: 'done',
-						passages: answer.passages,
-						finishedAt: Date.now(),
+					for (const found of answer.notes) {
+						note.write({
+							type: 'insert',
+							value: noteToRow({ ...found, roundId: row.id }, ++noteSeq),
+						})
+					}
+					round.write({
+						type: 'update',
+						value: {
+							...row,
+							state: 'done',
+							passages: JSON.stringify(answer.passages),
+							finished_at: Date.now(),
+						},
 					})
-					options.onFinished?.(round.id)
 				}, options.takes ?? 600)
 			}
 
-			return Promise.resolve({ ...round })
+			return Promise.resolve(toRound(row))
 		},
 
 		setNoteDisposition: (id: string, ruling) => {
-			const note = find(id)
-			if (note.disposition !== 'proposed') return Promise.reject(alreadyRuled(note))
+			const row = find(id)
+			if (row.disposition !== 'proposed') {
+				return Promise.reject(alreadyRuled(toNote(row)))
+			}
 
-			return move(note, ruling)
+			return move(row, ruling)
 		},
 
 		resolveNote: (id: string) => {
-			const note = find(id)
-			if (note.disposition !== 'accepted') return Promise.reject(notAccepted(note))
+			const row = find(id)
+			if (row.disposition !== 'accepted') {
+				return Promise.reject(notAccepted(toNote(row)))
+			}
 
-			return move(note, 'resolved')
+			return move(row, 'resolved')
 		},
 
 		restoreNote: (id: string) => {
-			const note = find(id)
-			const back = restoredTo(note.disposition)
-			if (back === null) return Promise.reject(notRestorable(note))
+			const row = find(id)
+			const back = restoredTo(row.disposition)
+			if (back === null) return Promise.reject(notRestorable(toNote(row)))
 
-			return move(note, back)
+			return move(row, back)
 		},
 	}
+
+	return { store, sync: { note: note.collection, round: round.collection } }
 }
 
 export function memoryOfferStore(seed: readonly Offer[]): OfferStore {

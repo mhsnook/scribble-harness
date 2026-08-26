@@ -2,19 +2,14 @@ import { useAgent } from 'agents/react'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 
 import type { BlockRow, DraftChange, DraftSaved } from '../../shared/draft'
-import { isFrame } from '../../shared/frame'
 import type { Note, NoteRuling } from '../../shared/note'
 import type { Offer, Ruling } from '../../shared/offer'
 import type { Plan } from '../../shared/plan'
-import {
-	type ReviewFinished,
-	reviewFinishedFrame,
-	type ReviewRequest,
-	type Round,
-} from '../../shared/review'
+import type { ReviewRequest, Round } from '../../shared/review'
 import { usePlanChannel } from '../plan/usePlan'
 import type { Article, DraftStore, NoteStore, OfferStore } from './article'
 import { parseFrame } from './frames'
+import { articleSync } from './sync'
 
 /**
  * Opens one Article Agent and hands out the three things that ride its one
@@ -49,24 +44,12 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 	const send = useEffectEvent((next: Plan) => socket.current?.setState(next))
 	const channel = usePlanChannel(send)
 
-	// The Round a `review_finished` frame last named. State rather than a
-	// listener registry, so nothing holds a mutable set across renders.
-	const [reviewFinished, setReviewFinished] = useState<string | null>(null)
-
 	const agent = useAgent<Plan>({
 		agent: 'article-agent',
 		name: articleId,
 		onStateUpdate: channel.onStateUpdate,
-		// Parsed once and offered to both readers. A streamed Chat reply is
-		// hundreds of frames, and each reader parsing for itself would double that
-		// work for every one of them.
 		onMessage: (event: MessageEvent) => {
-			const frame = parseFrame(event.data)
-
-			channel.onFrame(frame)
-			if (isFrame<ReviewFinished>(frame, reviewFinishedFrame)) {
-				setReviewFinished(frame.roundId)
-			}
+			channel.onFrame(parseFrame(event.data))
 		},
 	})
 
@@ -100,8 +83,6 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 	}))
 
 	const [notes] = useState<NoteStore>(() => ({
-		listRounds: () => call<Round[]>('listRounds'),
-		listNotes: () => call<Note[]>('listNotes'),
 		// A short call even for a thorough pass — `NoteStore.startReview`.
 		startReview: (request: ReviewRequest) => call<Round>('startReview', [request]),
 		setNoteDisposition: (id: string, ruling: NoteRuling) =>
@@ -110,8 +91,13 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 		restoreNote: (id: string) => call<Note>('restoreNote', [id]),
 	}))
 
+	// The second socket — the party-db one the synced collections ride. Held
+	// per Article for the session, so this is a lookup rather than a connect,
+	// and moving to another Article looks its own up.
+	const sync = articleSync(articleId)
+
 	return {
-		article: { offers, draft, notes, reviewFinished, plan: channel.connection },
+		article: { offers, draft, notes, sync, plan: channel.connection },
 		agent,
 	}
 }

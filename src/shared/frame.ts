@@ -1,7 +1,7 @@
 /**
- * Two frames on the Article Agent's multiplexed socket are ours: a refused Plan
- * write, and a Review settling. Everything else is the Agents SDK's own control
- * traffic.
+ * One frame on the Article Agent's multiplexed socket is ours: a refused Plan
+ * write. Everything else is the Agents SDK's own control traffic — a Review
+ * settling arrives as synced rows on the party-db socket, not as a frame.
  */
 
 /** Narrows an unknown frame to the one named. The caller states the frame type,

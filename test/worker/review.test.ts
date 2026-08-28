@@ -212,9 +212,9 @@ describe('running a Review', () => {
 		await openAgentSocket('review-one')
 		await scriptReview('review-one', answers(response({ kind: 'article' })))
 
-		// Both in flight at once — the double-click. The pre-check cannot close
-		// this race on its own, because `startReview` awaits its commit (#9);
-		// the `round_one_running` index is what refuses the second insert.
+		// Both in flight at once — the double-click. The pre-check misses this
+		// race because `startReview` awaits its commit; the `round_one_running`
+		// index refuses the second insert.
 		await expect(
 			inAgent('review-one', (agent) =>
 				Promise.all([agent.startReview(ask), agent.startReview(ask)]),

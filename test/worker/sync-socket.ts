@@ -22,9 +22,8 @@ export async function openSyncSocket(name: string, since?: number) {
 		throw new Error(`The party route answered ${response.status}, not a socket.`)
 	socket.accept()
 
-	/** Every frame in arrival order, batches and strays alike. A sync socket
-	 * should carry only `SequencedBatch` frames, and keeping the strays is what
-	 * lets a test assert that. */
+	/** Every frame in arrival order — batches and strays alike, so a test can
+	 * assert that only batches arrived. */
 	const frames: unknown[] = []
 	socket.addEventListener('message', (event) => {
 		frames.push(JSON.parse(event.data as string))

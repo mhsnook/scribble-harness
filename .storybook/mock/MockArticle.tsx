@@ -136,9 +136,7 @@ export function memoryDraftStore(
 	}
 }
 
-/** One local-only collection standing in for a synced one: TanStack's own
- * loopback sync, seeded up front, written to with the ordinary collection
- * methods. */
+/** A local-only collection standing in for a synced one. */
 function memoryCollection<Row extends { id: string }>(seed: Row[]) {
 	return createCollection(
 		localOnlyCollectionOptions({ getKey: (row: Row) => row.id, initialData: seed }),
@@ -148,8 +146,7 @@ function memoryCollection<Row extends { id: string }>(seed: Row[]) {
 /**
  * The Notes and Rounds held in memory: real collections behind the real live
  * queries, plus a store running the real ruling rules — the same two halves
- * `useArticleAgent` hands the Panels. The wire rows come from the shared
- * `fromNote`/`fromRound`, so the mock cannot drift from the columns.
+ * `useArticleAgent` hands the Panels.
  *
  * `answer` is what a Review comes back with, after a beat — enough for a story
  * to run the whole loop: ask, wait, read the response, rule on what it found.

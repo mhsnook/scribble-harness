@@ -5,9 +5,7 @@ import type { NoteAnchor } from '../../src/shared/note'
 import type { ReviewOutput, Round } from '../../src/shared/review'
 import { inAgent, noUsage, stopped } from './scripted'
 
-/** The scripted Review the worker tests share — one model, one response, one
- * way to wait for the Round. `review.test.ts` drives the feature with these;
- * `sync.test.ts` drives the sync the same rows ride. */
+/** Scripted-Review fixtures shared by `review.test.ts` and `sync.test.ts`. */
 
 /** A model that answers `generateObject` with this JSON, once per call. A
  * second element is what a refused first answer retries into. */

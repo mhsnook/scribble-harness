@@ -91,9 +91,8 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 		restoreNote: (id: string) => call<Note>('restoreNote', [id]),
 	}))
 
-	// The second socket — the party-db one the synced collections ride. Held
-	// per Article for the session, so this is a lookup rather than a connect,
-	// and moving to another Article looks its own up.
+	// The party-db socket, cached per Article in `lib/sync.ts` — a lookup, not
+	// a connect, so it is safe in render.
 	const sync = articleSync(articleId)
 
 	return {

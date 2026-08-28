@@ -8,11 +8,10 @@ import { inAgent, scriptModel } from './scripted'
 import { isBatch, openSyncSocket, postWrite } from './sync-socket'
 
 /**
- * The party-db room composed into the Article Agent — architecture.md §12.
- * What these prove is the pilot's contract: a subscriber sees Notes and
- * Rounds land as the Guide commits them and sees nothing else, an app socket
- * sees none of it, a reconnect catches up from `?since`, and the client
- * write path stays closed.
+ * The party-db room composed into the Article Agent — architecture.md §12: a
+ * subscriber sees Notes and Rounds land as the Guide commits them and nothing
+ * else, an app socket sees no batches, a reconnect catches up from `?since`,
+ * and a client collection write is refused.
  */
 
 /** Run one scripted Review to its settled Round. */

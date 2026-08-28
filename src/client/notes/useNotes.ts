@@ -16,10 +16,8 @@ import { failureText } from '../lib/failure'
 import type { NoteActions } from './actions'
 import { type AnchorNaming, anchorNaming } from './anchors'
 
-/** The Notes Panel's half of one Article Agent. The rows are synced party-db
- * collections (architecture.md §12): they arrive as the Guide commits them,
- * and a ruling comes back the same way — so nothing here polls, reloads, or
- * patches local copies. */
+/** The Notes Panel's half of one Article Agent: live queries over the synced
+ * collections, writes over RPC — architecture.md §12. */
 
 export type NotesHandle = {
 	queue: NotesQueue
@@ -56,11 +54,10 @@ export function useNotes(): NotesHandle {
 	const notes = noteRows.data.map(toNote)
 	const rounds = roundRows.data.map(toRound)
 
-	// A Note's anchor is read against the Draft the Review itself read — so
-	// "¶3" on a card is the paragraph the model was looking at, even if the
-	// writer has typed since. The Blocks reload when a Round settles, which the
-	// synced rows now announce; nothing loads until the snapshot has landed,
-	// because a load keyed on the empty pre-snapshot list would run twice.
+	// A Note's anchor is read against the Draft the Review itself read — "¶3"
+	// on a card is the paragraph the model saw, even after the writer types.
+	// The Blocks reload when a Round settles. The `ready` gate matters: keyed
+	// on the empty pre-snapshot list, the load would run twice per open.
 	const ready = noteRows.isReady && roundRows.isReady
 	const lastSettled = rounds.findLast((round) => round.state !== 'running')?.id ?? null
 
@@ -83,8 +80,7 @@ export function useNotes(): NotesHandle {
 		}
 	}, [draft, ready, lastSettled])
 
-	/** The write is the whole move: the ruled row comes back down the sync, so
-	 * a success has nothing to patch and a failure has something to say. */
+	/** The ruled row returns through the sync; only a failure needs handling. */
 	const rule = (what: string, write: () => Promise<Note>) => {
 		setFailure(null)
 		write().catch((error: unknown) => setFailure(failureText(what, error)))
@@ -125,8 +121,7 @@ export function useNotes(): NotesHandle {
 			const asked = prompt.trim()
 			if (asked === '') return
 
-			// The Round arrives through the synced collection; the call's own
-			// answer only matters when it is a refusal.
+			// The Round arrives through the sync; only a refusal needs handling.
 			store
 				.startReview({
 					prompt: asked,

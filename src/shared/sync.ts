@@ -5,18 +5,12 @@ import { type Note, type NoteAnchor, noteDispositions } from './note'
 import { reviewDepths, type Round, type RoundPassage, roundStates } from './review'
 
 /**
- * The two party-db collections the Notes Panel syncs — docs/architecture.md §12.
+ * The `note` and `round` party-db collections — docs/architecture.md §12.
  *
- * A collection's rows ARE the Article Agent's table rows, so the schemas here
- * spell the columns as the tables do: snake_case names, JSON columns as the
- * text they store. `toNote` and `toRound` turn one row into the shape the app
- * reads, and they are the only place that mapping lives.
- *
- * The JSON columns (`anchor`, `passages`) are declared `z.string()` on
- * purpose: party-db's column codec reads Zod v3 internals to spot a JSON
- * column, and this repo is on Zod v4, so an object-typed field would come back
- * from a snapshot as unparsed text anyway (party-db#45). Declaring the text is
- * the honest shape either way, and the converters parse it once.
+ * The schemas spell the columns as the tables do: snake_case names, JSON
+ * columns (`anchor`, `passages`) as the text they store. `z.string()` for the
+ * JSON columns sidesteps party-db's Zod-v3-only column codec (party-db#45);
+ * `toNote` and `toRound` parse the text into the shapes the app reads.
  */
 
 /** One `note` row as it travels. `seq` is assigned by the table, so a write
@@ -66,8 +60,7 @@ export const roundCollection = definePartyCollection({
 
 export const syncCollections = [noteCollection, roundCollection]
 
-/** The inverse of `toNote`, so a fixture or a mock states the columns through
- * this module rather than keeping its own copy of the wire shape. */
+/** The inverse of `toNote`, for code that builds rows — the Storybook mocks. */
 export function fromNote(note: Note, seq: number): NoteRow {
 	return {
 		seq,

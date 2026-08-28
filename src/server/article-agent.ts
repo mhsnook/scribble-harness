@@ -115,9 +115,8 @@ function toBlock(row: BlockDbRow): BlockRow {
 	return { id: row.id, ord: row.ord, json: JSON.parse(row.json) as BlockJson }
 }
 
-/** The connection tag party-db subscribers carry, so a broadcast can leave
- * them out and the sync fan-out can find them — tags survive hibernation
- * where a field would not. */
+/** The connection tag on party-db subscribers. A tag survives hibernation,
+ * so `broadcast` and the core's fan-out both look connections up by it. */
 const PARTY_DB_TAG = 'party-db'
 
 /** `duplicate` means the row was already there and nothing was written. */
@@ -132,9 +131,9 @@ export type RecordedOffer = { offer: Offer; duplicate: boolean }
 export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	initialState = emptyPlan()
 
-	/** The party-db room composed into this Agent — architecture.md §12. Built
-	 * fresh on every wake in `onStart`, which partyserver runs before any
-	 * connect, request, or RPC reaches this class. */
+	/** The party-db core composed into this Agent — architecture.md §12. Built
+	 * on every wake in `onStart`, which partyserver runs before any connect,
+	 * request, or RPC reaches this class — so the `!` holds. */
 	db!: PartyDbCore
 
 	/** Runs on every wake, so every statement here has to be idempotent. A new
@@ -209,22 +208,17 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		`
 		this.sql`CREATE INDEX IF NOT EXISTS note_by_round ON note (round_id)`
 
-		// One Review at a time per Article, enforced by the table itself: at most
-		// one row may read `running`. The pre-check in `startReview` gives the
-		// friendly refusal; this index is what holds when two calls interleave
-		// across `commit`'s await (#9).
+		// At most one row may read `running` (§12). The pre-check in
+		// `startReview` gives the worded refusal; this index closes the race
+		// when two calls interleave across `commit`'s await.
 		this.sql`
 			CREATE UNIQUE INDEX IF NOT EXISTS round_one_running
 			ON round (state) WHERE state = 'running'
 		`
 
-		// The party-db core, held rather than inherited: this class already
-		// extends AIChatAgent. The tables above stay this class's own DDL — the
-		// core only CRUDs over them, adds its `_oplog`, and fans committed
-		// batches out to the connections tagged party-db.
-		//
-		// Retention 200 against the default 10,000 — §11: low retention pushes a
-		// returning client onto the cheap snapshot path.
+		// The party-db core (§12). The tables above are this class's DDL; the
+		// core CRUDs over them, adds its `_oplog`, and fans committed batches
+		// out to the tagged connections. `oplogRetention` per §11.
 		const engine: SqlEngine = {
 			exec: (query, ...bindings) => this.ctx.storage.sql.exec(query, ...bindings),
 			transaction: (fn) => this.ctx.storage.transactionSync(fn),
@@ -242,19 +236,17 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 		// A Review runs under `waitUntil`, which holds this Agent awake until it
 		// settles — so a `running` row seen at wake is one a crash or deploy cut
-		// off. Failing it here frees the one-at-a-time guard and puts the reason
-		// where the writer looks. Through `failRound`, not raw SQL: a subscriber
-		// that watched the Round start has to hear it fail. At most one row can
-		// be running, because the index above allows no second.
-		const cut = this.sql<{ id: string }>`SELECT id FROM round WHERE state = 'running'`
-		if (cut.length > 0) {
-			await this.failRound(cut[0].id, 'The Review was cut off by a restart.')
+		// off. Failing it frees the one-at-a-time guard and puts the reason
+		// where the writer looks. The index above allows one running row, so
+		// one id covers it.
+		const cutOff = this.sql<{ id: string }>`SELECT id FROM round WHERE state = 'running'`
+		if (cutOff.length > 0) {
+			await this.failRound(cutOff[0].id, 'The Review was cut off by a restart.')
 		}
 	}
 
-	/** party-db marks its own traffic with `?proto=party-db`, so routing needs no
-	 * configuration; tags are what survive hibernation, so the broadcast override
-	 * and the sync fan-out both read them rather than the request. */
+	/** party-db marks its own traffic with `?proto=party-db`; the tag carries
+	 * that answer past hibernation, where the request is gone. */
 	getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
 		return isPartyDbRequest(ctx.request) ? [PARTY_DB_TAG] : []
 	}
@@ -265,10 +257,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		return !isPartyDbRequest(ctx.request)
 	}
 
-	/** Every broadcast leaves the party-db connections out — the SDK's own
-	 * (state sync, Chat streams) and this class's (`plan_refused`) all pass
-	 * through here. A sync subscriber hears `SequencedBatch` frames and nothing
-	 * else; the core's fan-out is scoped by the tag in `onStart`. */
+	/** Leaves party-db connections out of every broadcast (§12). The SDK's own
+	 * frames — state sync, Chat streams — route through this method too, so
+	 * one override covers them all. */
 	broadcast(message: string | ArrayBuffer | ArrayBufferView, without?: string[]): void {
 		const skip = [...(without ?? [])]
 		for (const connection of this.getConnections(PARTY_DB_TAG)) {
@@ -277,9 +268,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		super.broadcast(message, skip)
 	}
 
-	/** A marked connect is a sync subscriber: the core answers it — a snapshot,
-	 * or the delta after its `?since` cursor — and nothing else on this class
-	 * speaks to it again. */
+	/** Routes a marked connect to the core, which answers with a snapshot or
+	 * the delta after its `?since` cursor. */
 	onConnect(connection: Connection, ctx: ConnectionContext): void | Promise<void> {
 		const url = new URL(ctx.request.url)
 		if (isPartyDbRequest(url)) {
@@ -290,12 +280,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/**
-	 * The pilot syncs reads only, so a party-db write POST is refused rather
-	 * than routed to the core: rulings are server-side state-machine moves and
-	 * party-db has no per-row policy layer to hold their guards yet (party-db
-	 * #33). The refusal keeps that a decision — forwarding to
-	 * `this.db.handleWrite` is the whole change when a client-authored
-	 * collection arrives.
+	 * Refuses party-db write POSTs: no collection takes client writes, and
+	 * the ruling guards live on the `@callable` methods — §12. Opening the
+	 * client write path means forwarding these to `this.db.handleWrite`.
 	 */
 	async onRequest(request: Request): Promise<Response> {
 		if (isPartyDbRequest(request)) {
@@ -550,8 +537,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** Every Round on this Article, oldest first. `seq` orders it and numbers it,
 	 * for the reason `listOffers` gives: a Worker's clock barely moves across
-	 * local writes. Not `@callable`: a client reads Rounds off its synced
-	 * collection now, so this reader serves this class and its tests. */
+	 * local writes. Not `@callable` — a client reads its synced collection
+	 * (§12); this reader serves this class and its tests. */
 	listRounds(): Round[] {
 		return this.sql<RoundRow>`SELECT * FROM round ORDER BY seq`.map(toRound)
 	}
@@ -591,9 +578,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		return rows.length === 0 ? null : toRound(rows[0])
 	}
 
-	/** The insert goes through `commit`, so every subscriber sees the Round
-	 * start; the resolved row carries the `seq` the table assigned, which is
-	 * the ordinal the writer reads. */
+	/** The resolved row carries the `seq` the table assigned, which is the
+	 * ordinal the writer reads — so the Round comes from the commit's answer,
+	 * not from `value`. */
 	private async createRound(asked: ReviewRequest): Promise<Round> {
 		const value: RoundRow = {
 			id: crypto.randomUUID(),
@@ -613,9 +600,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 			return toRound(batch.ops[0].value as RoundRow)
 		} catch (error) {
-			// The `round_one_running` index refused a second running row — the
-			// race the pre-check above cannot close, since two calls interleave
-			// across this await (#9). Re-read to name the Round that won.
+			// The `round_one_running` index refused a second running row — two
+			// calls interleaved across this await, past the pre-check. Re-read
+			// to name the Round that won.
 			const running = this.runningRound()
 			if (running !== null) throw reviewAlreadyRunning(running)
 
@@ -655,17 +642,12 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		} catch (error) {
 			await this.failRound(round.id, reasonFor(error))
 		}
-		// Nothing announces the settle: the commits above are the announcement.
-		// Every subscriber hears the rows land, and a client that was away
-		// catches up from its `?since` cursor when it reconnects.
 	}
 
 	/**
-	 * The response, as rows — the Notes and the settled Round in one `commit`,
+	 * The response, as rows. One `commit` for the Notes and the settled Round,
 	 * so a subscriber that hears the Round settle already holds its Notes.
-	 * Each Note keeps the id its passage names it by, so the written response
-	 * and the Notes queue are two readings of one set of records and a ruling
-	 * made on either is made on both.
+	 * Each Note keeps the id its passage names it by — §12.
 	 */
 	private async writeReview(
 		round: Round,
@@ -707,8 +689,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			],
 		}
 
-		// The empty-batch guard is load-bearing: a batch with no ops would still
-		// reach every subscriber.
+		// A batch with no ops would still reach every subscriber, so a Review
+		// that found nothing sends the settle alone.
 		await this.db.commit(notes.length === 0 ? [settle] : [inserts, settle])
 	}
 
@@ -728,8 +710,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** A Review that threw. The reason goes on the row because the writer may
 	 * have left, and a thrown call has nowhere to land — §12. A commit that
-	 * fails here has no row left to land on either, so it is logged and
-	 * swallowed rather than thrown into `waitUntil`. */
+	 * fails here has no row left to land on either, so log it rather than
+	 * throw into `waitUntil`. */
 	private async failRound(id: string, failure: string): Promise<void> {
 		try {
 			await this.db.commit([
@@ -777,9 +759,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/** `decided_at` is the moment the Note stopped being the Guide's and became
-	 * the writer's, so restoring to proposed clears it. The move goes through
-	 * `commit` — RPC keeps the guards above, `commit` makes the ruled row sync —
-	 * and the update names only the columns it moves. */
+	 * the writer's, so restoring to proposed clears it. The update value names
+	 * only the columns it moves; the commit's answer is the whole row. */
 	private async moveNote(id: string, disposition: NoteDisposition): Promise<Note> {
 		const [batch] = await this.db.commit([
 			{
@@ -828,13 +809,12 @@ function noteRow(
 	}
 }
 
-/** The columns that settle a Round, as one update value. `passages` arrives
- * already as JSON text, because the wire carries the column. */
+/** The columns that settle a Round, as one update value. */
 function roundSettled(
 	id: string,
 	state: RoundState,
-	passages: string,
+	passagesJson: string,
 	failure: string | null,
 ): Partial<RoundRow> & { id: string } {
-	return { id, state, passages, failure, finished_at: Date.now() }
+	return { id, state, passages: passagesJson, failure, finished_at: Date.now() }
 }

@@ -26,8 +26,7 @@ export type DraftStore = {
 }
 
 /**
- * The writes the Notes Panel still makes over RPC. The reads are gone from
- * here: Notes and Rounds arrive through the synced collections on `sync`.
+ * The Notes Panel's RPC writes; reads come through the collections on `sync`.
  *
  * `startReview` answers as soon as the Round row exists and the model call
  * carries on inside the Article Agent, so what comes back is a Round in flight

@@ -26,10 +26,9 @@ app.all('/agents/*', async (c) => {
 	return response ?? c.text('No such Agent route', 404)
 })
 
-// The party-db sync socket — architecture.md §12. partyTransport speaks
-// partyserver's own /parties/:party/:room path, and routePartykitRequest maps
+// The party-db sync socket — architecture.md §12. routePartykitRequest maps
 // /parties/article-agent/:name onto the same ArticleAgent binding the route
-// above serves, so both sockets land on the one Durable Object per Article.
+// above serves.
 app.all('/parties/*', async (c) => {
 	const response = await routePartykitRequest(c.req.raw, c.env)
 	return response ?? c.text('No such party route', 404)

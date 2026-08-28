@@ -4,6 +4,14 @@ What has to be set outside the repository for a deploy to work, and the traps in
 setting it. Not architecture — nothing here coordinates two modules — but each
 one is a thing that goes wrong silently.
 
+## A push to main deploys
+
+**Cloudflare's git integration watches this repository and builds and deploys on
+every push to `main`.** Merging a pull request ships it — there is no separate
+deploy gate, and the CI workflow in `.github/workflows/ci.yml` only checks; it
+does not deploy. `pnpm deploy` exists for a deploy from a machine, beside the
+automatic one.
+
 ## The AI Gateway
 
 **It attaches to the Workers AI calls for logging.** Inference runs on

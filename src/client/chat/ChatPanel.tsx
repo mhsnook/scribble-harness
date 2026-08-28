@@ -354,8 +354,8 @@ function Turn({
 							))}
 							{found.length < recorded.length ? (
 								<ChatNote>
-									{recorded.length} found, and the Offer ledger has not read them all back
-									yet.
+									{recorded.length} found, and {recorded.length - found.length} are still
+									arriving.
 								</ChatNote>
 							) : null}
 						</div>

@@ -280,6 +280,14 @@ export const F_LedgerDrawer: Story = {
 		// wrapper's edge rather than at the field.
 		const foot = () => transcript.getBoundingClientRect().bottom
 
+		// The rows arrive through the synced `offer` collection (§12), so the
+		// drawer draws them with nothing having asked for them.
+		await waitFor(() =>
+			expect(
+				within(drawer as HTMLElement).getAllByText(/Permit throughput/).length,
+			).toBeGreaterThan(0),
+		)
+
 		// The drawer covers the transcript and leaves the composer alone, which is
 		// what keeps the toggle in place for the second click.
 		await expect(toggle.getAttribute('aria-expanded')).toBe('true')

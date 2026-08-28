@@ -44,6 +44,11 @@ the collections would live in the per-Article object rather than a new one. That
 120 lines of forked party-db glue and makes the client discriminate frames on the
 multiplexed socket. Below the size ceiling the blob is less work; above it, it is not.
 
+**Amended:** #92 and #94 composed party-db into the Article Agent, and Notes, Rounds and
+Offers are collections now — so "read when the writer opens a Panel" describes none of
+them. The decision this ADR records is unchanged: the Plan stays a blob in Article Agent
+state, and architecture.md §3 carries the rule as it now stands.
+
 **The migration is bounded but not free.** The decisions below buy it: stable IDs
 everywhere, parents by containment, References already row-shaped and carrying Provenance.
 What they do not buy is the read sites — every `plan.outline.map(…)` becomes a query.

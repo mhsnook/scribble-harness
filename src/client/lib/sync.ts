@@ -1,16 +1,22 @@
 import type { Collection } from '@tanstack/db'
 import { createPartyDb, partyTransport } from 'party-db/client'
 
-import { type NoteRow, type RoundRow, syncCollections } from '../../shared/sync'
+import {
+	type NoteRow,
+	type OfferRow,
+	type RoundRow,
+	syncCollections,
+} from '../../shared/sync'
 
 /**
  * One party-db connection per Article — the second socket of architecture.md
- * §12, carrying the `note` and `round` collections.
+ * §12, carrying the `note`, `round` and `offer` collections.
  */
 
 export type ArticleSync = {
 	note: Collection<NoteRow>
 	round: Collection<RoundRow>
+	offer: Collection<OfferRow>
 }
 
 /** Held for the session: party-db has no transport close yet (party-db#46),
@@ -32,13 +38,15 @@ export function articleSync(articleId: string): ArticleSync {
 	const sync: ArticleSync = {
 		note: db.note as Collection<NoteRow>,
 		round: db.round as Collection<RoundRow>,
+		offer: db.offer as Collection<OfferRow>,
 	}
 
-	// Pin both collections: TanStack DB garbage-collects a collection once its
+	// Pin every collection: TanStack DB garbage-collects a collection once its
 	// last subscriber leaves, and a party-db collection that restarts gets no
 	// second snapshot (party-db#47; the other §11 carry).
 	sync.note.subscribeChanges(() => {})
 	sync.round.subscribeChanges(() => {})
+	sync.offer.subscribeChanges(() => {})
 
 	held.set(articleId, sync)
 

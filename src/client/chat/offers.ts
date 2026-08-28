@@ -1,10 +1,4 @@
-import {
-	type DynamicToolUIPart,
-	getToolName,
-	isToolUIPart,
-	type ToolUIPart,
-	type UIMessage,
-} from 'ai'
+import { type DynamicToolUIPart, getToolName, type ToolUIPart } from 'ai'
 
 import {
 	type RecordedOffers,
@@ -27,21 +21,4 @@ export function readRecordedOffers(
 	const parsed = recordedOffersOutput.safeParse(part.output)
 
 	return parsed.success ? parsed.data : null
-}
-
-/** A fresh array of every Offer id the transcript names, in order, deduped. */
-export function recordedOfferIds(messages: readonly UIMessage[]): string[] {
-	const ids: string[] = []
-
-	for (const message of messages) {
-		for (const part of message.parts) {
-			if (!isToolUIPart(part)) continue
-
-			for (const recorded of readRecordedOffers(part) ?? []) {
-				if (!ids.includes(recorded.id)) ids.push(recorded.id)
-			}
-		}
-	}
-
-	return ids
 }

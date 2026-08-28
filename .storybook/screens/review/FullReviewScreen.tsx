@@ -10,7 +10,7 @@ import type { Note } from '../../../src/shared/note'
 import { restoredTo } from '../../../src/shared/note'
 import type { Round } from '../../../src/shared/review'
 import { ARTICLE_TITLE, plan } from '../../mock/content'
-import { memoryDraftStore, memoryNotes, memoryOfferStore } from '../../mock/MockArticle'
+import { memoryArticle, memoryDraftStore } from '../../mock/MockArticle'
 import { reviewNotes, reviewRound, reviewRounds } from '../../mock/review'
 
 /**
@@ -75,8 +75,7 @@ export function MockNotes({
 }: MockNotesProps) {
 	const [seam] = useState(() => ({
 		draft: memoryDraftStore({ seed: draft }),
-		offers: memoryOfferStore([]),
-		...memoryNotes({ rounds, notes, answer }),
+		...memoryArticle({ rounds, notes, answer }),
 	}))
 
 	return (

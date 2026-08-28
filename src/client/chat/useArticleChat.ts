@@ -7,7 +7,6 @@ import type { Plan } from '../../shared/plan'
 import { useArticle } from '../lib/article'
 import type { ArticleSocket } from '../lib/useArticleAgent'
 import { useOfferLedger, type OfferLedgerHandle } from '../lib/useOfferLedger'
-import { recordedOfferIds } from './offers'
 import {
 	afterRuling,
 	type ProposalCall,
@@ -63,18 +62,6 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 	})
 
 	const { messages, addToolOutput } = chat
-
-	// Nothing on the socket announces a new Offer row (§3), so an id the Chat
-	// names that the Ledger has not got is the signal to read again. Comparing
-	// rather than counting turns is also what makes it safe: a row that never
-	// arrives leaves `missing` true, so the dependency holds and the read stops.
-	const recorded = useMemo(() => recordedOfferIds(messages), [messages])
-	const loaded = new Set(ledger.ledger.offers.map((offer) => offer.id))
-	const missing = recorded.some((id) => !loaded.has(id))
-	const { reload } = ledger
-	useEffect(() => {
-		if (missing) reload()
-	}, [missing, reload])
 
 	const rule = (call: ProposalCall, accepted: boolean) => {
 		const ruling = ruleProposal({

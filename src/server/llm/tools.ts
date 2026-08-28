@@ -90,7 +90,9 @@ const recordOffers = tool({
 		if (agent === undefined)
 			throw new Error('The Offer tool ran outside an Article Agent.')
 
-		return agent.recordOffers(offers).map(({ offer, duplicate }) => ({
+		const recorded = await agent.recordOffers(offers)
+
+		return recorded.map(({ offer, duplicate }) => ({
 			id: offer.id,
 			name: offer.source?.title ?? offer.text,
 			disposition: offer.disposition,

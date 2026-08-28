@@ -41,8 +41,7 @@
   ],
   // The article index — architecture.md §9. Its schema lives in ./migrations;
   // `pnpm db:migrate` applies it locally and `db:migrate:remote` to the deploy.
-  // database_id binds and database_name is a label, so the two can disagree —
-  // deploy.md §The database name.
+  // database_id is what binds; database_name is a label.
   "d1_databases": [
     {
       "binding": "DB",

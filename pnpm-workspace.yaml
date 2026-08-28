@@ -14,4 +14,4 @@ allowBuilds:
 # its props (facebook/react#36868). `agents` takes the 7.x decorators plugin for
 # `@callable`, which emits an identical worker. Undo once react#36956 ships.
 overrides:
-  "@babel/plugin-proposal-decorators": ^7.29.7
+  '@babel/plugin-proposal-decorators': ^7.29.7

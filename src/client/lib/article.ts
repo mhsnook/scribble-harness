@@ -5,6 +5,7 @@ import type { Note, NoteRuling } from '../../shared/note'
 import type { Offer, Ruling } from '../../shared/offer'
 import type { ReviewRequest, Round } from '../../shared/review'
 import type { PlanConnection } from '../plan/usePlan'
+import type { ArticleSync } from './sync'
 
 /**
  * The seam one Article Agent arrives through, in stores because the server
@@ -25,15 +26,13 @@ export type DraftStore = {
 }
 
 /**
- * The Notes and the Reviews that write them.
+ * The Notes Panel's RPC writes; reads come through the collections on `sync`.
  *
  * `startReview` answers as soon as the Round row exists and the model call
  * carries on inside the Article Agent, so what comes back is a Round in flight
  * rather than a finished one.
  */
 export type NoteStore = {
-	listRounds(): Promise<Round[]>
-	listNotes(): Promise<Note[]>
 	startReview(request: ReviewRequest): Promise<Round>
 	setNoteDisposition(id: string, ruling: NoteRuling): Promise<Note>
 	resolveNote(id: string): Promise<Note>
@@ -44,12 +43,8 @@ export type Article = {
 	offers: OfferStore
 	draft: DraftStore
 	notes: NoteStore
-	/** The Round a `review_finished` frame last named, and null until one does.
-	 * Rows have no sync, so this is what tells a waiting client to read again.
-	 *
-	 * Beside the stores rather than on `NoteStore`, because a store's identity is
-	 * what "read once per store" is keyed on and this changes. */
-	reviewFinished: string | null
+	/** The party-db collections this Article syncs — live queries read these. */
+	sync: ArticleSync
 	plan: PlanConnection
 }
 

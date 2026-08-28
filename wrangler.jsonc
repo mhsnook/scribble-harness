@@ -21,7 +21,7 @@
     "binding": "ASSETS",
     "directory": "./dist/client",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/agents/*", "/api/*"],
+    "run_worker_first": ["/agents/*", "/api/*", "/parties/*"],
   },
   // One Article Agent per Article. The Agents SDK needs SQLite-backed storage,
   // which is spelled new_sqlite_classes in the migration below.
@@ -41,8 +41,7 @@
   ],
   // The article index — architecture.md §9. Its schema lives in ./migrations;
   // `pnpm db:migrate` applies it locally and `db:migrate:remote` to the deploy.
-  // database_id binds and database_name is a label, so the two can disagree —
-  // deploy.md §The database name.
+  // database_id is what binds; database_name is a label.
   "d1_databases": [
     {
       "binding": "DB",

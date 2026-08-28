@@ -1,3 +1,4 @@
+import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import { type ReactNode, useState } from 'react'
 
 import {
@@ -7,6 +8,7 @@ import {
 	type OfferStore,
 	useArticle,
 } from '../../src/client/lib/article'
+import type { ArticleSync } from '../../src/client/lib/sync'
 import { createPlanWriter } from '../../src/client/plan/writer'
 import type { BlockRow, DraftChange } from '../../src/shared/draft'
 import {
@@ -26,6 +28,14 @@ import {
 } from '../../src/shared/offer'
 import { emptyPlan, type Plan, type Refusal } from '../../src/shared/plan'
 import type { ReviewRequest, Round } from '../../src/shared/review'
+import {
+	fromNote,
+	fromRound,
+	type NoteRow,
+	type RoundRow,
+	toNote,
+	toRound,
+} from '../../src/shared/sync'
 import { offers as seeded, plan as seededPlan } from './content'
 
 /**
@@ -49,11 +59,11 @@ export function MockArticle({ children }: { children: ReactNode }) {
 		return held
 	})
 
-	// One store per story, for the reason `useArticleAgent` gives: the three
-	// readers each load once per store identity.
+	// One store per story, for the reason `useArticleAgent` gives: the readers
+	// each load once per store identity, and the collections hold the rows.
 	const [offers] = useState(() => memoryOfferStore(seeded))
 	const [draft] = useState(() => memoryDraftStore())
-	const [notes] = useState(() => memoryNoteStore())
+	const [{ notes, sync }] = useState(() => memoryNotes())
 
 	const edit = (next: Parameters<typeof writer.edit>[0]) => {
 		setRefusal(null)
@@ -67,7 +77,7 @@ export function MockArticle({ children }: { children: ReactNode }) {
 				offers,
 				draft,
 				notes,
-				reviewFinished: null,
+				sync,
 				plan: { plan, edit, refusal, rejected: null },
 			}}
 		>
@@ -126,106 +136,122 @@ export function memoryDraftStore(
 	}
 }
 
+/** A local-only collection standing in for a synced one. */
+function memoryCollection<Row extends { id: string }>(seed: Row[]) {
+	return createCollection(
+		localOnlyCollectionOptions({ getKey: (row: Row) => row.id, initialData: seed }),
+	)
+}
+
 /**
- * The Notes and Rounds held in memory, running the real queue and the real
- * ruling rules.
+ * The Notes and Rounds held in memory: real collections behind the real live
+ * queries, plus a store running the real ruling rules — the same two halves
+ * `useArticleAgent` hands the Panels.
  *
  * `answer` is what a Review comes back with, after a beat — enough for a story
  * to run the whole loop: ask, wait, read the response, rule on what it found.
  * Leaving it out leaves every Review running, which is the state a story shows
  * when it is about the waiting.
  */
-export function memoryNoteStore(
+export function memoryNotes(
 	options: {
 		rounds?: readonly Round[]
 		notes?: readonly Note[]
 		answer?: { passages: Round['passages']; notes: readonly Note[] }
 		/** How long a Review takes to come back. */
 		takes?: number
-		/** Called with the Round id when one settles, as the socket frame does. */
-		onFinished?: (roundId: string) => void
 	} = {},
-): NoteStore {
-	const rounds = (options.rounds ?? []).map((round) => ({ ...round }))
-	const rows = (options.notes ?? []).map((note) => ({ ...note }))
+): { notes: NoteStore; sync: ArticleSync } {
+	let noteSeq = 0
+	const note = memoryCollection<NoteRow>(
+		(options.notes ?? []).map((one) => fromNote(one, ++noteSeq)),
+	)
+	const round = memoryCollection<RoundRow>((options.rounds ?? []).map(fromRound))
 
-	const find = (id: string): Note => {
-		const note = rows.find((held) => held.id === id)
-		if (note === undefined) throw missingNote(id)
+	const find = (id: string): NoteRow => {
+		const row = note.get(id)
+		if (row === undefined) throw missingNote(id)
 
-		return note
+		return row
 	}
 
-	const move = (note: Note, disposition: NoteDisposition) => {
-		const moved = {
-			...note,
-			disposition,
-			decidedAt: disposition === 'proposed' ? null : Date.now(),
-		}
-		rows.splice(rows.indexOf(note), 1, moved)
+	const move = (row: NoteRow, disposition: NoteDisposition) => {
+		const decidedAt = disposition === 'proposed' ? null : Date.now()
+		note.update(row.id, (draft) => {
+			draft.disposition = disposition
+			draft.decided_at = decidedAt
+		})
 
-		return Promise.resolve(moved)
+		return Promise.resolve(toNote({ ...row, disposition, decided_at: decidedAt }))
 	}
 
-	return {
-		listRounds: () => Promise.resolve(rounds.map((round) => ({ ...round }))),
-		listNotes: () => Promise.resolve(rows.map((note) => ({ ...note }))),
-
+	const store: NoteStore = {
 		startReview: (request: ReviewRequest) => {
 			// Minted, not counted off the length: a story seeds Rounds whose ids and
 			// ordinals start past 1.
-			const round: Round = {
+			const ordinal =
+				[...round.values()].reduce(
+					(highest, held) => Math.max(highest, held.seq ?? 0),
+					0,
+				) + 1
+			const row: RoundRow = {
+				seq: ordinal,
 				id: crypto.randomUUID(),
-				ordinal: rounds.reduce((highest, held) => Math.max(highest, held.ordinal), 0) + 1,
 				state: 'running',
 				prompt: request.prompt,
 				depth: request.depth,
-				passages: [],
+				passages: '[]',
 				failure: null,
-				startedAt: Date.now(),
-				finishedAt: null,
+				started_at: Date.now(),
+				finished_at: null,
 			}
-			rounds.push(round)
+			round.insert(row)
 
 			const { answer } = options
 			if (answer !== undefined) {
 				setTimeout(() => {
-					rows.push(...answer.notes.map((note) => ({ ...note, roundId: round.id })))
-					rounds.splice(rounds.indexOf(round), 1, {
-						...round,
-						state: 'done',
-						passages: answer.passages,
-						finishedAt: Date.now(),
+					for (const found of answer.notes) {
+						note.insert(fromNote({ ...found, roundId: row.id }, ++noteSeq))
+					}
+					round.update(row.id, (draft) => {
+						draft.state = 'done'
+						draft.passages = JSON.stringify(answer.passages)
+						draft.finished_at = Date.now()
 					})
-					options.onFinished?.(round.id)
 				}, options.takes ?? 600)
 			}
 
-			return Promise.resolve({ ...round })
+			return Promise.resolve(toRound(row))
 		},
 
 		setNoteDisposition: (id: string, ruling) => {
-			const note = find(id)
-			if (note.disposition !== 'proposed') return Promise.reject(alreadyRuled(note))
+			const row = find(id)
+			if (row.disposition !== 'proposed') {
+				return Promise.reject(alreadyRuled(toNote(row)))
+			}
 
-			return move(note, ruling)
+			return move(row, ruling)
 		},
 
 		resolveNote: (id: string) => {
-			const note = find(id)
-			if (note.disposition !== 'accepted') return Promise.reject(notAccepted(note))
+			const row = find(id)
+			if (row.disposition !== 'accepted') {
+				return Promise.reject(notAccepted(toNote(row)))
+			}
 
-			return move(note, 'resolved')
+			return move(row, 'resolved')
 		},
 
 		restoreNote: (id: string) => {
-			const note = find(id)
-			const back = restoredTo(note.disposition)
-			if (back === null) return Promise.reject(notRestorable(note))
+			const row = find(id)
+			const back = restoredTo(row.disposition)
+			if (back === null) return Promise.reject(notRestorable(toNote(row)))
 
-			return move(note, back)
+			return move(row, back)
 		},
 	}
+
+	return { notes: store, sync: { note, round } }
 }
 
 export function memoryOfferStore(seed: readonly Offer[]): OfferStore {

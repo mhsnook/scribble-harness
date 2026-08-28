@@ -40,10 +40,12 @@ threaten that.
 ```
 Browser — React + Vite + TanStack Router
   ├─ Chat Panel   ─┐
-  ├─ Plan Panel    ├── useAgent WebSocket ──► Article Agent (one per Article)
-  ├─ Draft Panel   │                            ├─ Agents SDK store: the Chat transcript
-  └─ Notes Panel  ─┘                            ├─ Agent state (one JSON blob): the Plan
-                                                ├─ SQLite rows: Blocks, Offers, Notes, Rounds
+  ├─ Plan Panel    ├── useAgent WebSocket ───► Article Agent (one per Article)
+  ├─ Draft Panel   ├── party-db WebSocket ──►   ├─ Agents SDK store: the Chat transcript
+  └─ Notes Panel  ─┘    (same Agent, §12)       ├─ Agent state (one JSON blob): the Plan
+                                                ├─ SQLite rows: Blocks, Offers
+                                                ├─ party-db collections over its SQLite:
+                                                │    Notes, Rounds (synced, §12)
                    ── party-db WebSocket ──►  The House (one party-db room, → D1)   [1b]
                    ── HTTP (Hono) ─────────►  The article index (→ D1)
                                               Archived reads, export
@@ -100,12 +102,14 @@ Recorded in [ADR 0001](./adr/0001-phase-1-storage-shape.md).
    correction therefore arrives as a new Proposal rather than silently rewriting a citation
    the writer already approved.
 
-**The blob is a reactive store; the tables are an on-demand store.** Rows in a Durable
-Object's SQLite have no sync — `@callable` RPC is request and response, so nothing tells a
-client a row changed. That suits Offers, Notes, and Rounds, which are read when a Panel
-opens. It does not suit the Plan, which is on screen continuously. (It's worth keeping
-open the question of which items should be included under the PartyDB collections, once
-they're added.)
+**The blob is a reactive store; a table is on-demand until it is published as a
+party-db collection.** A bare row in a Durable Object's SQLite has no sync — `@callable`
+RPC is request and response, so nothing tells a client it changed. That still suits
+Blocks and Offers, which are read when a Panel opens. Notes and Rounds are published as
+party-db collections instead (§12): reads are synced live queries, the Guide's writes go
+through `commit()`, and rule 2's write path still holds for what the writer sends up —
+rulings stay RPC. Which tables join the collections next is decided per table, Offers
+first (#92's second pass).
 
 ## 4. The Plan
 
@@ -430,7 +434,8 @@ calls in total.
 party-db's lobby and write path at 1b, archived reads, and export.
 
 **TanStack Query** serves the article index and the archived and export reads. Live data is
-already reactive through Article Agent state and, at 1b, party-db's TanStack DB collections.
+already reactive through Article Agent state and party-db's TanStack DB collections — the
+Notes Panel's today (§12), the House's at 1b.
 
 **The Article screen has four Panels** — Chat, Plan, Draft, Notes — which become tabs on a
 narrow screen, and which are all more or less their own little interfaces, with very specific
@@ -467,9 +472,11 @@ once for everything else. An update arriving from the Article Agent over an unse
 the echo of an older write and is dropped — the client is the Plan's only writer, so there
 is nothing else it can be.
 
-**The Article Agent's WebSocket is multiplexed.** It carries `cf_agent_*` control frames for
-state, RPC, and scheduling on one socket. In phase 1 this is free, because the SDK's own
-client handles them. It becomes work if a party-db transport ever shares that socket.
+**The Article Agent's WebSocket is multiplexed, and party-db does not share it.** The
+`useAgent` socket carries `cf_agent_*` control frames for state, RPC, and scheduling,
+which the SDK's own client handles. The sync traffic rides a second socket to the same
+Durable Object instead (§12) — namespacing party-db frames onto the shared one was the
+expensive alternative, and two sockets cost nothing that multiplexing would not.
 
 **One connection per Article, opened above the Panels.** `useArticleAgent` makes the single
 `useAgent` call and hands out three things: the Plan channel, the Offer store built on the
@@ -543,10 +550,12 @@ Guide, the Notes Panel, and everything that reads the prose are not.
   and **a save carries a delta** rather than the whole Draft. The delta is what bounds a
   stale tab: a client can only name a Block it has already seen, so a paragraph written
   somewhere else is not one it can delete.
-- **Sync is not here yet.** party-db (`mhsnook/party-db`, checked out at `~/code/party-db`)
-  arrives with the House at 1b, and the Draft can move onto it later without changing shape.
-  Until then two tabs on one Draft is last-write-wins per Block, which is what §1's "only one
-  editor at a time" costs. Findings #7 and #18 stand and are not load-bearing yet.
+- **Sync arrived early, and only for the Notes Panel.** party-db (`mhsnook/party-db`,
+  checked out at `~/code/party-db`) runs inside the Article Agent for Notes and Rounds
+  (§12); the House at 1b gets its own room. The Draft is not synced and can move onto a
+  collection later without changing shape. Until then two tabs on one Draft is
+  last-write-wins per Block, which is what §1's "only one editor at a time" costs.
+  Findings #7 and #18 stand and are not load-bearing yet.
 - **Notes is the fourth Panel**, and it is built — §12. What is still phase 2's is the
   ambient half: notes that arrive while the writer works, and anything drawn beside the
   prose.
@@ -579,7 +588,13 @@ Settings and known defects. None is a decision to make; all are things to get ri
   built in v1.
 - **Set party-db's `oplogRetention` low, around 200** against its default of 10,000. For a
   hot row the reconnect delta measured 400× the snapshot, and party-db has no large-delta
-  bail-out. Low retention pushes a returning client onto the cheap snapshot path.
+  bail-out. Low retention pushes a returning client onto the cheap snapshot path. The
+  Article Agent's core sets 200; the House's room should too.
+- **The per-Article sync client is cached for the session, and its collections are
+  pinned.** party-db exposes no way to close a transport (party-db#46), and a collection
+  that restarts after TanStack DB's GC gets no second snapshot (party-db#47) — so
+  `articleSync` holds one client per Article and a standing subscription per collection.
+  Both carries undo when the upstream teardown lands.
 - **party-db never compares `previousValue`.** Any concurrent write clobbers the whole row.
   The Block shape limits the blast radius; nothing removes it.
 - **party-db has no per-row access control.** `src/server/access.ts` warns that `access` and
@@ -608,25 +623,58 @@ Settings and known defects. None is a decision to make; all are things to get ri
 
 ## 12. Notes and the Review
 
-What the feature is and how it behaves is [`reviews.md`](./reviews.md). Four rules here,
-because each one binds more than one module.
+What the feature is and how it behaves is [`reviews.md`](./reviews.md). The rules here
+bind more than one module; issue #92 is the pilot that set the sync ones.
 
 **The Article Agent runs the Review, and the client does not.** A Review is long-running
 and produces a batch, so a client-run one is lost the moment the writer closes the tab —
 issue #11. `startReview` writes a Round row, answers with it, and carries on under
-`waitUntil`. Three things follow:
+`waitUntil`. Two things follow:
 
 - **`state` is a column.** `running` has to survive the writer leaving, and a Review that
   fails with nobody connected has to leave its reason on the row rather than on a call.
   A `running` row seen at wake is one a restart cut off — the Review itself holds the
   Agent awake — so `onStart` fails it, freeing the guard below.
-- **One Review at a time per Article**, guarded by the running row. Two calls interleave
-  whenever the writer double-clicks or has the Article open twice, and `await` inside a
-  Durable Object lets the second start before the first finishes (#9). The guard cannot be
-  a field: in-memory state does not survive hibernation.
-- **Settling a Round broadcasts `review_finished`.** Rows have no sync (§3), so this is the
-  one thing that tells a waiting client. A client that was away reads the rows when the
-  Panel opens instead, and one whose socket dropped mid-Review polls the Rounds.
+- **One Review at a time per Article**, guarded by the running row and enforced by the
+  table: a partial unique index allows at most one `running` row. The pre-check in
+  `startReview` gives the friendly refusal; the index holds when two calls interleave
+  across an `await` (#9), which a field could not — in-memory state does not survive
+  hibernation, and a check-then-write races itself.
+
+**Notes and Rounds are party-db collections, hosted by the Article Agent itself.** This
+is #84's hosting question, answered: the Agent cannot subclass `PartyDbServer` — it
+already extends `AIChatAgent` — so it holds a `PartyDbCore` built over its own SQLite
+(party-db#43), and §3 rule 2 stands as written. No room Durable Object sits beside it.
+The composition is four seams, all keyed on party-db's own `?proto=party-db` marker:
+
+- **A second socket, not a shared one.** `partyTransport` connects to the same Durable
+  Object over partyserver's `/parties/article-agent/:name` route, beside the `useAgent`
+  socket (§8). A reconnecting client passes `?since` and gets the delta it missed; a
+  fresh one gets a snapshot.
+- **Marked connects go to the core and skip the Agents SDK handshake** —
+  `shouldSendProtocolMessages` turns the identity/state/MCP frames off for them.
+- **Every broadcast leaves sync subscribers out.** The Agent overrides `broadcast`, which
+  is the one path the SDK's own frames (state sync, Chat streams) and the app's
+  (`plan_refused`) all pass through. A sync subscriber hears `SequencedBatch` frames and
+  nothing else.
+- **The client write path is closed.** A party-db write POST answers 403: rulings are
+  server-side state-machine moves, and party-db has no per-row policy layer to hold their
+  guards yet (party-db#33). Forwarding to `handleWrite` is the whole change when a
+  client-authored collection arrives.
+
+**Every server write to a synced table goes through `commit()`, never raw SQL.** A raw
+write reaches a fresh snapshot and never an already-connected client, because only the
+oplog feeds the stream. The Guide writes a Round's Notes and its settle in one commit, so
+a subscriber that hears the Round settle already holds its Notes; rulings stay `@callable`
+RPC for their guards, implemented over `commit()` so the ruled row syncs. Nothing
+announces a Review settling any more — the rows landing is the announcement, which is
+what deleted the `review_finished` frame, the Notes Panel's poll, and its reload counter.
+
+**The wire rows are the table rows.** `src/shared/sync.ts` declares the two collections'
+schemas as the columns stand — snake_case, JSON columns as the text they store — and owns
+the one mapping to the shapes the app reads. JSON-typed fields would arrive unparsed
+anyway: party-db's column codec reads Zod v3 internals and this repo is on Zod v4
+(party-db#45).
 
 **A Note's anchor is settled once, at write time, against the Plan and Draft the model was
 shown.** An anchor the client cannot resolve reads as the whole piece and breaks nothing,
@@ -639,10 +687,10 @@ the writer rules on all three the same way. The three records still differ in sh
 Offer starts `undecided`, a Note starts `proposed`, a Proposal stores no disposition at all
 and dies with its turn — and whether that is worth reconciling is issue #79.
 
-**A Review does not stream, and §10 says it should.** `@callable` is request and response,
-so the streaming version is `streamObject` over the Agent's `onRequest` — issue #77. The
-cost is smaller than it looks, because the Round is durable: the wait is a row rather than
-a call being held open.
+**A Review does not stream, and §10 says it should.** Its Notes now arrive live as rows,
+but the Round's prose lands whole; the streaming version is `streamObject` over the
+Agent's `onRequest` — issue #77. The cost is smaller than it looks, because the Round is
+durable: the wait is a row rather than a call being held open.
 
 ## 13. Out of scope
 

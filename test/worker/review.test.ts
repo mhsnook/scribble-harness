@@ -1,32 +1,16 @@
 import { MockLanguageModelV3 } from 'ai/test'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { NoteAnchor } from '../../src/shared/note'
-import type { ReviewOutput, Round } from '../../src/shared/review'
 import { makeNode, makePlan } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
-import { inAgent, noUsage, scriptModel, stopped } from './scripted'
+import { answers, ask, response, settled } from './review-fixtures'
+import { inAgent, scriptModel } from './scripted'
 
 /**
  * The Review, end to end inside the Article Agent — `docs/architecture.md` §3,
  * §7, and §12. What these drive is `reviewModel()`, replaced with a scripted
  * one — `scripted.ts` for why no test calls a real model.
  */
-
-/** A model that answers `generateObject` with this JSON, once per call. A
- * second element is what a refused first answer retries into. */
-function answers(...bodies: string[]) {
-	let call = 0
-
-	return new MockLanguageModelV3({
-		doGenerate: async () => ({
-			content: [{ type: 'text' as const, text: bodies[call++] ?? '' }],
-			finishReason: stopped,
-			usage: noUsage,
-			warnings: [],
-		}),
-	})
-}
 
 /** A model that fails the way a provider outage does. */
 function fails(why: string) {
@@ -61,20 +45,6 @@ function stalls() {
 const scriptReview = (name: string, model: MockLanguageModelV3) =>
 	scriptModel(name, 'reviewModel', model)
 
-/** The Round, once it has stopped running. `startReview` answers as soon as the
- * row exists and the model call carries on under `waitUntil`, so every test
- * waits on the row rather than on the call. */
-function settled(name: string): Promise<Round> {
-	return vi.waitFor(async () => {
-		const rounds = await inAgent(name, (agent) => agent.listRounds())
-		const round = rounds[rounds.length - 1]
-
-		expect(round?.state).not.toBe('running')
-
-		return round
-	})
-}
-
 const plan = makePlan({
 	title: 'The permit queue',
 	outline: [makeNode({ id: 'n1', title: 'The opening' })],
@@ -92,34 +62,6 @@ const blocks = [
 		json: { type: 'paragraph', content: [{ type: 'text', text: 'Two.' }] },
 	},
 ]
-
-/** One response: prose, then the Notes it produced. */
-function response(anchor: NoteAnchor): string {
-	const output: ReviewOutput = {
-		passages: [
-			{
-				prose: 'Two supporting points do most of the work in this section.',
-				label: 'on the first point',
-				notes: [
-					{
-						type: 'repetition',
-						anchor,
-						label: 're-argued',
-						body: 'Cut to a clause.',
-					},
-				],
-			},
-			{ prose: 'The thesis itself appears twice, and that is within reason.', notes: [] },
-		],
-	}
-
-	return JSON.stringify(output)
-}
-
-const ask = {
-	prompt: 'Review for repetition of the supporting logic.',
-	depth: 'quick' as const,
-}
 
 describe('running a Review', () => {
 	it('answers with a running Round before the model has said anything', async () => {
@@ -270,11 +212,13 @@ describe('running a Review', () => {
 		await openAgentSocket('review-one')
 		await scriptReview('review-one', answers(response({ kind: 'article' })))
 
+		// Both in flight at once — the double-click. The pre-check misses this
+		// race because `startReview` awaits its commit; the `round_one_running`
+		// index refuses the second insert.
 		await expect(
-			inAgent('review-one', (agent) => {
-				agent.startReview(ask)
-				agent.startReview(ask)
-			}),
+			inAgent('review-one', (agent) =>
+				Promise.all([agent.startReview(ask), agent.startReview(ask)]),
+			),
 		).rejects.toThrow(/still running/)
 	})
 
@@ -294,11 +238,11 @@ describe('running a Review', () => {
 		}
 
 		const notes = await inAgent('review-bound', (agent) => agent.listNotes())
-		await inAgent('review-bound', (agent) => {
-			agent.setNoteDisposition(notes[0].id, 'accepted')
-			agent.setNoteDisposition(notes[1].id, 'declined')
-			agent.setNoteDisposition(notes[2].id, 'accepted')
-			agent.resolveNote(notes[2].id)
+		await inAgent('review-bound', async (agent) => {
+			await agent.setNoteDisposition(notes[0].id, 'accepted')
+			await agent.setNoteDisposition(notes[1].id, 'declined')
+			await agent.setNoteDisposition(notes[2].id, 'accepted')
+			await agent.resolveNote(notes[2].id)
 		})
 
 		await inAgent('review-bound', (agent) => agent.startReview(ask))
@@ -311,17 +255,6 @@ describe('running a Review', () => {
 
 		expect(sent).toContain('already accepted from earlier Rounds')
 		expect(sent.match(/Cut to a clause/g)).toHaveLength(1)
-	})
-
-	it('says which Round settled, because nothing else would', async () => {
-		const reader = await openAgentSocket('review-frame')
-		await scriptReview('review-frame', answers(response({ kind: 'article' })))
-
-		const round = await inAgent('review-frame', (agent) => agent.startReview(ask))
-
-		await expect(reader.next('review_finished')).resolves.toMatchObject({
-			roundId: round.id,
-		})
 	})
 })
 

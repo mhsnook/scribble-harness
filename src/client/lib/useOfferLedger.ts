@@ -11,8 +11,7 @@ import { failureText } from './failure'
 
 /**
  * The Offer ledger, live: a live query over the synced `offer` collection,
- * writes over RPC — architecture.md §12. A research turn's rows land as the
- * Guide commits them, so nothing here asks for them.
+ * writes over RPC — architecture.md §12.
  */
 
 export type OfferLedgerHandle = {

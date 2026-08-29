@@ -43,10 +43,9 @@ export function articleSync(articleId: string): ArticleSync {
 
 	// Pin every collection: TanStack DB garbage-collects a collection once its
 	// last subscriber leaves, and a party-db collection that restarts gets no
-	// second snapshot (party-db#47; the other §11 carry).
-	sync.note.subscribeChanges(() => {})
-	sync.round.subscribeChanges(() => {})
-	sync.offer.subscribeChanges(() => {})
+	// second snapshot (party-db#47; the other §11 carry). Iterated rather than
+	// listed, so a collection cannot join `ArticleSync` unpinned.
+	for (const collection of Object.values(sync)) collection.subscribeChanges(() => {})
 
 	held.set(articleId, sync)
 

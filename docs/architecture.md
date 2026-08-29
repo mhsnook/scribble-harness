@@ -648,12 +648,12 @@ issue #11. `startReview` writes a Round row, answers with it, and carries on und
   across an `await` (#9), which a field could not — in-memory state does not survive
   hibernation, and a check-then-write races itself.
 
-**Notes, Rounds and Offers are party-db collections, hosted by the Article Agent itself.**
-This
-is #84's hosting question, answered: the Agent cannot subclass `PartyDbServer` — it
-already extends `AIChatAgent` — so it holds a `PartyDbCore` built over its own SQLite
-(party-db#43), and §3 rule 2 stands as written. No room Durable Object sits beside it.
-The composition is four seams, all keyed on party-db's own `?proto=party-db` marker:
+**Notes, Rounds and Offers are party-db collections, hosted by the Article Agent
+itself.** This is #84's hosting question, answered: the Agent cannot subclass
+`PartyDbServer` — it already extends `AIChatAgent` — so it holds a `PartyDbCore` built
+over its own SQLite (party-db#43), and §3 rule 2 stands as written. No room Durable
+Object sits beside it. The composition is four seams, all keyed on party-db's own
+`?proto=party-db` marker:
 
 - **A second socket, not a shared one.** `partyTransport` connects to the same Durable
   Object over partyserver's `/parties/article-agent/:name` route, beside the `useAgent`
@@ -674,12 +674,13 @@ The composition is four seams, all keyed on party-db's own `?proto=party-db` mar
 write reaches a fresh snapshot and never an already-connected client, because only the
 oplog feeds the stream. Reads stay plain SQL, the fingerprint dedupe in `recordOffers`
 among them: the oplog carries writes. The Guide writes a Round's Notes and its settle in
-one commit, so a subscriber that hears the Round settle already holds its Notes; a
-research turn commits one Offer at a time, so the writer watches the rows arrive.
-Rulings stay `@callable` RPC for their guards on all three types, implemented over
-`commit()` so the ruled row syncs. Nothing announces a Review settling or a turn
-recording any more — the rows landing is the announcement, which is what deleted the
-`review_finished` frame, the Notes Panel's poll, its reload counter, and the Ledger's.
+one commit, and a research turn commits its Offers in one too — a subscriber that hears
+the Round settle already holds its Notes, and a turn that found seventeen things costs
+one batch rather than seventeen. Rulings stay `@callable` RPC for their guards on all
+three types, implemented over `commit()` so the ruled row syncs. Nothing announces a
+Review settling or a turn recording any more — the rows landing is the announcement,
+which is what deleted the `review_finished` frame, the Notes Panel's poll, its reload
+counter, and the Ledger's.
 
 **The wire rows are the table rows.** `src/shared/sync.ts` declares the three collections'
 schemas as the columns stand — snake_case, JSON columns as the text they store — and owns

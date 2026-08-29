@@ -378,54 +378,40 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * One research turn. An entry this Article already carries comes back as it
 	 * stands, keeping the disposition the writer gave it — §5.
 	 *
-	 * Not `@callable`, and neither is `createOffer`: the research tool is the
-	 * only caller and it runs inside this Agent (§3, rule 4).
+	 * Not `@callable`: the research tool is the only caller and it runs inside
+	 * this Agent (§3, rule 4).
 	 */
 	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
 
-		// Added to as the batch is written, so a turn dedupes against itself.
-		// Reading stays plain SQL: the oplog carries writes, not reads.
+		// Added to as the batch is built, so a turn dedupes against itself. A
+		// read, so no commit: §12's commit-only rule covers writes.
 		const held = new Map(
 			this.listOffers().map((offer) => [offerFingerprint(offer), offer]),
 		)
 
-		// One commit per Offer, so a subscriber watching a research turn sees
-		// each row land as it is written rather than the batch at the end.
-		const recorded: RecordedOffer[] = []
-		for (const material of found) {
+		const ops: { type: 'insert'; value: OfferRow }[] = []
+		const recorded = found.map((material): RecordedOffer => {
 			const fingerprint = offerFingerprint(material)
 			const already = held.get(fingerprint)
-			if (already !== undefined) {
-				recorded.push({ offer: already, duplicate: true })
-				continue
-			}
+			if (already !== undefined) return { offer: already, duplicate: true }
 
-			const offer = await this.createOffer(material)
+			const value = offerRow(material)
+			const offer = toOffer(value)
 			held.set(fingerprint, offer)
-			recorded.push({ offer, duplicate: false })
-		}
+			ops.push({ type: 'insert', value })
 
-		return recorded
-	}
-
-	/** Starts Undecided. The resolved row carries the `seq` the table assigned,
-	 * which is the order the Ledger reads — so the Offer comes from the commit's
-	 * answer, not from `value`. */
-	async createOffer(content: ReferenceContent): Promise<Offer> {
-		const value = fromOffer({
-			...referenceContentSchema.parse(content),
-			id: crypto.randomUUID(),
-			disposition: 'undecided',
-			createdAt: Date.now(),
-			decidedAt: null,
+			return { offer, duplicate: false }
 		})
 
-		const [batch] = await this.db.commit([
-			{ channel: 'offer', ops: [{ type: 'insert', value }] },
-		])
+		// One commit for the turn, the way `writeReview` writes a Round's Notes:
+		// seventeen findings cost one batch, one oplog entry and one frame per
+		// subscriber rather than seventeen of each. A batch with no ops would
+		// still reach every subscriber, so a turn that found nothing new
+		// commits nothing.
+		if (ops.length > 0) await this.db.commit([{ channel: 'offer', ops }])
 
-		return toOffer(batch.ops[0].value as OfferRow)
+		return recorded
 	}
 
 	/** Mark an Offer as having been Accepted or Declined by the client. */
@@ -433,12 +419,11 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	async setOfferDisposition(id: string, disposition: Ruling): Promise<Offer> {
 		const ruling = rulingSchema.parse(disposition)
 
-		// Read first, so an id no Offer carries throws rather than committing an
-		// update that moves nothing: a commit's answer carries no row count,
-		// where the `UPDATE ... RETURNING` this replaced did.
+		// Read first: an update that matches no row comes back as the value it
+		// was sent, so `moveOffer` cannot tell a miss from a hit.
 		this.readOffer(id)
 
-		return this.moveOffer(id, ruling, Date.now())
+		return this.moveOffer(id, ruling)
 	}
 
 	/** Restore a Declined Offer back to Undecided. */
@@ -449,17 +434,14 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		const offer = this.readOffer(id)
 		if (offer.disposition !== 'declined') throw notDeclined(offer)
 
-		return this.moveOffer(id, 'undecided', null)
+		return this.moveOffer(id, 'undecided')
 	}
 
 	/** `decided_at` is the moment the writer ruled, so restoring to Undecided
 	 * clears it. The update value names only the columns it moves; the commit's
 	 * answer is the whole row. */
-	private async moveOffer(
-		id: string,
-		disposition: Disposition,
-		decidedAt: number | null,
-	): Promise<Offer> {
+	private async moveOffer(id: string, disposition: Disposition): Promise<Offer> {
+		const decidedAt = disposition === 'undecided' ? null : Date.now()
 		const [batch] = await this.db.commit([
 			{
 				channel: 'offer',
@@ -776,6 +758,19 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 		return toNote(rows[0])
 	}
+}
+
+/** One Offer as a row, ready to commit. Starts Undecided. The table fills in
+ * `seq` and `Offer` does not carry it, so a caller reads the same Offer off
+ * this row as off the commit's answer. */
+function offerRow(content: ReferenceContent): OfferRow {
+	return fromOffer({
+		...referenceContentSchema.parse(content),
+		id: crypto.randomUUID(),
+		disposition: 'undecided',
+		createdAt: Date.now(),
+		decidedAt: null,
+	})
 }
 
 /** One Note as a row, ready to commit. Starts proposed; the anchor is settled

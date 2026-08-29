@@ -280,8 +280,8 @@ export const F_LedgerDrawer: Story = {
 		// wrapper's edge rather than at the field.
 		const foot = () => transcript.getBoundingClientRect().bottom
 
-		// The rows arrive through the synced `offer` collection (§12), so the
-		// drawer draws them with nothing having asked for them.
+		// The rows land through the synced `offer` collection rather than on first
+		// paint, so the geometry below would measure an empty drawer without this.
 		await waitFor(() =>
 			expect(
 				within(drawer as HTMLElement).getAllByText(/Permit throughput/).length,

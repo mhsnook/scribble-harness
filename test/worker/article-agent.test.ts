@@ -1,4 +1,4 @@
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 
 import type { RecordedOffer } from '../../src/server/article-agent'
@@ -8,31 +8,27 @@ import type { Plan, ReferenceContent } from '../../src/shared/plan'
 import { emptyPlan, isPlanRefused } from '../../src/shared/plan'
 import { makeNode, makePlan, makeReference } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
+import { agentStub, inAgent } from './scripted'
 
-/** Record an Offer the way the Chat will: inside the Agent, not over RPC.
- * `createOffer` is deliberately not `@callable`, so a test reaches it the same
- * way the research tool does. The Article Agent must already be awake, which
- * every caller here arranges by opening a socket first. */
-function createOffer(name: string, content: ReferenceContent): Promise<Offer> {
-	const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName(name))
-
-	return runInDurableObject(stub, (agent) => agent.createOffer(content))
+/** One research turn, the way the tool will run it: inside the Agent, not over
+ * RPC. The Article Agent must already be awake, which every caller here
+ * arranges by opening a socket first. */
+function recordOffers(name: string, batch: unknown): Promise<RecordedOffer[]> {
+	return inAgent(name, (agent) => agent.recordOffers(batch))
 }
 
-/** One research turn, the way the tool will run it. */
-function recordOffers(name: string, batch: unknown): Promise<RecordedOffer[]> {
-	const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName(name))
+/** One Offer, as a turn that found one thing. */
+async function createOffer(name: string, content: ReferenceContent): Promise<Offer> {
+	const [recorded] = await recordOffers(name, [content])
 
-	return runInDurableObject(stub, (agent) => agent.recordOffers(batch))
+	return recorded.offer
 }
 
 /** Every Offer, read inside the Agent. `listOffers` is not `@callable`: a
  * client reads its synced `offer` collection (§12), which `sync.test.ts`
  * covers. */
 function listOffers(name: string): Promise<Offer[]> {
-	const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName(name))
-
-	return runInDurableObject(stub, (agent) => agent.listOffers())
+	return inAgent(name, (agent) => agent.listOffers())
 }
 
 /** A Plan that parses: one Section, and one Reference placed at it. */
@@ -121,19 +117,17 @@ describe('the Plan in Article Agent state', () => {
 
 describe('Offers in the Article Agent', () => {
 	// `@callable` is the whole allowlist of what a browser may invoke on this
-	// Durable Object, so the set is worth naming — `createOffer` is absent
+	// Durable Object, so the set is worth naming — `recordOffers` is absent
 	// because only the Chat records an Offer. It also proves the decorator
 	// survived the build: oxc does not lower one, and `agents/vite` does.
 	it('marks every writer-facing method callable, and nothing else', async () => {
-		const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName('callable-set'))
-
-		const methods = await runInDurableObject(stub, (agent) => [
+		const methods = await inAgent('callable-set', (agent) => [
 			...agent.getCallableMethods().keys(),
 		])
 
 		// Exact, so reaching the browser is a decision rather than a side effect
-		// of adding a method: `recordOffers` and `createOffer` stay off it,
-		// because the Guide writes those and the writer never authors one.
+		// of adding a method: `recordOffers` stays off it, because the Guide
+		// writes Offers and the writer never authors one.
 		// `listNotes`, `listRounds` and `listOffers` are off it too — a client
 		// reads all three from its synced collections (§12), not over RPC.
 		expect(methods.sort()).toEqual([
@@ -206,22 +200,19 @@ describe('Offers in the Article Agent', () => {
 	// clock barely advances — so `created_at` cannot order them and `seq` does.
 	it('lists a batch recorded in one turn in the order it was recorded', async () => {
 		await openAgentSocket('offer-batch')
-		const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName('offer-batch'))
+		const titles = ['first', 'second', 'third', 'fourth']
 
-		const titles = await runInDurableObject(stub, async (agent) => {
-			const recorded: (string | undefined)[] = []
-			for (const title of ['first', 'second', 'third', 'fourth']) {
-				const offer = await agent.createOffer({ type: 'link', source: { title } })
-				recorded.push(offer.source?.title)
-			}
+		const recorded = await recordOffers(
+			'offer-batch',
+			titles.map((title) => ({ type: 'link', source: { title } })),
+		)
 
-			return {
-				recorded,
-				listed: agent.listOffers().map((offer) => offer.source?.title),
-			}
-		})
-
-		expect(titles.listed).toEqual(titles.recorded)
+		expect(recorded.map((entry) => entry.offer.source?.title)).toEqual(titles)
+		await expect(
+			listOffers('offer-batch').then((offers) =>
+				offers.map((offer) => offer.source?.title),
+			),
+		).resolves.toEqual(titles)
 	})
 
 	it('keeps its Offers through a hibernation cycle', async () => {
@@ -232,9 +223,7 @@ describe('Offers in the Article Agent', () => {
 
 		// The socket hibernates rather than closing, so the next call wakes the
 		// Article Agent with its in-memory state gone and onStart run again.
-		await evictDurableObject(
-			env.ArticleAgent.get(env.ArticleAgent.idFromName('offer-hibernation')),
-		)
+		await evictDurableObject(agentStub('offer-hibernation'))
 
 		const offers = await listOffers('offer-hibernation')
 

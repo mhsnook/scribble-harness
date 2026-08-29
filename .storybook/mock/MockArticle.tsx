@@ -63,8 +63,8 @@ export function MockArticle({ children }: { children: ReactNode }) {
 		return held
 	})
 
-	// One seam per story, for the reason `useArticleAgent` gives: the readers
-	// each load once per store identity, and the collections hold the rows.
+	// One draft store and one seam per story: `useDraft` and `useNotes` load once
+	// per `draft` store identity, and the seam's collections hold the rows.
 	const [draft] = useState(() => memoryDraftStore())
 	const [seam] = useState(() => memoryArticle({ offers: seeded }))
 
@@ -166,9 +166,8 @@ export function memoryArticle(
 	)
 	const round = memoryCollection<RoundRow>((options.rounds ?? []).map(fromRound))
 
-	let offerSeq = 0
 	const offer = memoryCollection<OfferRow>(
-		(options.offers ?? []).map((one) => fromOffer(one, ++offerSeq)),
+		(options.offers ?? []).map((one, index) => ({ ...fromOffer(one), seq: index + 1 })),
 	)
 
 	const findNote = (id: string): NoteRow => {
@@ -261,11 +260,8 @@ export function memoryArticle(
 		return row
 	}
 
-	const moveOffer = (
-		row: OfferRow,
-		disposition: Disposition,
-		decidedAt: number | null,
-	) => {
+	const moveOffer = (row: OfferRow, disposition: Disposition) => {
+		const decidedAt = disposition === 'undecided' ? null : Date.now()
 		offer.update(row.id, (draft) => {
 			draft.disposition = disposition
 			draft.decided_at = decidedAt
@@ -275,8 +271,7 @@ export function memoryArticle(
 	}
 
 	const offers: OfferStore = {
-		setOfferDisposition: (id: string, ruling: Ruling) =>
-			moveOffer(findOffer(id), ruling, Date.now()),
+		setOfferDisposition: (id: string, ruling: Ruling) => moveOffer(findOffer(id), ruling),
 
 		restoreOffer: (id: string) => {
 			const row = findOffer(id)
@@ -284,7 +279,7 @@ export function memoryArticle(
 				return Promise.reject(notDeclined(toOffer(row)))
 			}
 
-			return moveOffer(row, 'undecided', null)
+			return moveOffer(row, 'undecided')
 		},
 	}
 

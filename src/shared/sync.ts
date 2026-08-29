@@ -49,9 +49,9 @@ export const roundRowSchema = z.object({
 })
 export type RoundRow = z.infer<typeof roundRowSchema>
 
-/** One `offer` row as it travels. An absent field is null on the wire and
- * `undefined` on an `Offer` — §4's one spelling per state, either side of a
- * column that has only the one way to say "nothing here". */
+/** One `offer` row as it travels. A column says "nothing here" with null and
+ * the `Offer` field says it by being absent; `toOffer` and `fromOffer` map
+ * between the two. */
 export const offerRowSchema = z.object({
 	seq: z.number().optional(),
 	id: z.string(),
@@ -118,12 +118,11 @@ export function fromRound(round: Round): RoundRow {
 	}
 }
 
-/** The inverse of `toOffer`, for code that builds rows — the Article Agent's
- * insert, which leaves `seq` to the table, and the Storybook mocks, which
- * stand in for it. */
-export function fromOffer(offer: Offer, seq?: number): OfferRow {
+/** The inverse of `toOffer`, for code that builds rows. `seq` is left to the
+ * table, so a caller that stands in for it — the Storybook mocks — sets it on
+ * the row this returns. */
+export function fromOffer(offer: Offer): OfferRow {
 	return {
-		...(seq === undefined ? {} : { seq }),
 		id: offer.id,
 		type: offer.type,
 		disposition: offer.disposition,

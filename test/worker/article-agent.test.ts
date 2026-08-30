@@ -269,6 +269,21 @@ describe('Offers in the Article Agent', () => {
 		await expect(listOffers('offer-reoffered')).resolves.toHaveLength(1)
 	})
 
+	// Two tool calls in one step run concurrently, and `commit` yields — so the
+	// dedupe has to read and write under one queue rather than once per call.
+	it('records one Offer when two concurrent turns offer the same source', async () => {
+		await openAgentSocket('offer-concurrent')
+
+		const [first, second] = await inAgent('offer-concurrent', (agent) =>
+			Promise.all([agent.recordOffers([reference]), agent.recordOffers([reference])]),
+		)
+
+		expect(first[0].duplicate).toBe(false)
+		expect(second[0].duplicate).toBe(true)
+		expect(second[0].offer.id).toBe(first[0].offer.id)
+		await expect(listOffers('offer-concurrent')).resolves.toHaveLength(1)
+	})
+
 	it('records one turn offering the same source twice as one Offer', async () => {
 		await openAgentSocket('offer-batch-duplicate')
 

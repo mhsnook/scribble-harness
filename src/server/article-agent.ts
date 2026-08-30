@@ -111,6 +111,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * request, or RPC reaches this class — so the `!` holds. */
 	db!: PartyDbCore
 
+	/** Orders `recordOffers` against itself — see the dedupe there. */
+	private recording: Promise<unknown> = Promise.resolve()
+
 	/** Runs on every wake, so every statement here has to be idempotent. A new
 	 * table can join this one. A new column cannot go in bare — SQLite has no
 	 * ADD COLUMN IF NOT EXISTS, so the second wake throws on a duplicate and
@@ -384,6 +387,30 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
 
+		// Queued against every other call, the way party-db serialises its own
+		// writes. The dedupe below reads the table and then commits, and
+		// `commit` always yields — so two turns offering one source would each
+		// read before the other's rows landed and write it twice. Parsing stays
+		// outside the queue: a batch that does not parse writes nothing.
+		const run = this.recording.then(
+			() => this.writeOffers(found),
+			() => this.writeOffers(found),
+		)
+		this.recording = run.catch(() => {})
+
+		return run
+	}
+
+	/**
+	 * One turn's rows, written under `recordOffers`'s queue.
+	 *
+	 * The queue orders calls inside one isolate, which is the only place two can
+	 * overlap: a call in flight holds the Agent awake, so nothing interleaves
+	 * across a hibernation. A guard that did not depend on that would be a
+	 * stored fingerprint column with a UNIQUE index, the way `round_one_running`
+	 * backs `startReview`.
+	 */
+	private async writeOffers(found: ReferenceContent[]): Promise<RecordedOffer[]> {
 		// Added to as the batch is built, so a turn dedupes against itself. A
 		// read, so no commit: §12's commit-only rule covers writes.
 		const held = new Map(

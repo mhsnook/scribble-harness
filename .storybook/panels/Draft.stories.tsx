@@ -7,7 +7,7 @@ import { ArticleDraftPanel } from '../../src/client/draft/ArticleDraftPanel'
 import { ArticleProvider, type DraftStore } from '../../src/client/lib/article'
 import type { BlockRow } from '../../src/shared/draft'
 import { ARTICLE_TITLE } from '../mock/content'
-import { memoryDraftStore, memoryOfferStore } from '../mock/MockArticle'
+import { memoryArticle, memoryDraftStore } from '../mock/MockArticle'
 
 const meta = {
 	title: 'Panels/Draft',
@@ -32,13 +32,17 @@ const SEEDED: BlockRow[] = [
 	para('b1', 1, 'The council voted on Tuesday to extend the scheme.'),
 ]
 
+/** Built once: this screen reads no Offers, Notes or Rounds, and the collections
+ * behind them should not be rebuilt on every keystroke. */
+const others = memoryArticle()
+
 /** Only the Draft's half of the Article seam; nothing here reads the Plan. */
 function DraftScreen({ store }: { store: DraftStore }) {
 	return (
 		<ArticleProvider
 			value={{
+				...others,
 				draft: store,
-				offers: memoryOfferStore([]),
 				plan: { plan: null, edit: () => null, refusal: null, rejected: null },
 			}}
 		>

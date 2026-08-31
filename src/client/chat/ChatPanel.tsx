@@ -341,6 +341,7 @@ function Turn({
 					const found = recorded
 						.map(({ id }) => rows.get(id))
 						.filter((offer): offer is Offer => offer !== undefined)
+					const arriving = recorded.length - found.length
 
 					return (
 						<div key={key} className="flex flex-col gap-2">
@@ -352,10 +353,10 @@ function Turn({
 									onDecline={() => onDeclineOffer(offer)}
 								/>
 							))}
-							{found.length < recorded.length ? (
+							{arriving > 0 ? (
 								<ChatNote>
-									{recorded.length} found, and the Offer ledger has not read them all back
-									yet.
+									{recorded.length} found, and {arriving} {arriving === 1 ? 'is' : 'are'}{' '}
+									still arriving.
 								</ChatNote>
 							) : null}
 						</div>

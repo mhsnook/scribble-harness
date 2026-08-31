@@ -1,4 +1,4 @@
-import { env, evictDurableObject, runInDurableObject } from 'cloudflare:test'
+import { evictDurableObject } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 
 import type { RecordedOffer } from '../../src/server/article-agent'
@@ -8,22 +8,27 @@ import type { Plan, ReferenceContent } from '../../src/shared/plan'
 import { emptyPlan, isPlanRefused } from '../../src/shared/plan'
 import { makeNode, makePlan, makeReference } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
+import { agentStub, inAgent } from './scripted'
 
-/** Record an Offer the way the Chat will: inside the Agent, not over RPC.
- * `createOffer` is deliberately not `@callable`, so a test reaches it the same
- * way the research tool does. The Article Agent must already be awake, which
- * every caller here arranges by opening a socket first. */
-function createOffer(name: string, content: ReferenceContent): Promise<Offer> {
-	const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName(name))
-
-	return runInDurableObject(stub, (agent) => agent.createOffer(content))
+/** One research turn, the way the tool will run it: inside the Agent, not over
+ * RPC. The Article Agent must already be awake, which every caller here
+ * arranges by opening a socket first. */
+function recordOffers(name: string, batch: unknown): Promise<RecordedOffer[]> {
+	return inAgent(name, (agent) => agent.recordOffers(batch))
 }
 
-/** One research turn, the way the tool will run it. */
-function recordOffers(name: string, batch: unknown): Promise<RecordedOffer[]> {
-	const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName(name))
+/** One Offer, as a turn that found one thing. */
+async function createOffer(name: string, content: ReferenceContent): Promise<Offer> {
+	const [recorded] = await recordOffers(name, [content])
 
-	return runInDurableObject(stub, (agent) => agent.recordOffers(batch))
+	return recorded.offer
+}
+
+/** Every Offer, read inside the Agent. `listOffers` is not `@callable`: a
+ * client reads its synced `offer` collection (§12), which `sync.test.ts`
+ * covers. */
+function listOffers(name: string): Promise<Offer[]> {
+	return inAgent(name, (agent) => agent.listOffers())
 }
 
 /** A Plan that parses: one Section, and one Reference placed at it. */
@@ -112,24 +117,21 @@ describe('the Plan in Article Agent state', () => {
 
 describe('Offers in the Article Agent', () => {
 	// `@callable` is the whole allowlist of what a browser may invoke on this
-	// Durable Object, so the set is worth naming — `createOffer` is absent
+	// Durable Object, so the set is worth naming — `recordOffers` is absent
 	// because only the Chat records an Offer. It also proves the decorator
 	// survived the build: oxc does not lower one, and `agents/vite` does.
 	it('marks every writer-facing method callable, and nothing else', async () => {
-		const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName('callable-set'))
-
-		const methods = await runInDurableObject(stub, (agent) => [
+		const methods = await inAgent('callable-set', (agent) => [
 			...agent.getCallableMethods().keys(),
 		])
 
 		// Exact, so reaching the browser is a decision rather than a side effect
-		// of adding a method: `recordOffers` and `createOffer` stay off it,
-		// because the Guide writes those and the writer never authors one.
-		// `listNotes` and `listRounds` are off it too — a client reads Notes and
-		// Rounds from its synced collections (§12), not over RPC.
+		// of adding a method: `recordOffers` stays off it, because the Guide
+		// writes Offers and the writer never authors one.
+		// `listNotes`, `listRounds` and `listOffers` are off it too — a client
+		// reads all three from its synced collections (§12), not over RPC.
 		expect(methods.sort()).toEqual([
 			'listBlocks',
-			'listOffers',
 			'resolveNote',
 			'restoreNote',
 			'restoreOffer',
@@ -141,7 +143,7 @@ describe('Offers in the Article Agent', () => {
 	})
 
 	it('records an Offer as Undecided and lists it', async () => {
-		const writer = await openAgentSocket('offer-create')
+		await openAgentSocket('offer-create')
 
 		const offer = await createOffer('offer-create', quote)
 
@@ -150,7 +152,7 @@ describe('Offers in the Article Agent', () => {
 			disposition: 'undecided',
 			decidedAt: null,
 		})
-		await expect(writer.call<Offer[]>('listOffers')).resolves.toEqual([offer])
+		await expect(listOffers('offer-create')).resolves.toEqual([offer])
 	})
 
 	// No socket first: parsed before any row is written, so it refuses without
@@ -198,20 +200,19 @@ describe('Offers in the Article Agent', () => {
 	// clock barely advances — so `created_at` cannot order them and `seq` does.
 	it('lists a batch recorded in one turn in the order it was recorded', async () => {
 		await openAgentSocket('offer-batch')
-		const stub = env.ArticleAgent.get(env.ArticleAgent.idFromName('offer-batch'))
+		const titles = ['first', 'second', 'third', 'fourth']
 
-		const titles = await runInDurableObject(stub, (agent) => {
-			const recorded = ['first', 'second', 'third', 'fourth'].map((title) =>
-				agent.createOffer({ type: 'link', source: { title } }),
-			)
+		const recorded = await recordOffers(
+			'offer-batch',
+			titles.map((title) => ({ type: 'link', source: { title } })),
+		)
 
-			return {
-				recorded: recorded.map((offer) => offer.source?.title),
-				listed: agent.listOffers().map((offer) => offer.source?.title),
-			}
-		})
-
-		expect(titles.listed).toEqual(titles.recorded)
+		expect(recorded.map((entry) => entry.offer.source?.title)).toEqual(titles)
+		await expect(
+			listOffers('offer-batch').then((offers) =>
+				offers.map((offer) => offer.source?.title),
+			),
+		).resolves.toEqual(titles)
 	})
 
 	it('keeps its Offers through a hibernation cycle', async () => {
@@ -222,11 +223,9 @@ describe('Offers in the Article Agent', () => {
 
 		// The socket hibernates rather than closing, so the next call wakes the
 		// Article Agent with its in-memory state gone and onStart run again.
-		await evictDurableObject(
-			env.ArticleAgent.get(env.ArticleAgent.idFromName('offer-hibernation')),
-		)
+		await evictDurableObject(agentStub('offer-hibernation'))
 
-		const offers = await writer.call<Offer[]>('listOffers')
+		const offers = await listOffers('offer-hibernation')
 
 		expect(offers.map((offer) => [offer.id, offer.disposition])).toEqual([
 			[kept.id, 'undecided'],
@@ -235,12 +234,12 @@ describe('Offers in the Article Agent', () => {
 	})
 
 	it('records a research turn as a batch, in the order the model gave it', async () => {
-		const writer = await openAgentSocket('offer-batch-record')
+		await openAgentSocket('offer-batch-record')
 
 		const recorded = await recordOffers('offer-batch-record', [quote, reference])
 
 		expect(recorded.map((entry) => entry.duplicate)).toEqual([false, false])
-		await expect(writer.call<Offer[]>('listOffers')).resolves.toEqual(
+		await expect(listOffers('offer-batch-record')).resolves.toEqual(
 			recorded.map((entry) => entry.offer),
 		)
 	})
@@ -251,12 +250,7 @@ describe('Offers in the Article Agent', () => {
 		await expect(
 			recordOffers('offer-batch-refused', [quote, { type: 'quote' }]),
 		).rejects.toThrow(/of type quote carries a text/)
-		await expect(
-			runInDurableObject(
-				env.ArticleAgent.get(env.ArticleAgent.idFromName('offer-batch-refused')),
-				(agent) => agent.listOffers(),
-			),
-		).resolves.toEqual([])
+		await expect(listOffers('offer-batch-refused')).resolves.toEqual([])
 	})
 
 	it('recognises a source turned up again as the Offer it already carries', async () => {
@@ -272,7 +266,22 @@ describe('Offers in the Article Agent', () => {
 		expect(again.duplicate).toBe(true)
 		expect(again.offer.id).toBe(first.offer.id)
 		expect(again.offer.disposition).toBe('accepted')
-		await expect(writer.call<Offer[]>('listOffers')).resolves.toHaveLength(1)
+		await expect(listOffers('offer-reoffered')).resolves.toHaveLength(1)
+	})
+
+	// Two tool calls in one step run concurrently, and `commit` yields — so the
+	// dedupe has to read and write under one queue rather than once per call.
+	it('records one Offer when two concurrent turns offer the same source', async () => {
+		await openAgentSocket('offer-concurrent')
+
+		const [first, second] = await inAgent('offer-concurrent', (agent) =>
+			Promise.all([agent.recordOffers([reference]), agent.recordOffers([reference])]),
+		)
+
+		expect(first[0].duplicate).toBe(false)
+		expect(second[0].duplicate).toBe(true)
+		expect(second[0].offer.id).toBe(first[0].offer.id)
+		await expect(listOffers('offer-concurrent')).resolves.toHaveLength(1)
 	})
 
 	it('records one turn offering the same source twice as one Offer', async () => {
@@ -354,7 +363,7 @@ describe('Accepting an Offer into the Plan', () => {
 			text: 'We did not decide.',
 			nodeId: 'n1',
 		})
-		await expect(writer.call<Offer[]>('listOffers')).resolves.toEqual([ruled])
+		await expect(listOffers('accept-and-edit')).resolves.toEqual([ruled])
 	})
 
 	it('Declines and restores without the Plan hearing about it', async () => {
@@ -384,7 +393,7 @@ describe('Accepting an Offer into the Plan', () => {
 
 		const held = await readPlan('accept-no-ruling')
 		expect(held.references.map((copy) => copy.provenance.offerId)).toEqual([offer.id])
-		await expect(writer.call<Offer[]>('listOffers')).resolves.toEqual([offer])
+		await expect(listOffers('accept-no-ruling')).resolves.toEqual([offer])
 
 		// Accepting again sends the ruling. `acceptOffer` finds the copy on the
 		// Provenance and builds no op, so the Plan is not written a second time.

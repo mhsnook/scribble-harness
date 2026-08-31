@@ -49,9 +49,7 @@ import {
 	planSchema,
 	type ReferenceContent,
 	referenceContentSchema,
-	type ReferenceType,
 	sectionIds,
-	type Source,
 } from '../shared/plan'
 import {
 	type ReviewOutput,
@@ -63,10 +61,13 @@ import {
 	type RoundState,
 } from '../shared/review'
 import {
+	fromOffer,
 	type NoteRow,
+	type OfferRow,
 	type RoundRow,
 	syncCollections,
 	toNote,
+	toOffer,
 	toRound,
 } from '../shared/sync'
 import { chatTurn } from './llm/chat-turn'
@@ -75,35 +76,9 @@ import { reviewTurn } from './llm/review'
 import type { ReviewPack } from './llm/review-pack'
 import { webSearch, type WebSearch } from './llm/search'
 
-/** One Offer row as SQLite returns it. `this.sql` asserts the row type rather
+/** One Block row as SQLite returns it. `this.sql` asserts the row type rather
  * than checking it, and this class is the table's only writer, so the columns
- * are stated as what `createOffer` parsed before writing them. */
-type OfferRow = {
-	seq: number
-	id: string
-	type: ReferenceType
-	disposition: Disposition
-	text: string | null
-	source: string | null
-	note: string | null
-	created_at: number
-	decided_at: number | null
-}
-
-function toOffer(row: OfferRow): Offer {
-	return {
-		id: row.id,
-		type: row.type,
-		disposition: row.disposition,
-		text: row.text ?? undefined,
-		source: row.source === null ? undefined : (JSON.parse(row.source) as Source),
-		note: row.note ?? undefined,
-		createdAt: row.created_at,
-		decidedAt: row.decided_at,
-	}
-}
-
-/** One Block row as SQLite returns it, read the same way `OfferRow` is. */
+ * are stated as what `saveBlocks` parsed before writing them. */
 type BlockDbRow = {
 	id: string
 	ord: number
@@ -135,6 +110,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * on every wake in `onStart`, which partyserver runs before any connect,
 	 * request, or RPC reaches this class — so the `!` holds. */
 	db!: PartyDbCore
+
+	/** Orders `recordOffers` against itself — see the dedupe there. */
+	private recording: Promise<unknown> = Promise.resolve()
 
 	/** Runs on every wake, so every statement here has to be idempotent. A new
 	 * table can join this one. A new column cannot go in bare — SQLite has no
@@ -391,8 +369,10 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 *
 	 * `seq` orders it, not `created_at`: a Worker's clock does not advance
 	 * across local writes, so a research turn that records four Offers stamps
-	 * them with one or two milliseconds between them. */
-	@callable()
+	 * them with one or two milliseconds between them.
+	 *
+	 * Not `@callable` — a client reads its synced collection (§12); this reader
+	 * serves the dedupe below, this class, and its tests. */
 	listOffers(): Offer[] {
 		return this.sql<OfferRow>`SELECT * FROM offer ORDER BY seq`.map(toOffer)
 	}
@@ -401,84 +381,102 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * One research turn. An entry this Article already carries comes back as it
 	 * stands, keeping the disposition the writer gave it — §5.
 	 *
-	 * Not `@callable`, and neither is `createOffer`: the research tool is the
-	 * only caller and it runs inside this Agent (§3, rule 4).
+	 * Not `@callable`: the research tool is the only caller and it runs inside
+	 * this Agent (§3, rule 4).
 	 */
-	recordOffers(batch: unknown): RecordedOffer[] {
+	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
 
-		// Added to as the batch is written, so a turn dedupes against itself.
+		// Queued against every other call, the way party-db serialises its own
+		// writes. The dedupe below reads the table and then commits, and
+		// `commit` always yields — so two turns offering one source would each
+		// read before the other's rows landed and write it twice. Parsing stays
+		// outside the queue: a batch that does not parse writes nothing.
+		const run = this.recording.then(
+			() => this.writeOffers(found),
+			() => this.writeOffers(found),
+		)
+		this.recording = run.catch(() => {})
+
+		return run
+	}
+
+	/**
+	 * One turn's rows, written under `recordOffers`'s queue.
+	 *
+	 * The queue orders calls inside one isolate, which is the only place two can
+	 * overlap: a call in flight holds the Agent awake, so nothing interleaves
+	 * across a hibernation. A guard that did not depend on that would be a
+	 * stored fingerprint column with a UNIQUE index, the way `round_one_running`
+	 * backs `startReview`.
+	 */
+	private async writeOffers(found: ReferenceContent[]): Promise<RecordedOffer[]> {
+		// Added to as the batch is built, so a turn dedupes against itself. A
+		// read, so no commit: §12's commit-only rule covers writes.
 		const held = new Map(
 			this.listOffers().map((offer) => [offerFingerprint(offer), offer]),
 		)
 
-		return found.map((material) => {
+		const ops: { type: 'insert'; value: OfferRow }[] = []
+		const recorded = found.map((material): RecordedOffer => {
 			const fingerprint = offerFingerprint(material)
 			const already = held.get(fingerprint)
 			if (already !== undefined) return { offer: already, duplicate: true }
 
-			const offer = this.createOffer(material)
+			const value = offerRow(material)
+			const offer = toOffer(value)
 			held.set(fingerprint, offer)
+			ops.push({ type: 'insert', value })
 
 			return { offer, duplicate: false }
 		})
-	}
 
-	/** Starts Undecided. */
-	createOffer(content: ReferenceContent): Offer {
-		const offer: Offer = {
-			...referenceContentSchema.parse(content),
-			id: crypto.randomUUID(),
-			disposition: 'undecided',
-			createdAt: Date.now(),
-			decidedAt: null,
-		}
+		// One commit for the turn, the way `writeReview` writes a Round's Notes:
+		// seventeen findings cost one batch, one oplog entry and one frame per
+		// subscriber rather than seventeen of each. A batch with no ops would
+		// still reach every subscriber, so a turn that found nothing new
+		// commits nothing.
+		if (ops.length > 0) await this.db.commit([{ channel: 'offer', ops }])
 
-		this.sql`
-			INSERT INTO offer (id, type, disposition, text, source, note, created_at, decided_at)
-			VALUES (
-				${offer.id},
-				${offer.type},
-				${offer.disposition},
-				${offer.text ?? null},
-				${offer.source === undefined ? null : JSON.stringify(offer.source)},
-				${offer.note ?? null},
-				${offer.createdAt},
-				${offer.decidedAt}
-			)
-		`
-
-		return offer
+		return recorded
 	}
 
 	/** Mark an Offer as having been Accepted or Declined by the client. */
 	@callable()
-	setOfferDisposition(id: string, disposition: Ruling): Offer {
+	async setOfferDisposition(id: string, disposition: Ruling): Promise<Offer> {
 		const ruling = rulingSchema.parse(disposition)
 
-		const rows = this.sql<OfferRow>`
-			UPDATE offer SET disposition = ${ruling}, decided_at = ${Date.now()}
-			WHERE id = ${id} RETURNING *
-		`
-		if (rows.length === 0) throw missingOffer(id)
+		// Read first: an update that matches no row comes back as the value it
+		// was sent, so `moveOffer` cannot tell a miss from a hit.
+		this.readOffer(id)
 
-		return toOffer(rows[0])
+		return this.moveOffer(id, ruling)
 	}
 
 	/** Restore a Declined Offer back to Undecided. */
 	@callable()
-	restoreOffer(id: string): Offer {
+	async restoreOffer(id: string): Promise<Offer> {
 		// Read first: an Offer that is Accepted and one that does not exist have
-		// to be told apart, and one conditional UPDATE cannot do that.
+		// to be told apart, and one conditional update cannot do that.
 		const offer = this.readOffer(id)
 		if (offer.disposition !== 'declined') throw notDeclined(offer)
 
-		const rows = this.sql<OfferRow>`
-			UPDATE offer SET disposition = 'undecided', decided_at = NULL
-			WHERE id = ${id} RETURNING *
-		`
+		return this.moveOffer(id, 'undecided')
+	}
 
-		return toOffer(rows[0])
+	/** `decided_at` is the moment the writer ruled, so restoring to Undecided
+	 * clears it. The update value names only the columns it moves; the commit's
+	 * answer is the whole row. */
+	private async moveOffer(id: string, disposition: Disposition): Promise<Offer> {
+		const decidedAt = disposition === 'undecided' ? null : Date.now()
+		const [batch] = await this.db.commit([
+			{
+				channel: 'offer',
+				ops: [{ type: 'update', value: { id, disposition, decided_at: decidedAt } }],
+			},
+		])
+
+		return toOffer(batch.ops[0].value as OfferRow)
 	}
 
 	private readOffer(id: string): Offer {
@@ -787,6 +785,19 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 		return toNote(rows[0])
 	}
+}
+
+/** One Offer as a row, ready to commit. Starts Undecided. The table fills in
+ * `seq` and `Offer` does not carry it, so a caller reads the same Offer off
+ * this row as off the commit's answer. */
+function offerRow(content: ReferenceContent): OfferRow {
+	return fromOffer({
+		...referenceContentSchema.parse(content),
+		id: crypto.randomUUID(),
+		disposition: 'undecided',
+		createdAt: Date.now(),
+		decidedAt: null,
+	})
 }
 
 /** One Note as a row, ready to commit. Starts proposed; the anchor is settled

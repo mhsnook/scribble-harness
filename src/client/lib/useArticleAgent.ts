@@ -64,10 +64,10 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 	)
 
 	// Lazy `useState` and not `useMemo`, because the identity is the contract:
-	// `useOfferLedger`, `useDraft` and `useNotes` each load once per store, and
-	// React may recompute a `useMemo`.
+	// `useDraft` and `useNotes` each load the Blocks once per `draft` store, and
+	// React may recompute a `useMemo`. The other two stores are built the same
+	// way, so no reader has to check which one it may key on.
 	const [offers] = useState<OfferStore>(() => ({
-		listOffers: () => call<Offer[]>('listOffers'),
 		setOfferDisposition: (id: string, ruling: Ruling) =>
 			call<Offer>('setOfferDisposition', [id, ruling]),
 		restoreOffer: (id: string) => call<Offer>('restoreOffer', [id]),

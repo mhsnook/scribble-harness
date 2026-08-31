@@ -43,9 +43,9 @@ Browser — React + Vite + TanStack Router
   ├─ Plan Panel    ├── useAgent WebSocket ───► Article Agent (one per Article)
   ├─ Draft Panel   ├── party-db WebSocket ──►   ├─ Agents SDK store: the Chat transcript
   └─ Notes Panel  ─┘    (same Agent, §12)       ├─ Agent state (one JSON blob): the Plan
-                                                ├─ SQLite rows: Blocks, Offers
+                                                ├─ SQLite rows: Blocks
                                                 ├─ party-db collections over its SQLite:
-                                                │    Notes, Rounds (synced, §12)
+                                                │    Notes, Rounds, Offers (synced, §12)
                    ── party-db WebSocket ──►  The House (one party-db room, → D1)   [1b]
                    ── HTTP (Hono) ─────────►  The article index (→ D1)
                                               Archived reads, export
@@ -105,11 +105,11 @@ Recorded in [ADR 0001](./adr/0001-phase-1-storage-shape.md).
 **The blob is a reactive store; a table is on-demand until it is published as a
 party-db collection.** A bare row in a Durable Object's SQLite has no sync — `@callable`
 RPC is request and response, so nothing tells a client it changed. That still suits
-Blocks and Offers, which are read when a Panel opens. Notes and Rounds are published as
+Blocks, which the client both writes and reads. Notes, Rounds and Offers are published as
 party-db collections instead (§12): reads are synced live queries, the Guide's writes go
 through `commit()`, and rule 2's write path still holds for what the writer sends up —
-rulings stay RPC. Which tables join the collections next is decided per table, Offers
-first (#92's second pass).
+rulings stay RPC. Which table joins them next is decided per table; the Draft is the one
+left, and §10 says why it can wait.
 
 ## 4. The Plan
 
@@ -178,7 +178,8 @@ relief valve is moving References into SQLite rows, which is the phase 2 move an
 
 ## 5. Chat and the Offers Ledger
 
-The Chat turns up Offers — Links and Quotes — as SQLite rows in the Article Agent. The
+The Chat turns up Offers — Links and Quotes — as rows in the Article Agent's `offer`
+collection, synced to every connected client (§12). The
 **Ledger** is a View over all the Offers surfaced in this Chat. Offers can be
 **Undecided**, **Accepted**, or **Declined** (restorable). In this way, the Ledger is used
 as a direct sibling to, or alternative to, showing the chat transcript. We toggle it on or
@@ -220,6 +221,12 @@ copy for an Offer already Accepted. Nothing recovers it, and nothing surfaces it
 refusal, and `useOfferLedger` reads it: sending the ruling anyway would land the app in
 exactly that stranded state. The writer gets the applier's sentence instead, built at the
 edge from `refusal.reason` like every other one (§6).
+
+**Nothing announces a research turn's rows.** They land through the sync as the Guide
+commits them, on the Ledger of every connected client — which is what deleted
+`listOffers` as a `@callable`, the Ledger's load-once contract, and the reload the Chat
+threaded through when it read fresh ids out of the transcript. The Chat still reads that
+tool output, for the Offer cards it draws in the transcript.
 
 **The writer pastes their own References straight into the Plan**, and those carry
 `provenance: { type: 'writer' }` rather than an Offer id. They never enter the Ledger: an
@@ -435,7 +442,7 @@ party-db's lobby and write path at 1b, archived reads, and export.
 
 **TanStack Query** serves the article index and the archived and export reads. Live data is
 already reactive through Article Agent state and party-db's TanStack DB collections — the
-Notes Panel's today (§12), the House's at 1b.
+Notes Panel's and the Offer ledger's today (§12), the House's at 1b.
 
 **The Article screen has four Panels** — Chat, Plan, Draft, Notes — which become tabs on a
 narrow screen, and which are all more or less their own little interfaces, with very specific
@@ -550,10 +557,10 @@ Guide, the Notes Panel, and everything that reads the prose are not.
   and **a save carries a delta** rather than the whole Draft. The delta is what bounds a
   stale tab: a client can only name a Block it has already seen, so a paragraph written
   somewhere else is not one it can delete.
-- **Sync arrived early, and only for the Notes Panel.** party-db (`mhsnook/party-db`,
-  checked out at `~/code/party-db`) runs inside the Article Agent for Notes and Rounds
-  (§12); the House at 1b gets its own room. The Draft is not synced and can move onto a
-  collection later without changing shape. Until then two tabs on one Draft is
+- **Sync arrived early, and the Draft is what is left out.** party-db (`mhsnook/party-db`,
+  checked out at `~/code/party-db`) runs inside the Article Agent for Notes, Rounds and
+  Offers (§12); the House at 1b gets its own room. The Draft is not synced and can move
+  onto a collection later without changing shape. Until then two tabs on one Draft is
   last-write-wins per Block, which is what §1's "only one editor at a time" costs.
   Findings #7 and #18 stand and are not load-bearing yet.
 - **Notes is the fourth Panel**, and it is built — §12. What is still phase 2's is the
@@ -641,11 +648,12 @@ issue #11. `startReview` writes a Round row, answers with it, and carries on und
   across an `await` (#9), which a field could not — in-memory state does not survive
   hibernation, and a check-then-write races itself.
 
-**Notes and Rounds are party-db collections, hosted by the Article Agent itself.** This
-is #84's hosting question, answered: the Agent cannot subclass `PartyDbServer` — it
-already extends `AIChatAgent` — so it holds a `PartyDbCore` built over its own SQLite
-(party-db#43), and §3 rule 2 stands as written. No room Durable Object sits beside it.
-The composition is four seams, all keyed on party-db's own `?proto=party-db` marker:
+**Notes, Rounds and Offers are party-db collections, hosted by the Article Agent
+itself.** This is #84's hosting question, answered: the Agent cannot subclass
+`PartyDbServer` — it already extends `AIChatAgent` — so it holds a `PartyDbCore` built
+over its own SQLite (party-db#43), and §3 rule 2 stands as written. No room Durable
+Object sits beside it. The composition is four seams, all keyed on party-db's own
+`?proto=party-db` marker:
 
 - **A second socket, not a shared one.** `partyTransport` connects to the same Durable
   Object over partyserver's `/parties/article-agent/:name` route, beside the `useAgent`
@@ -664,13 +672,17 @@ The composition is four seams, all keyed on party-db's own `?proto=party-db` mar
 
 **Every server write to a synced table goes through `commit()`, never raw SQL.** A raw
 write reaches a fresh snapshot and never an already-connected client, because only the
-oplog feeds the stream. The Guide writes a Round's Notes and its settle in one commit, so
-a subscriber that hears the Round settle already holds its Notes; rulings stay `@callable`
-RPC for their guards, implemented over `commit()` so the ruled row syncs. Nothing
-announces a Review settling any more — the rows landing is the announcement, which is
-what deleted the `review_finished` frame, the Notes Panel's poll, and its reload counter.
+oplog feeds the stream. Reads stay plain SQL, the fingerprint dedupe in `recordOffers`
+among them: the oplog carries writes. The Guide writes a Round's Notes and its settle in
+one commit, and a research turn commits its Offers in one too — a subscriber that hears
+the Round settle already holds its Notes, and a turn that found seventeen things costs
+one batch rather than seventeen. Rulings stay `@callable` RPC for their guards on all
+three types, implemented over `commit()` so the ruled row syncs. Nothing announces a
+Review settling or a turn recording any more — the rows landing is the announcement,
+which is what deleted the `review_finished` frame, the Notes Panel's poll, its reload
+counter, and the Ledger's.
 
-**The wire rows are the table rows.** `src/shared/sync.ts` declares the two collections'
+**The wire rows are the table rows.** `src/shared/sync.ts` declares the three collections'
 schemas as the columns stand — snake_case, JSON columns as the text they store — and owns
 the one mapping to the shapes the app reads. JSON-typed fields would arrive unparsed
 anyway: party-db's column codec reads Zod v3 internals and this repo is on Zod v4

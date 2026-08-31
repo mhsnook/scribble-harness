@@ -13,9 +13,9 @@ import type { ArticleSync } from './sync'
  * builds it; the Panels read it.
  */
 
-/** The Article Agent's writer-facing `@callable` methods. */
+/** The Ledger's RPC writes; reads come through the `offer` collection on
+ * `sync`. */
 export type OfferStore = {
-	listOffers(): Promise<Offer[]>
 	setOfferDisposition(id: string, ruling: Ruling): Promise<Offer>
 	restoreOffer(id: string): Promise<Offer>
 }

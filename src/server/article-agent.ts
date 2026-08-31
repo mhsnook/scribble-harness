@@ -111,15 +111,17 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * request, or RPC reaches this class — so the `!` holds. */
 	db!: PartyDbCore
 
-	/** Orders `recordOffers` against itself — see the dedupe there. */
-	private recording: Promise<unknown> = Promise.resolve()
-
 	/** Runs on every wake, so every statement here has to be idempotent. A new
 	 * table can join this one. A new column cannot go in bare — SQLite has no
 	 * ADD COLUMN IF NOT EXISTS, so the second wake throws on a duplicate and
 	 * takes the Chat and the Plan down with it. `pragma_table_info` is what makes
 	 * a guarded ALTER possible when a column does have to change. */
 	async onStart(): Promise<void> {
+		// Read out and dropped, so the statement below builds the current shape
+		// over an `offer` table that predates the fingerprint column. Empty on
+		// every wake but the one that first meets an Article written before it.
+		const carried = this.drainOldOfferTable()
+
 		this.sql`
 			CREATE TABLE IF NOT EXISTS offer (
 				seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,10 +131,18 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 				text TEXT,
 				source TEXT,
 				note TEXT,
+				fingerprint TEXT NOT NULL,
 				created_at INTEGER NOT NULL,
 				decided_at INTEGER
 			)
 		`
+
+		// At most one row may carry a given fingerprint — §12 for the argument.
+		this.sql`
+			CREATE UNIQUE INDEX IF NOT EXISTS offer_one_per_fingerprint
+			ON offer (fingerprint)
+		`
+		this.restoreOffers(carried)
 
 		// One row per Block, ordered by a fractional index the client assigns.
 		// `json` is the editor's own document JSON for that Block, which is why
@@ -220,6 +230,64 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		const cutOff = this.sql<{ id: string }>`SELECT id FROM round WHERE state = 'running'`
 		if (cutOff.length > 0) {
 			await this.failRound(cutOff[0].id, 'The Review was cut off by a restart.')
+		}
+	}
+
+	/**
+	 * One half of the fingerprint column's migration: every Offer on an `offer`
+	 * table that predates the column, with the table dropped behind them.
+	 * `restoreOffers` puts them back once `onStart` has rebuilt it.
+	 *
+	 * Dropping and rebuilding rather than ALTERing keeps the column NOT NULL. An
+	 * ALTER would need a default for the rows already there, and an Article
+	 * carrying the double-record the column exists to stop could not take the
+	 * index at all — so the null case would reach the dedupe and every reader
+	 * past it. The migration pays that instead, once (§12).
+	 */
+	private drainOldOfferTable(): OfferRow[] {
+		// `pragma_table_info` answers nothing for a table that does not exist,
+		// which is what a new Article reaches this with.
+		const columns = this.sql<{ name: string }>`
+			SELECT name FROM pragma_table_info('offer')
+		`
+		if (columns.length === 0) return []
+		if (columns.some((column) => column.name === 'fingerprint')) return []
+
+		// `this.sql` asserts the row type rather than checking it, and these rows
+		// are one column short of it until the map supplies what the old table
+		// never stored.
+		const carried = this.sql<OfferRow>`SELECT * FROM offer ORDER BY seq`
+		this.sql`DROP TABLE offer`
+
+		return carried.map((row) => ({ ...row, fingerprint: offerFingerprint(toOffer(row)) }))
+	}
+
+	/**
+	 * The other half: the drained Offers, back on the rebuilt table under the
+	 * ids and rulings the writer left them with.
+	 *
+	 * `OR IGNORE` is what makes the migration aggressive. An Article written
+	 * before the index could hold two rows for one source, and the index refuses
+	 * the second — so the row the writer saw first survives, in `seq` order, and
+	 * its twin is gone rather than carried as a case the dedupe has to know
+	 * about.
+	 *
+	 * Raw SQL against a synced table, which §12 forbids the app: this runs
+	 * before the party-db core is built, and every row it writes is one the
+	 * oplog already announced when the Guide first recorded it. `seq` is not
+	 * carried — the table assigns fresh ones in the same order, and nothing
+	 * outside the table holds an Offer's.
+	 */
+	private restoreOffers(carried: OfferRow[]): void {
+		for (const row of carried) {
+			this.sql`
+				INSERT OR IGNORE INTO offer
+					(id, type, disposition, text, source, note, fingerprint, created_at, decided_at)
+				VALUES (
+					${row.id}, ${row.type}, ${row.disposition}, ${row.text}, ${row.source},
+					${row.note}, ${row.fingerprint}, ${row.created_at}, ${row.decided_at}
+				)
+			`
 		}
 	}
 
@@ -372,14 +440,27 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * them with one or two milliseconds between them.
 	 *
 	 * Not `@callable` — a client reads its synced collection (§12); this reader
-	 * serves the dedupe below, this class, and its tests. */
+	 * serves this class and its tests. */
 	listOffers(): Offer[] {
-		return this.sql<OfferRow>`SELECT * FROM offer ORDER BY seq`.map(toOffer)
+		return this.offerRows().map(toOffer)
+	}
+
+	/** The same rows as `listOffers`, before `toOffer` drops the columns the
+	 * app does not read — which the dedupe needs, since the fingerprint is one
+	 * of them. */
+	private offerRows(): OfferRow[] {
+		return this.sql<OfferRow>`SELECT * FROM offer ORDER BY seq`
 	}
 
 	/**
 	 * One research turn. An entry this Article already carries comes back as it
 	 * stands, keeping the disposition the writer gave it — §5.
+	 *
+	 * The map below gives that answer; `offer_one_per_fingerprint` is what makes
+	 * it hold when two turns of one step read before either has committed (§12).
+	 * The loop is the recovery: party-db commits the whole call in one
+	 * transaction, so the refused row rolls the turn's other rows back with it
+	 * and they have to be re-deduped and re-committed.
 	 *
 	 * Not `@callable`: the research tool is the only caller and it runs inside
 	 * this Agent (§3, rule 4).
@@ -387,58 +468,51 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
 
-		// Queued against every other call, the way party-db serialises its own
-		// writes. The dedupe below reads the table and then commits, and
-		// `commit` always yields — so two turns offering one source would each
-		// read before the other's rows landed and write it twice. Parsing stays
-		// outside the queue: a batch that does not parse writes nothing.
-		const run = this.recording.then(
-			() => this.writeOffers(found),
-			() => this.writeOffers(found),
-		)
-		this.recording = run.catch(() => {})
+		// Built once, before the loop: an entry that lands on a later pass keeps
+		// the id and the timestamp this turn first gave it.
+		const pending = found.map(offerRow)
 
-		return run
-	}
+		for (let attempt = 0; ; attempt++) {
+			const held = new Map(this.offerRows().map((row) => [row.fingerprint, toOffer(row)]))
 
-	/**
-	 * One turn's rows, written under `recordOffers`'s queue.
-	 *
-	 * The queue orders calls inside one isolate, which is the only place two can
-	 * overlap: a call in flight holds the Agent awake, so nothing interleaves
-	 * across a hibernation. A guard that did not depend on that would be a
-	 * stored fingerprint column with a UNIQUE index, the way `round_one_running`
-	 * backs `startReview`.
-	 */
-	private async writeOffers(found: ReferenceContent[]): Promise<RecordedOffer[]> {
-		// Added to as the batch is built, so a turn dedupes against itself. A
-		// read, so no commit: §12's commit-only rule covers writes.
-		const held = new Map(
-			this.listOffers().map((offer) => [offerFingerprint(offer), offer]),
-		)
+			const ops: { type: 'insert'; value: OfferRow }[] = []
+			const recorded = pending.map((row): RecordedOffer => {
+				const already = held.get(row.fingerprint)
+				if (already !== undefined) return { offer: already, duplicate: true }
 
-		const ops: { type: 'insert'; value: OfferRow }[] = []
-		const recorded = found.map((material): RecordedOffer => {
-			const fingerprint = offerFingerprint(material)
-			const already = held.get(fingerprint)
-			if (already !== undefined) return { offer: already, duplicate: true }
+				const offer = toOffer(row)
+				// Added to as the batch is built, so a turn dedupes against itself.
+				held.set(row.fingerprint, offer)
+				ops.push({ type: 'insert', value: row })
 
-			const value = offerRow(material)
-			const offer = toOffer(value)
-			held.set(fingerprint, offer)
-			ops.push({ type: 'insert', value })
+				return { offer, duplicate: false }
+			})
 
-			return { offer, duplicate: false }
-		})
+			// One commit for the turn, the way `writeReview` writes a Round's Notes:
+			// seventeen findings cost one batch, one oplog entry and one frame per
+			// subscriber rather than seventeen of each. A batch with no ops would
+			// still reach every subscriber, so a turn that found nothing new
+			// commits nothing.
+			if (ops.length === 0) return recorded
 
-		// One commit for the turn, the way `writeReview` writes a Round's Notes:
-		// seventeen findings cost one batch, one oplog entry and one frame per
-		// subscriber rather than seventeen of each. A batch with no ops would
-		// still reach every subscriber, so a turn that found nothing new
-		// commits nothing.
-		if (ops.length > 0) await this.db.commit([{ channel: 'offer', ops }])
+			try {
+				await this.db.commit([{ channel: 'offer', ops }])
 
-		return recorded
+				return recorded
+			} catch (error) {
+				// Re-read to ask what refused this: a fingerprint this pass tried
+				// to write that the table now holds is another turn committing
+				// across the await. `createRound` recovers the same way, and it
+				// keeps both off the wording of a SQLite error.
+				const taken = new Set(this.offerRows().map((row) => row.fingerprint))
+				const lost = ops.some((op) => taken.has(op.value.fingerprint))
+
+				// Each pass turns at least the losing entry into a duplicate, so
+				// the batch bounds the passes. Stated rather than trusted, and the
+				// rejection is what surfaces rather than a summary of it.
+				if (!lost || attempt === pending.length) throw error
+			}
+		}
 	}
 
 	/** Mark an Offer as having been Accepted or Declined by the client. */

@@ -2,7 +2,7 @@ import { definePartyCollection } from 'party-db'
 import { z } from 'zod'
 
 import { type Note, type NoteAnchor, noteDispositions } from './note'
-import { dispositions, type Offer } from './offer'
+import { dispositions, type Offer, offerFingerprint } from './offer'
 import { referenceTypeSchema, type Source } from './plan/schema'
 import { reviewDepths, type Round, type RoundPassage, roundStates } from './review'
 
@@ -61,6 +61,9 @@ export const offerRowSchema = z.object({
 	/** JSON text of a `Source`. */
 	source: z.string().nullable(),
 	note: z.string().nullable(),
+	/** Under a UNIQUE index, so the table itself refuses a second row for one
+	 * source — §12. `fromOffer` is where every row gets one. */
+	fingerprint: z.string(),
 	created_at: z.number(),
 	decided_at: z.number().nullable(),
 })
@@ -129,6 +132,7 @@ export function fromOffer(offer: Offer): OfferRow {
 		text: offer.text ?? null,
 		source: offer.source === undefined ? null : JSON.stringify(offer.source),
 		note: offer.note ?? null,
+		fingerprint: offerFingerprint(offer),
 		created_at: offer.createdAt,
 		decided_at: offer.decidedAt,
 	}

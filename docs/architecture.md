@@ -648,6 +648,26 @@ issue #11. `startReview` writes a Round row, answers with it, and carries on und
   across an `await` (#9), which a field could not — in-memory state does not survive
   hibernation, and a check-then-write races itself.
 
+**One Offer per source per Article**, guarded by the fingerprint map and enforced by
+the table: a UNIQUE index over a stored `fingerprint` column. The map in `recordOffers`
+gives the answer the Guide reads — the row already there, still carrying the disposition
+the writer gave it — and the index is what makes it hold when two turns of one step
+interleave across `commit`'s await (#96), which the map alone cannot: it is read from the
+table, so a call that has not committed yet is invisible to the one beside it. The
+recovery is a loop rather than a catch, because party-db commits a call in one
+transaction and the refused row takes the turn's other rows down with it. Neither
+`recordOffers` nor `createRound` reads the rejection's message to classify it — both
+re-read and let the table say who won.
+
+**The column is required, and the migration is what buys that.** An `offer` table that
+predates it is read out on the next wake, dropped, rebuilt by the same DDL a new Article
+gets, and refilled under the ids and rulings the writer left. The refill is
+`INSERT OR IGNORE`, so an Article already holding two rows for one source keeps the row
+the writer saw first and loses its twin. ALTERing the column in would have wanted a
+default for the rows already there, and would have left that pair unindexable — so the
+column would be nullable, and the null would reach the dedupe and every reader past it.
+One-time migration code is cheaper than a case every read carries.
+
 **Notes, Rounds and Offers are party-db collections, hosted by the Article Agent
 itself.** This is #84's hosting question, answered: the Agent cannot subclass
 `PartyDbServer` — it already extends `AIChatAgent` — so it holds a `PartyDbCore` built

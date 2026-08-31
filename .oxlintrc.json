@@ -32,7 +32,9 @@
     {
       // `this.sql` is a statement written as a tagged template, so a write
       // discards the rows it returns. Only the Agents SDK spells it that way.
-      "files": ["src/server/**"],
+      // One worker test reaches the same tag, to stand the `offer` table up in
+      // the shape a deployed Article has.
+      "files": ["src/server/**", "test/worker/article-agent.test.ts"],
       "rules": { "no-unused-expressions": ["error", { "allowTaggedTemplates": true }] }
     }
   ]

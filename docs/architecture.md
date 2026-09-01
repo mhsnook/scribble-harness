@@ -648,25 +648,28 @@ issue #11. `startReview` writes a Round row, answers with it, and carries on und
   across an `await` (#9), which a field could not — in-memory state does not survive
   hibernation, and a check-then-write races itself.
 
-**One Offer per source per Article**, guarded by the fingerprint map and enforced by
-the table: a UNIQUE index over a stored `fingerprint` column. The map in `recordOffers`
-gives the answer the Guide reads — the row already there, still carrying the disposition
-the writer gave it — and the index is what makes it hold when two turns of one step
-interleave across `commit`'s await (#96), which the map alone cannot: it is read from the
-table, so a call that has not committed yet is invisible to the one beside it. The
-recovery is a loop rather than a catch, because party-db commits a call in one
-transaction and the refused row takes the turn's other rows down with it. Neither
-`recordOffers` nor `createRound` reads the rejection's message to classify it — both
-re-read and let the table say who won.
+**One Offer per source per Article**, enforced by a UNIQUE index over a stored
+`fingerprint` column rather than by the map §5 describes. Syncing the Offers is what
+forced that: `recordOffers` has to reach `commit()`, party-db's queue defers the commit to
+a microtask even against embedded SQLite, and the AI SDK runs a step's parallel tool calls
+concurrently — so two turns of one step both read before either wrote. The map is built
+from the table, so an uncommitted call is invisible to the one beside it. This is
+`round_one_running` one table over, on a sharper constraint: the Review guard needs a
+hibernation to race, and this one needs only an await. If the Offers stop syncing, the
+dedupe is a synchronous read-and-insert again and the index can go.
 
-**The column is required, and the migration is what buys that.** An `offer` table that
-predates it is read out on the next wake, dropped, rebuilt by the same DDL a new Article
-gets, and refilled under the ids and rulings the writer left. The refill is
-`INSERT OR IGNORE`, so an Article already holding two rows for one source keeps the row
-the writer saw first and loses its twin. ALTERing the column in would have wanted a
-default for the rows already there, and would have left that pair unindexable — so the
-column would be nullable, and the null would reach the dedupe and every reader past it.
-One-time migration code is cheaper than a case every read carries.
+**A refused commit is re-read, not parsed.** `commit()` throws the adapter's error as it
+comes — party-db classifies rejections only on its HTTP write path, and its embedded
+SQLite adapter implements none of the optional `classifyError` hook the Postgres one
+fills in. The alternative is matching a SQLite message string in app code, which changes
+with the adapter. So `recordOffers` and `createRound` both re-read and let the table say
+who won, and so should the next guard. A typed rejection out of `commit()` retires this.
+
+**A Durable Object's SQLite migrates on the wake.** `migrations_dir` in `wrangler.jsonc`
+belongs to the D1 binding, and there are as many Article databases as there are Articles.
+No wrangler mechanism reaches inside one, so `onStart` is the only code that runs against
+them all — and it runs on every wake, which is what makes a new column need a
+`pragma_table_info` guard where a new table needs only `IF NOT EXISTS`.
 
 **Notes, Rounds and Offers are party-db collections, hosted by the Article Agent
 itself.** This is #84's hosting question, answered: the Agent cannot subclass
@@ -701,6 +704,14 @@ three types, implemented over `commit()` so the ruled row syncs. Nothing announc
 Review settling or a turn recording any more — the rows landing is the announcement,
 which is what deleted the `review_finished` frame, the Notes Panel's poll, its reload
 counter, and the Ledger's.
+
+**One call is one transaction, so a batch recovers whole and not by the row.** party-db
+runs a call's ops in one transaction, with the oplog's compaction inside it, so the oplog
+never has a torn floor — a half-landed batch would leave a subscriber's delta describing
+rows the table does not have. The cost falls on the two batched writes above: one refused
+row takes the call's other rows with it, so a caller that meets a rejection re-decides the
+whole batch. `recordOffers` re-dedupes against what landed and commits the remainder.
+Per-op rejection in party-db would make that loop a catch again.
 
 **The wire rows are the table rows.** `src/shared/sync.ts` declares the three collections'
 schemas as the columns stand — snake_case, JSON columns as the text they store — and owns

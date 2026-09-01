@@ -456,11 +456,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * One research turn. An entry this Article already carries comes back as it
 	 * stands, keeping the disposition the writer gave it — §5.
 	 *
-	 * The map below gives that answer; `offer_one_per_fingerprint` is what makes
-	 * it hold when two turns of one step read before either has committed (§12).
-	 * The loop is the recovery: party-db commits the whole call in one
-	 * transaction, so the refused row rolls the turn's other rows back with it
-	 * and they have to be re-deduped and re-committed.
+	 * The map below gives that answer, and `offer_one_per_fingerprint` is what
+	 * makes it hold when two turns of one step read before either committed. The
+	 * loop is the recovery a whole-call transaction forces — §12 for both.
 	 *
 	 * Not `@callable`: the research tool is the only caller and it runs inside
 	 * this Agent (§3, rule 4).
@@ -500,10 +498,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 				return recorded
 			} catch (error) {
-				// Re-read to ask what refused this: a fingerprint this pass tried
-				// to write that the table now holds is another turn committing
-				// across the await. `createRound` recovers the same way, and it
-				// keeps both off the wording of a SQLite error.
+				// A fingerprint this pass tried to write that the table now holds
+				// is another turn committing across the await. Re-reading is how
+				// the table says so, rather than the rejection's wording (§12).
 				const taken = new Set(this.offerRows().map((row) => row.fingerprint))
 				const lost = ops.some((op) => taken.has(op.value.fingerprint))
 

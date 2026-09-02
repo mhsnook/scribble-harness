@@ -31,6 +31,17 @@ function listOffers(name: string): Promise<Offer[]> {
 	return inAgent(name, (agent) => agent.listOffers())
 }
 
+/** The `offer` table as it stood before the fingerprint column, so a test can
+ * wake an Agent onto the shape a deployed Article has. Raw SQL against a synced
+ * table, which §12 forbids the app — this stands a schema up rather than writing
+ * a row the app would write. */
+function toOldOfferTable(name: string): Promise<void> {
+	return inAgent(name, (agent) => {
+		agent.sql`DROP INDEX IF EXISTS offer_one_per_fingerprint`
+		agent.sql`ALTER TABLE offer DROP COLUMN fingerprint`
+	})
+}
+
 /** A Plan that parses: one Section, and one Reference placed at it. */
 const plan = makePlan({
 	title: 'The permit queue',
@@ -269,8 +280,9 @@ describe('Offers in the Article Agent', () => {
 		await expect(listOffers('offer-reoffered')).resolves.toHaveLength(1)
 	})
 
-	// Two tool calls in one step run concurrently, and `commit` yields — so the
-	// dedupe has to read and write under one queue rather than once per call.
+	// Two tool calls in one step run concurrently, and `commit` yields — so both
+	// turns read before the other's rows landed. The unique index on the
+	// fingerprint is what stops the second one writing a twin.
 	it('records one Offer when two concurrent turns offer the same source', async () => {
 		await openAgentSocket('offer-concurrent')
 
@@ -282,6 +294,101 @@ describe('Offers in the Article Agent', () => {
 		expect(second[0].duplicate).toBe(true)
 		expect(second[0].offer.id).toBe(first[0].offer.id)
 		await expect(listOffers('offer-concurrent')).resolves.toHaveLength(1)
+	})
+
+	// party-db commits a call in one transaction, so the rejected row takes the
+	// turn's other rows down with it. The losing turn has to come back with the
+	// source it alone found.
+	it('records the rest of a losing turn when one of its entries is taken', async () => {
+		await openAgentSocket('offer-concurrent-batch')
+
+		const [first, second] = await inAgent('offer-concurrent-batch', (agent) =>
+			Promise.all([
+				agent.recordOffers([reference]),
+				agent.recordOffers([reference, quote]),
+			]),
+		)
+
+		expect(first.map((entry) => entry.duplicate)).toEqual([false])
+		expect(second.map((entry) => entry.duplicate)).toEqual([true, false])
+		expect(second[0].offer.id).toBe(first[0].offer.id)
+		await expect(
+			listOffers('offer-concurrent-batch').then((offers) => offers.map((one) => one.id)),
+		).resolves.toEqual([first[0].offer.id, second[1].offer.id])
+	})
+
+	// The fingerprint column arrived after the table did, so a deployed Article
+	// wakes with the old shape and its Offers have to come through the rebuild.
+	// `onStart` runs on every wake, so the migration has to be idempotent: a
+	// throw there is caught by the SDK, and the Agent carries on with the rest
+	// of `onStart` — the party-db core included — never built.
+	it("carries an Article's Offers across the fingerprint column", async () => {
+		const writer = await openAgentSocket('offer-migration')
+		const kept = await createOffer('offer-migration', quote)
+		const declined = await createOffer('offer-migration', reference)
+		await writer.call('setOfferDisposition', declined.id, 'declined')
+
+		await toOldOfferTable('offer-migration')
+
+		// Two wakes over the same table: the first migrates it, the second meets
+		// a table it has nothing to do to. Each socket is what runs `onStart`,
+		// the way a writer opening the Article does.
+		await evictDurableObject(agentStub('offer-migration'))
+		await openAgentSocket('offer-migration')
+		await evictDurableObject(agentStub('offer-migration'))
+		await openAgentSocket('offer-migration')
+
+		// Same ids, same order, same rulings.
+		await expect(
+			listOffers('offer-migration').then((offers) =>
+				offers.map((one) => [one.id, one.disposition]),
+			),
+		).resolves.toEqual([
+			[kept.id, 'undecided'],
+			[declined.id, 'declined'],
+		])
+
+		// And the migrated rows carry the fingerprint, so the dedupe finds them.
+		const recorded = await recordOffers('offer-migration', [quote, reference])
+
+		expect(recorded.map((entry) => entry.duplicate)).toEqual([true, true])
+		expect(recorded.map((entry) => entry.offer.id)).toEqual([kept.id, declined.id])
+	})
+
+	// An Article written before the index could hold two rows for one source.
+	// The index cannot build over the pair, so the migration keeps the row the
+	// writer saw first and drops its twin — and carries on, which is why the
+	// Offer after the twin is what this asserts on.
+	it('keeps the older row when an Article carries a double-record', async () => {
+		await openAgentSocket('offer-migration-twin')
+		const first = await createOffer('offer-migration-twin', reference)
+
+		// Written the way the race wrote it: two rows, one source, and a third
+		// Offer behind them that the migration must still reach.
+		await toOldOfferTable('offer-migration-twin')
+		await inAgent('offer-migration-twin', (agent) => {
+			agent.sql`
+				INSERT INTO offer (id, type, disposition, text, source, note, created_at, decided_at)
+				SELECT 'twin', type, disposition, text, source, note, created_at, decided_at
+				FROM offer WHERE id = ${first.id}
+			`
+			agent.sql`
+				INSERT INTO offer (id, type, disposition, text, source, note, created_at, decided_at)
+				VALUES ('behind', 'link', 'undecided', NULL, ${JSON.stringify({ title: 'Behind the twin' })}, NULL, ${Date.now()}, NULL)
+			`
+		})
+
+		await evictDurableObject(agentStub('offer-migration-twin'))
+		await openAgentSocket('offer-migration-twin')
+
+		await expect(
+			listOffers('offer-migration-twin').then((offers) => offers.map((one) => one.id)),
+		).resolves.toEqual([first.id, 'behind'])
+
+		const [again] = await recordOffers('offer-migration-twin', [reference])
+
+		expect(again.duplicate).toBe(true)
+		expect(again.offer.id).toBe(first.id)
 	})
 
 	it('records one turn offering the same source twice as one Offer', async () => {

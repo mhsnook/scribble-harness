@@ -95,8 +95,6 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 	// a connect, so it is safe in render.
 	const sync = articleSync(articleId)
 
-	// ...and the screen holding it is what keeps that socket open: the client
-	// closes a short while after the last Article screen leaves.
 	useEffect(() => retainArticleSync(articleId), [articleId])
 
 	return {

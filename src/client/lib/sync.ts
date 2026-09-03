@@ -19,10 +19,8 @@ export type ArticleSync = {
 	offer: Collection<OfferRow>
 }
 
-/** One client per Article, held while a screen reads it. party-db ships a
- * transport `close()` since 0.0.3 (party-db#56), so a session that visits many
- * Articles no longer keeps a socket per Article open for its whole life — the
- * client closes once the last reader has been gone for `IDLE_CLOSE_MS`. */
+/** One client per Article, held open while a screen reads it and closed once
+ * the last reader leaves. */
 type Held = {
 	sync: ArticleSync
 	close: () => void
@@ -32,29 +30,14 @@ type Held = {
 
 const held = new Map<string, Held>()
 
-/** How long an Article's client stays open with no reader. Long enough that
- * leaving an Article and coming back reuses the client rather than
- * reconnecting, and that React's development remount never closes one. */
 const IDLE_CLOSE_MS = 10_000
 
-/** The Article's collections — a lookup, not a connect, so it is safe in
- * render. `retainArticleSync` is what keeps the client open. */
+/** A lookup, not a connect, so it is safe in render. */
 export function articleSync(articleId: string): ArticleSync {
 	return entry(articleId).sync
 }
 
-/**
- * Hold an Article's client open while a screen is reading it. Call from an
- * effect and return the release:
- *
- *     useEffect(() => retainArticleSync(articleId), [articleId])
- *
- * A collection may still be garbage-collected between renders — TanStack DB
- * drops one once its last subscriber leaves — and that is fine from 0.0.4 on:
- * party-db asks the room for the collection's snapshot when it registers again
- * (party-db#47), so a reopened panel refills itself. That is what retired the
- * standing `subscribeChanges` pin this file used to carry.
- */
+/** Holds the Article's client open until the returned release is called. */
 export function retainArticleSync(articleId: string): () => void {
 	const article = entry(articleId)
 	article.readers += 1
@@ -89,8 +72,7 @@ function entry(articleId: string): Held {
 		idle: undefined,
 	}
 	held.set(articleId, article)
-	// nothing is reading it yet: a render that never mounts must not leave a
-	// socket open for the rest of the session.
+	// nothing has retained it yet: a render that never mounts closes on this timer.
 	closeWhenIdle(articleId, article)
 
 	return article
@@ -101,7 +83,7 @@ function closeWhenIdle(articleId: string, article: Held): void {
 	article.idle = setTimeout(() => {
 		if (article.readers > 0) return
 		held.delete(articleId)
-		// one way: the next reader builds a fresh client, socket and collections.
+		// closing is one way: the next reader builds a fresh client.
 		article.close()
 	}, IDLE_CLOSE_MS)
 }

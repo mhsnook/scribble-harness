@@ -19,12 +19,38 @@ export type ArticleSync = {
 	offer: Collection<OfferRow>
 }
 
-/** Held for the session: party-db has no transport close yet (party-db#46),
- * so one client per Article is the bound on open sockets — the carry in
- * architecture.md §11. */
-const held = new Map<string, ArticleSync>()
+/** One client per Article, held open while a screen reads it and closed once
+ * the last reader leaves. */
+type Held = {
+	sync: ArticleSync
+	close: () => void
+	readers: number
+	idle: ReturnType<typeof setTimeout> | undefined
+}
 
+const held = new Map<string, Held>()
+
+const IDLE_CLOSE_MS = 10_000
+
+/** A lookup, not a connect, so it is safe in render. */
 export function articleSync(articleId: string): ArticleSync {
+	return entry(articleId).sync
+}
+
+/** Holds the Article's client open until the returned release is called. */
+export function retainArticleSync(articleId: string): () => void {
+	const article = entry(articleId)
+	article.readers += 1
+	clearTimeout(article.idle)
+	article.idle = undefined
+
+	return () => {
+		article.readers -= 1
+		if (article.readers === 0) closeWhenIdle(articleId, article)
+	}
+}
+
+function entry(articleId: string): Held {
 	const existing = held.get(articleId)
 	if (existing !== undefined) return existing
 
@@ -33,21 +59,31 @@ export function articleSync(articleId: string): ArticleSync {
 		party: 'article-agent',
 		room: articleId,
 	})
-	const { db } = createPartyDb(transport, syncCollections)
+	const { db, close } = createPartyDb(transport, syncCollections)
 
-	const sync: ArticleSync = {
-		note: db.note as Collection<NoteRow>,
-		round: db.round as Collection<RoundRow>,
-		offer: db.offer as Collection<OfferRow>,
+	const article: Held = {
+		sync: {
+			note: db.note as Collection<NoteRow>,
+			round: db.round as Collection<RoundRow>,
+			offer: db.offer as Collection<OfferRow>,
+		},
+		close,
+		readers: 0,
+		idle: undefined,
 	}
+	held.set(articleId, article)
+	// nothing has retained it yet: a render that never mounts closes on this timer.
+	closeWhenIdle(articleId, article)
 
-	// Pin every collection: TanStack DB garbage-collects a collection once its
-	// last subscriber leaves, and a party-db collection that restarts gets no
-	// second snapshot (party-db#47; the other §11 carry). Iterated rather than
-	// listed, so a collection cannot join `ArticleSync` unpinned.
-	for (const collection of Object.values(sync)) collection.subscribeChanges(() => {})
+	return article
+}
 
-	held.set(articleId, sync)
-
-	return sync
+function closeWhenIdle(articleId: string, article: Held): void {
+	clearTimeout(article.idle)
+	article.idle = setTimeout(() => {
+		if (article.readers > 0) return
+		held.delete(articleId)
+		// closing is one way: the next reader builds a fresh client.
+		article.close()
+	}, IDLE_CLOSE_MS)
 }

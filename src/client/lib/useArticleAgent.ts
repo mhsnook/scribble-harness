@@ -9,7 +9,7 @@ import type { ReviewRequest, Round } from '../../shared/review'
 import { usePlanChannel } from '../plan/usePlan'
 import type { Article, DraftStore, NoteStore, OfferStore } from './article'
 import { parseFrame } from './frames'
-import { articleSync } from './sync'
+import { articleSync, retainArticleSync } from './sync'
 
 /**
  * Opens one Article Agent and hands out the three things that ride its one
@@ -94,6 +94,8 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 	// The party-db socket, cached per Article in `lib/sync.ts` — a lookup, not
 	// a connect, so it is safe in render.
 	const sync = articleSync(articleId)
+
+	useEffect(() => retainArticleSync(articleId), [articleId])
 
 	return {
 		article: { offers, draft, notes, sync, plan: channel.connection },

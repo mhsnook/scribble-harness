@@ -53,3 +53,36 @@ Three decisions worth keeping:
 It costs about 50 kB gzipped on the Article route's chunk, which is what a real markdown
 parser weighs. `streamdown` is the same idea packaged whole, and it was passed over
 because it hard-depends on Mermaid and ships its own Tailwind palette.
+
+## The four Panels
+
+The Article screen shows four Panels — Chat, Plan, Draft, and Notes — which become tabs on a
+narrow screen. Each is its own small interface, and the interactions between them are
+specific, explicit, and user-gated.
+
+`usePanels` holds which Panels are open and keeps them in one order, drawn by a `Rail`
+component in the navbar. It also sets the widths: Notes takes a fixed slice as the margin
+rail, and the Draft takes twice what a supporting Panel does out of what remains, so the prose
+keeps its room whatever sits beside it.
+
+## Show a Loading state rather than an empty value
+
+An empty title, a zero count, and four empty columns are answers. A screen that shows one
+before it has read anything has said something untrue. Use `Skeleton` where the shape is
+known, a sentence like "Opening the Plan…" where it is not, and a route's `pendingComponent`
+where the whole screen is waiting.
+
+This is why the Article bar takes `title: string | null`. `''` is the title the writer
+cleared, so it cannot also mean "not read yet".
+
+## Navigate with `Link`
+
+TanStack Router's `Link`, with `defaultPreload: 'intent'`. A hover then triggers work such as
+waking a different Article Agent's Durable Object, which improves loading times.
+
+## A card the writer cannot Accept explains itself
+
+Whole-field comparison is conservative, so it refuses a Proposal against any field the writer
+has since touched ([`plan.md`](./plan.md)). A Stale card therefore says why rather than
+greying out. A refused Accept behaves the same way: the card stays open with the applier's
+sentence, and the writer can fix the Plan and Accept again.

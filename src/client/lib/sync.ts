@@ -9,8 +9,8 @@ import {
 } from '../../shared/sync'
 
 /**
- * One party-db connection per Article — the second socket of architecture.md
- * §12, carrying the `note`, `round` and `offer` collections.
+ * One party-db connection per Article — the second socket of `docs/sync.md`,
+ * carrying the `note`, `round` and `offer` collections.
  */
 
 export type ArticleSync = {

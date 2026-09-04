@@ -1,7 +1,7 @@
 import type { Note, NoteDisposition } from './note'
 
 /** The View the Notes Panel reads — a query over Notes, the way the Offer
- * ledger is a query over Offers (§5). */
+ * ledger is a query over Offers (`docs/chat.md`). */
 
 export type QueueView = {
 	acceptedOnly: boolean

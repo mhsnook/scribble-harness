@@ -9,7 +9,7 @@ import { ArticlePlanPanel } from '../plan/ArticlePlanPanel'
 import { panelShare } from './usePanels'
 
 /**
- * The four Panels of the Article screen — architecture.md §8. This row is what
+ * The four Panels of the Article screen — `docs/ui.md`. This row is what
  * gives them a height to scroll their own Y within.
  *
  * How wide each one gets is `panelShare`, which reads the whole open set: the

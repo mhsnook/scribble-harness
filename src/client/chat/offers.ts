@@ -8,7 +8,7 @@ import {
 
 /**
  * Reading a research turn's result out of the transcript. `recordOffers`
- * resolves server-side and hands back ids, not rows — §5.
+ * resolves server-side and hands back ids, not rows — `docs/chat.md`.
  */
 
 /** What one `recordOffers` call turned up, or null for a part that is not one. */

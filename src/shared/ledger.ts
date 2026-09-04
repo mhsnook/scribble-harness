@@ -2,7 +2,7 @@ import type { Disposition, Offer } from './offer'
 import type { Plan, Reference } from './plan'
 
 /**
- * The Offer ledger — docs/architecture.md §5. The View reads Offers and nothing
+ * The Offer ledger — `docs/chat.md`. The View reads Offers and nothing
  * else, because the Ledger belongs to the Chat Panel and what the Plan did with
  * a copy is the Plan Panel's. The two below are the copy Accepting sends across,
  * which is the one thing that does travel between them.
@@ -22,10 +22,10 @@ export function referenceForOffer(plan: Plan, offerId: string): Reference | unde
 	return plan.references.find((reference) => reference.provenance.offerId === offerId)
 }
 
-/** Copied rather than moved — §3, rule 5. It reads what the Offer says and not
+/** Copied rather than moved — architecture.md §4.5. It reads what the Offer says and not
  * what the writer ruled, so the copy can be built before the ruling is sent. */
 export function referenceFromOffer(offer: Offer, id: string): Reference {
-	// Absent rather than undefined — §4.
+	// Absent rather than undefined — `docs/plan.md`.
 	const reference: Reference = {
 		id,
 		type: offer.type,

@@ -4,7 +4,7 @@ import { noteContentSchema } from './note'
 import { planSchema } from './plan'
 
 /** A Review and the Round it produces — `docs/reviews.md` for what they are,
- * `docs/architecture.md` §12 for who writes them. */
+ * `docs/sync.md` for who writes them. */
 
 /** How hard one Review works — `docs/reviews.md`. */
 export const reviewDepths = ['quick', 'thorough'] as const
@@ -12,7 +12,7 @@ export type ReviewDepth = (typeof reviewDepths)[number]
 
 /**
  * What the writer asks for. The Plan rides here for the same reason it rides in
- * a Chat turn's `body` (§6): the client may hold a newer one than the Article
+ * a Chat turn's `body` (`docs/chat.md`): the client may hold a newer one than the Article
  * Agent has stored. Absent is ordinary, and state is then the only Plan there
  * is.
  */
@@ -69,7 +69,7 @@ export type Round = {
 	finishedAt: number | null
 }
 
-/** One Review at a time per Article — §12 for why the guard is the row. */
+/** One Review at a time per Article — `docs/reviews.md` for why the guard is the row. */
 export function reviewAlreadyRunning(round: Round): Error {
 	return new Error(`Round ${round.ordinal} is still running on this Article.`)
 }

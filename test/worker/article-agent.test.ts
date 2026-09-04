@@ -25,7 +25,7 @@ async function createOffer(name: string, content: ReferenceContent): Promise<Off
 }
 
 /** Every Offer, read inside the Agent. `listOffers` is not `@callable`: a
- * client reads its synced `offer` collection (§12), which `sync.test.ts`
+ * client reads its synced `offer` collection (`docs/sync.md`), which `sync.test.ts`
  * covers. */
 function listOffers(name: string): Promise<Offer[]> {
 	return inAgent(name, (agent) => agent.listOffers())
@@ -33,7 +33,7 @@ function listOffers(name: string): Promise<Offer[]> {
 
 /** The `offer` table as it stood before the fingerprint column, so a test can
  * wake an Agent onto the shape a deployed Article has. Raw SQL against a synced
- * table, which §12 forbids the app — this stands a schema up rather than writing
+ * table, which `docs/sync.md` keeps the app out of — this stands a schema up rather than writing
  * a row the app would write. */
 function toOldOfferTable(name: string): Promise<void> {
 	return inAgent(name, (agent) => {
@@ -140,7 +140,7 @@ describe('Offers in the Article Agent', () => {
 		// of adding a method: `recordOffers` stays off it, because the Guide
 		// writes Offers and the writer never authors one.
 		// `listNotes`, `listRounds` and `listOffers` are off it too — a client
-		// reads all three from its synced collections (§12), not over RPC.
+		// reads all three from its synced collections (`docs/sync.md`), not over RPC.
 		expect(methods.sort()).toEqual([
 			'listBlocks',
 			'resolveNote',

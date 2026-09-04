@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * The article index: one row per Article, and the only record of an Article that
  * lives outside its Article Agent. What it may and may not carry, and why the
- * title lives in two places, is docs/architecture.md §9.
+ * title lives in two places, is docs/architecture.md §4.6.
  */
 
 /** Nothing infers this — 1a has no Draft to measure, so the writer sets it. */

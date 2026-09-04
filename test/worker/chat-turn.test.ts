@@ -12,7 +12,7 @@ import { type Frame, openAgentSocket } from './agent-socket'
 import { calledATool, noUsage, scriptModel, scriptSearch, stopped } from './scripted'
 
 /**
- * The server side of a Chat turn — docs/architecture.md §6 and §7.
+ * The server side of a Chat turn — `docs/chat.md` and `docs/llm.md`.
  *
  * No test calls a model: Workers AI is a remote-only binding and
  * `vitest.config.ts` keeps remote bindings off, so a fresh clone can run
@@ -199,7 +199,7 @@ describe('a Chat turn', () => {
 	})
 
 	// The transcript is append-only and the Plan is not, so the Plan follows the
-	// conversation — §7. It goes in front of the last message rather than after
+	// conversation — `docs/llm.md`. It goes in front of the last message rather than after
 	// it, so the writer's own words stay the last thing the model reads.
 	it('packs the guide rules, then the conversation, then the Plan', async () => {
 		const writer = await openAgentSocket('chat-pack')
@@ -376,7 +376,7 @@ describe('a Chat turn', () => {
 	})
 
 	// The op payloads are strict, so a model that adds a field fails the whole
-	// call rather than having the field stripped — docs/architecture.md §6.
+	// call rather than having the field stripped — `docs/plan.md`.
 	it('retries a refused tool call, carrying the validation error back', async () => {
 		const writer = await openAgentSocket('chat-retry')
 		const withExtraField = JSON.stringify({
@@ -400,7 +400,7 @@ describe('a Chat turn', () => {
 		})
 	})
 
-	// The failure mode §6 names as the cost of strict payloads: a model that
+	// The failure mode `docs/plan.md` names as the cost of strict payloads: a model that
 	// adds the same field every time thrashes the retry instead of converging.
 	// One retry is the whole budget, so the second refusal ends the turn.
 	it('gives up when the retry is refused too, and says so', async () => {
@@ -443,7 +443,7 @@ describe('a Chat turn', () => {
 })
 
 /**
- * Where the Plan lands, read off `chatPackMessages` directly — §7.
+ * Where the Plan lands, read off `chatPackMessages` directly — `docs/llm.md`.
  *
  * The turns above drive the two transcripts the product actually produces: one
  * ending on the writer's message, and one ending on a settled tool result. The

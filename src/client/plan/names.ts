@@ -5,14 +5,14 @@ import { referenceEntries, referenceMark, referenceName } from './references'
 /**
  * Names one record in the Plan the way the writer would say it, for the places
  * that put a record in a sentence — a Proposal card, a refusal. Sections come
- * out of the same walk the Outline numbers by (§4), and nothing here reads an id
+ * out of the same walk the Outline numbers by (`docs/plan.md`), and nothing here reads an id
  * aloud: the writer never saw one.
  */
 
 export type PlanNames = {
 	/** "§2 Who actually pays", or "§2" where the Section is untitled. */
 	section: (nodeId: string) => string
-	/** The Article for a null Scope — §6. */
+	/** The Article for a null Scope — `docs/plan.md`. */
 	scope: (nodeId: string | null) => string
 	/** Its passage or its title, the way the References list has it. */
 	reference: (referenceId: string) => string
@@ -24,7 +24,7 @@ export type PlanNames = {
 }
 
 export function planNames(plan: Plan): PlanNames {
-	// Both forms out of the one walk — §4.
+	// Both forms out of the one walk — `docs/plan.md`.
 	const numbered = new Map(
 		outlineEntries(plan.outline).map((entry) => {
 			const label = sectionLabel(entry)

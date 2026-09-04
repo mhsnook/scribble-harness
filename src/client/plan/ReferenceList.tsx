@@ -16,7 +16,7 @@ import { attribution, referenceEntries, referenceMark, referenceName } from './r
 
 /**
  * The Plan's References: items Accepted from the Chat or added by hand by the
- * writer. Follows architecture §4.
+ * writer. Follows `docs/plan.md`.
  *
  * The type is read off the record, never derived from whether a text is
  * present: a Reference may carry a passage without being a Quote.

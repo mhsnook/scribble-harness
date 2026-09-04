@@ -7,7 +7,7 @@ import {
 
 /**
  * One retry of a tool call the schema refused, carrying the validation error
- * back to the model — `docs/architecture.md` §6 and §7.
+ * back to the model — `docs/plan.md` and `docs/llm.md`.
  *
  * The op payloads are strict, so a model that adds one field fails the whole
  * call rather than having the field stripped: stripping would produce a
@@ -20,7 +20,7 @@ import {
  * budget. Returning null gives up and lets the turn carry the error.
  *
  * The tools come from the callback rather than from an import, so this belongs
- * to no one pack — §7 lists four, and each of them wants the same retry.
+ * to no one pack — `docs/llm.md` lists four, and each of them wants the same retry.
  */
 export function repairToolCall(model: LanguageModel): ToolCallRepairFunction<ToolSet> {
 	return async ({ system, messages, toolCall, tools, error }) => {

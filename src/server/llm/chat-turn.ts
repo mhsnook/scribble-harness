@@ -47,7 +47,7 @@ export async function chatTurn({
 }: ChatTurn): Promise<Response> {
 	const result = streamText({
 		model,
-		// Rules, then conversation and Plan, per Architecture §7
+		// Rules, then conversation and Plan, per `docs/llm.md`
 		system: chatSystemPrompt(search !== undefined),
 		messages: chatPackMessages(await convertToModelMessages(messages), plan),
 		tools: chatTools(search),
@@ -75,7 +75,7 @@ export async function chatTurn({
 	// internals to a browser it does not trust, and this one is the writer's own
 	// app: what it would hide is the schema's reason for refusing the model's
 	// tool call, which is exactly what the writer needs to see when a model
-	// thrashes the retry (§6). The same argument as `plan_refused` in
+	// thrashes the retry (`docs/plan.md`). The same argument as `plan_refused` in
 	// `src/shared/plan/refusal.ts`.
 	return result.toUIMessageStreamResponse({
 		onError: reasonFor,

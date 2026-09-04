@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { PANELS, type PanelId } from '../components/PanelRail'
 
-/** Which Panels the Article screen shows, and the tabs a narrow one gets — §8. */
+/** Which Panels the Article screen shows, and the tabs a narrow one gets — `docs/ui.md`. */
 
 /** Below the md breakpoint (`--breakpoint-md`, theme.css) the rail shows one
  * Panel at a time. The query is the complement of Tailwind's `md:`. */

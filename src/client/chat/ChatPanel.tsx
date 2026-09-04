@@ -27,7 +27,7 @@ import { readWebSearch, searchNote } from './search'
  * The Chat Panel takes a transcript & rulings; `ArticleChatPanel` drives it from
  * the Article Agent — the same split as `PlanPanel` and `ArticlePlanPanel`. A turn
  * can return Proposals and Offers; each gets its own card. Proposals suspend and
- * wait for the writer (§6), but Offers just accumulate in the Ledger.
+ * wait for the writer (`docs/chat.md`), but Offers just accumulate in the Ledger.
  */
 
 export interface ChatPanelProps {
@@ -39,7 +39,7 @@ export interface ChatPanelProps {
 	busy: boolean
 	/** Cancels the turn. */
 	onStop?: () => void
-	/** Proposals nobody has ruled on; above zero the turn is parked — §11. */
+	/** Proposals nobody has ruled on; above zero the turn is parked — `docs/carries.md`. */
 	waiting: number
 	refusals: Refusals
 	offers: readonly Offer[]
@@ -241,7 +241,7 @@ function useFootOfTranscript(): [
 }
 
 /** Why the composer will not send, and null when it will. Nothing expires an
- * unruled call, so the writer has to be told to go and rule on it — §11. */
+ * unruled call, so the writer has to be told to go and rule on it — `docs/carries.md`. */
 function parked(waiting: number): string | null {
 	if (waiting === 0) return null
 	if (waiting === 1) {

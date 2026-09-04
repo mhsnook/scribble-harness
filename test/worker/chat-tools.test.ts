@@ -33,7 +33,7 @@ describe('the Proposal tool', () => {
 	})
 
 	// The other half of the same rule. Research reaches the Plan by the writer
-	// Accepting an Offer — architecture §5 — so the ops that put a Reference in
+	// Accepting an Offer — `docs/chat.md` — so the ops that put a Reference in
 	// the Plan are neither offered nor described.
 	it('teaches no op it does not offer', () => {
 		for (const op of ['createReference', 'deleteReference', 'setReference']) {

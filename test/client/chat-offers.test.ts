@@ -5,7 +5,7 @@ import { proposePlanChangeTool, recordOffersTool } from '../../src/shared/chat'
 import { toolPart } from './chat-fixtures'
 
 /** Reading a research turn's result, which is what the transcript's Offer cards
- * are drawn from. The rows themselves arrive through the sync — §12. */
+ * are drawn from. The rows themselves arrive through the sync — `docs/sync.md`. */
 
 const part = (state: string, extra: Record<string, unknown> = {}) =>
 	toolPart(recordOffersTool, state, { input: { offers: [] }, ...extra })

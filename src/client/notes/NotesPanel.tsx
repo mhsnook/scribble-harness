@@ -155,7 +155,7 @@ export function NotesPanel({
 }
 
 /** The list, and what stands in for it when there is none. Loading and empty
- * are told apart rather than both drawing nothing — §8. */
+ * are told apart rather than both drawing nothing — `docs/ui.md`. */
 function Queue({
 	queue,
 	view,

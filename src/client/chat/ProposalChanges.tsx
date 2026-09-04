@@ -7,7 +7,7 @@ import { unreadableText } from '../plan/refusalText'
 export interface ProposalChangesProps {
 	/** One sentence per op, out of `describeProposal`. */
 	changes: readonly string[]
-	/** Why the ops could not be read, and null where they could — §6. */
+	/** Why the ops could not be read, and null where they could — `docs/chat.md`. */
 	unreadable?: string | null
 	className?: string
 }

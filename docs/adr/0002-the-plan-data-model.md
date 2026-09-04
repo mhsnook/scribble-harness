@@ -9,7 +9,7 @@ project into party-db rows at phase 2 without a rewrite.
 
 **Amended:** this paragraph first said the schema serves `generateObject` as a second
 caller. It does not — the Chat proposes and the client applies, so nothing the model emits
-is ever parsed as a Plan. Corrected in `docs/architecture.md` §4 and recorded on #24, where
+is ever parsed as a Plan. Corrected in `docs/plan.md` and recorded on #24, where
 the op payloads are built.
 
 ```
@@ -80,7 +80,7 @@ carry, so deleting a node unplaces its References in the same Proposal.
 
 **Amended:** the second half of that reason is general and was stated here only because
 `nodeId` is where it first came up. #24 applied it to the rest of the Plan — a node's
-Adjectives took both an absent key and an empty list — and `docs/architecture.md` §4 now
+Adjectives took both an absent key and an empty list — and `docs/plan.md` now
 carries it as a rule of the data model.
 
 ## Provenance names what sort of thing a Reference came from
@@ -191,7 +191,7 @@ rather than greying the Proposal out.
 `apply.ts`, and settled the question this section left open. The op payloads reuse the piece
 schemas as they stand, `strictObject` and all, so a model that adds one field fails the tool
 call and retries with the validation error rather than having the field stripped. What that
-costs, and what to do if a model thrashes the retry, is in `docs/architecture.md` §6.
+costs, and what to do if a model thrashes the retry, is in `docs/plan.md`.
 
 ## Consequences
 

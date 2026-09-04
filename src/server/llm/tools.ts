@@ -22,14 +22,14 @@ import { type WebSearch, webSearchInput, webSearchOutput } from './search'
  *
  * The Proposal tool is **`execute`-less**: a tool with no `execute` suspends
  * for the client, and that suspension is the Proposal the writer rules on —
- * `docs/architecture.md` §6. It writes nothing, because the Chat proposes and
- * the client applies (§3, rule 4).
+ * `docs/chat.md`. It writes nothing, because the Chat proposes and
+ * the client applies (architecture.md §4.1).
  *
  * Do not reach for `needsApproval` or `toolApproval`. Both gate a server-side
  * `execute` this product does not have.
  *
  * The Offer tool below carries an `execute` instead, because an Offer is a row
- * the writer rules on later rather than mid-turn — §5. So does the search
+ * the writer rules on later rather than mid-turn — `docs/chat.md`. So does the search
  * tool: a search result is not something the writer rules on at all.
  */
 

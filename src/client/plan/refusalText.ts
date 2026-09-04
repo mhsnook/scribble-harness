@@ -3,7 +3,7 @@ import { planNames, type PlanNames } from './names'
 
 /**
  * What a refused edit reads as on screen. `refusal.message` is the applier's
- * sentence for the model and names ops and ids (§6); this is the other reader,
+ * sentence for the model and names ops and ids (`docs/plan.md`); this is the other reader,
  * a writer mid-task who has seen neither. The table below is the only English
  * in the path — swap it to swap the language — and it is total over
  * `RefusalReason`, so a new refusal site will not compile until it is worded.

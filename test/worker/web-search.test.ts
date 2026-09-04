@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { webSearch, type WebSearchInput } from '../../src/server/llm/search'
 
 /**
- * The search boundary — `docs/architecture.md` §7. No test reaches the
+ * The search boundary — `docs/llm.md`. No test reaches the
  * provider: `fetch` is stubbed, and what is under test is the request built,
  * the response read, and the rule that a failure answers rather than throws.
  */

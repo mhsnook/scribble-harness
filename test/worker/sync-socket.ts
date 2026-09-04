@@ -3,7 +3,7 @@ import { PROTO_PARAM, PROTO_VALUE, type SequencedBatch } from 'party-db'
 
 /**
  * A test client on the Article Agent's party-db socket — the second socket of
- * architecture.md §12. The real client is `partyTransport`, which the browser
+ * `docs/sync.md`. The real client is `partyTransport`, which the browser
  * runs; a workerd test connects the same way it does: the partyserver route,
  * `?proto=party-db`, and `?since` for a reconnect.
  */

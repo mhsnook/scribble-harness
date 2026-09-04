@@ -11,7 +11,7 @@ import { failureText } from './failure'
 
 /**
  * The Offer ledger, live: a live query over the synced `offer` collection,
- * writes over RPC — architecture.md §12.
+ * writes over RPC — `docs/sync.md`.
  */
 
 export type OfferLedgerHandle = {
@@ -48,7 +48,7 @@ export function useOfferLedger(): OfferLedgerHandle {
 		loading: !rows.isReady,
 		failure,
 
-		// Two writes against two stores, decoupled — §5, which says why this
+		// Two writes against two stores, decoupled — `docs/chat.md`, which says why this
 		// order and not the other. The Plan goes first because the copy is built
 		// from what the Offer says and needs nothing the ruling returns, and a
 		// refused copy stops the ruling rather than sending it anyway.

@@ -45,7 +45,10 @@ export default defineConfig({
 			},
 			{
 				plugins: [
-					// Cloudflare's workaround for `@callable` support in Vite 8.
+					// Cloudflare's workaround for `@callable` support in Vite 8 —
+					// `vite.config.ts` carries the reasoning. A worker test builds the
+					// Article Agent, and the two files share no plugins, so it is named
+					// in both.
 					agents(),
 					// `cloudflareTest` is the current API. Most docs still show
 					// `defineWorkersConfig` with `poolOptions.workers`, which no longer

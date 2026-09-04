@@ -7,7 +7,7 @@ import type { ReviewDepth } from '../../shared/review'
 import { judgeAgainstThePlan, planMessage } from './prompt'
 
 /**
- * The Review's prompt pack — `docs/architecture.md` §7, and issue #16 for the
+ * The Review's prompt pack — `docs/llm.md`, and issue #16 for the
  * contents: the Plan, then the Draft, then the Notes already in play, and
  * **no Chat**. Research reaches a Review only by having been Accepted into the
  * Plan, so the Ledger is the bridge and curation is forced rather than assumed.

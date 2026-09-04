@@ -21,11 +21,11 @@ export const proposePlanChangeTool = 'proposePlanChange'
  * What the model fills in to make a Proposal, and what the client reads off
  * the suspended call. Strict, like the op payloads inside it: a model that
  * adds a field fails the whole call and retries with the validation error
- * rather than having the field silently stripped — `docs/architecture.md` §6.
+ * rather than having the field silently stripped — `docs/plan.md`.
  *
  * `chatProposalSchema` rather than `proposalSchema`: the applier understands
  * three more ops, and they are the writer's own References. Research reaches
- * the Plan through the Ledger (§5), so the model is never offered a way round
+ * the Plan through the Ledger (`docs/chat.md`), so the model is not offered a way round
  * it.
  */
 export const proposePlanChangeInput = z.strictObject({ ops: chatProposalSchema })
@@ -56,7 +56,7 @@ export type RecordedOffers = z.infer<typeof recordedOffersOutput>
 /**
  * What the client sends alongside the messages. The Plan rides here because
  * `body` is request-only, where `metadata` persists on the `UIMessage` and
- * re-rides every turn (§6).
+ * re-rides every turn (`docs/chat.md`).
  *
  * Not strict: the Agents SDK hands the turn every body key it did not consume
  * itself, and this schema speaks for one of them.

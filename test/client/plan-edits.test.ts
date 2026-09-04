@@ -81,7 +81,7 @@ describe('the fields', () => {
 		const described = applied(spoken, setAdjectives(spoken, 'a', ['wry', 'somber']))
 		expect(described.outline[0].adjectives).toEqual(['wry', 'somber'])
 
-		// A Section states no Adjectives by carrying no key at all — §4.
+		// A Section states no Adjectives by carrying no key at all — `docs/plan.md`.
 		const emptied = applied(described, setAdjectives(described, 'a', []))
 		expect('adjectives' in emptied.outline[0]).toBe(false)
 	})

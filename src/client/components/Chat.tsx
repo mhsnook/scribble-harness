@@ -43,7 +43,7 @@ export interface ChatComposerProps {
 	/** Absent on the wireframe screens, which render a still frame. */
 	onSend?: (text: string) => void
 	/** Why the composer will not send, and null when it will. A Proposal nobody
-	 * ruled on is the case worth wording — nothing expires it (§11). */
+	 * ruled on is the case worth wording — nothing expires it (`docs/carries.md`). */
 	blocked?: string | null
 	/** A turn is in flight. The field stays open; send becomes stop. */
 	busy?: boolean

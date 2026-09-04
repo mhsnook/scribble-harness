@@ -8,7 +8,7 @@ import { inAgent, scriptModel } from './scripted'
 import { isBatch, openSyncSocket, postWrite } from './sync-socket'
 
 /**
- * The party-db room composed into the Article Agent — architecture.md §12: a
+ * The party-db room composed into the Article Agent — `docs/sync.md`: a
  * subscriber sees Notes, Rounds and Offers land as the Guide commits them and
  * nothing else, an app socket sees no batches, a reconnect catches up from
  * `?since`, and a client collection write is refused.

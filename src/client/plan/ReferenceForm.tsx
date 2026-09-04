@@ -161,7 +161,7 @@ export function ReferenceForm({
 
 type SourceDraft = Record<'title' | 'author' | 'publication' | 'year' | 'url', string>
 
-/** A field the writer left empty is a field the Reference does not carry — §4's
+/** A field the writer left empty is a field the Reference does not carry — `docs/plan.md`'s
  * one spelling per state. */
 function stated(key: 'text' | 'note', value: string) {
 	return value.trim() === '' ? {} : { [key]: value.trim() }

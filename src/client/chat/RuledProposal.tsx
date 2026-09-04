@@ -4,7 +4,7 @@ import { changeCount, ProposalChanges } from './ProposalChanges'
 import { describeProposal, type ProposalCall } from './proposals'
 
 /**
- * A Proposal the writer has already ruled on — §6. Shut, it is the one-line note
+ * A Proposal the writer has already ruled on — `docs/chat.md`. Shut, it is the one-line note
  * the transcript used to carry; open, it prints the same sentences the card
  * offered, so the writer can read back what they Accepted.
  *

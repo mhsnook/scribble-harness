@@ -10,7 +10,7 @@ import { OfferLedgerDrawer } from './OfferLedgerDrawer'
 import { useArticleChat } from './useArticleChat'
 
 /** Drives `ChatPanel` from one Article Agent. Takes the socket rather than
- * opening one — §8. */
+ * opening one — architecture.md §4.4. */
 
 export interface ArticleChatPanelProps {
 	agent: ArticleSocket

@@ -40,7 +40,19 @@ export default defineConfig({
 		// build, so the Worker is untouched.
 		babel({ presets: [reactCompilerPreset()] }),
 		tailwindcss(),
-		// Cloudflare's workaround for `@callable` support in Vite 8.
+		// Cloudflare's workaround for `@callable` support in Vite 8. Vite 8
+		// transpiles with oxc, which does not implement TC39 decorators
+		// (oxc#9170) and emits the `@` syntax verbatim, so the Worker fails to
+		// parse with "SyntaxError: Invalid or unexpected token". This plugin
+		// lowers them through Babel.
+		//
+		// `experimentalDecorators` is not the fix: the SDK uses standard
+		// decorators, and the legacy convention hands `callable()` the prototype
+		// instead of the method, so nothing registers and every RPC call is
+		// refused at runtime with "is not callable" — a silent failure where the
+		// missing plugin is a loud one.
+		//
+		// `vitest.config.ts` names it separately; the two files share no plugins.
 		forStorybook ? [] : agents(),
 		// Runs the Worker in workerd beside the client, so `pnpm dev` serves both.
 		forStorybook

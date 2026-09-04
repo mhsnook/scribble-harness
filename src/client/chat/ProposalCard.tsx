@@ -6,7 +6,7 @@ import { refusalText } from '../plan/refusalText'
 import { changeCount, ProposalChanges } from './ProposalChanges'
 import { describeProposal, type ProposalCall } from './proposals'
 
-/** One suspended Proposal to Accept or Decline — §6. Renders its ops as
+/** One suspended Proposal to Accept or Decline — `docs/chat.md`. Renders its ops as
  * sentences, and the refusal if an Accept was turned down. */
 
 export interface ProposalCardProps {

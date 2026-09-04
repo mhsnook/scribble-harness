@@ -8,7 +8,7 @@ import { reviewDepths, type Round, type RoundPassage, roundStates } from './revi
 
 /**
  * The `note`, `round` and `offer` party-db collections — docs/architecture.md
- * §12.
+ * `docs/sync.md`.
  *
  * The schemas spell the columns as the tables do: snake_case names, JSON
  * columns (`anchor`, `passages`, `source`) as the text they store. `z.string()`
@@ -62,7 +62,7 @@ export const offerRowSchema = z.object({
 	source: z.string().nullable(),
 	note: z.string().nullable(),
 	/** Under a UNIQUE index, so the table itself refuses a second row for one
-	 * source — §12. `fromOffer` is where every row gets one. */
+	 * source — `docs/chat.md`. `fromOffer` is where every row gets one. */
 	fingerprint: z.string(),
 	created_at: z.number(),
 	decided_at: z.number().nullable(),

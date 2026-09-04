@@ -23,7 +23,7 @@ export type DraftConnection = {
 /**
  * Reads the Draft once and writes it back as the writer types — §3, rule 2.
  *
- * Nothing reloads it: §3 leaves this client as the Blocks' only writer, so a
+ * Nothing reloads it: `docs/draft.md` leaves this client as the Blocks' only writer, so a
  * second read could only replace what is on screen with an older copy of it.
  */
 export function useDraft(store: DraftStore): DraftConnection {

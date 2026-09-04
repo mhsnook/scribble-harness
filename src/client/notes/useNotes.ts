@@ -17,7 +17,7 @@ import type { NoteActions } from './actions'
 import { type AnchorNaming, anchorNaming } from './anchors'
 
 /** The Notes Panel's half of one Article Agent: live queries over the synced
- * collections, writes over RPC — architecture.md §12. */
+ * collections, writes over RPC — `docs/sync.md`. */
 
 export type NotesHandle = {
 	queue: NotesQueue
@@ -126,7 +126,7 @@ export function useNotes(): NotesHandle {
 				.startReview({
 					prompt: asked,
 					depth,
-					// May be newer than the Plan the Article Agent has stored — §6.
+					// May be newer than the Plan the Article Agent has stored — `docs/chat.md`.
 					...(connection.plan === null ? {} : { plan: connection.plan }),
 				})
 				.catch((error: unknown) =>

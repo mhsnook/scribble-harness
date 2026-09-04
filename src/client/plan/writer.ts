@@ -8,7 +8,7 @@ import { applyProposal } from '../../shared/plan'
  *
  * **It debounces while the writer types.** The Plan is one blob re-serialised
  * and broadcast on every write, so an un-debounced intent-note field sends
- * about 40 KB per keystroke — §4.
+ * about 40 KB per keystroke — `docs/plan.md`.
  *
  * There is no React in here, which is what lets the debounce be tested against
  * a clock rather than against a rendered field.

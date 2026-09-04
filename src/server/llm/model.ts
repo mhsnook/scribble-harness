@@ -2,7 +2,7 @@ import type { LanguageModel } from 'ai'
 import { createWorkersAI } from 'workers-ai-provider'
 
 /**
- * The whole model boundary — `docs/architecture.md` §7. One model serves every
+ * The whole model boundary — `docs/llm.md`. One model serves every
  * call, and this is the only place it is named: swapping the string below is
  * the entire swap. Do not wrap this in `complete()` / `stream()` /
  * `structured()`. AI SDK v7 already provides those as `generateText`,

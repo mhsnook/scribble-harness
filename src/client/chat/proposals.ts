@@ -15,7 +15,7 @@ import { referenceName } from '../plan/references'
 /**
  * Reading Proposals out of a Chat transcript, ruling on one, and wording what a
  * card says. A Proposal is a suspended tool call: input present, no output,
- * parked until the writer rules — §6.
+ * parked until the writer rules — `docs/chat.md`.
  *
  * No socket and no React here, so a test drives it with a transcript and a Plan.
  */
@@ -31,11 +31,11 @@ type AnyToolPart = ToolUIPart | DynamicToolUIPart
 
 /**
  * How many Proposals have their input complete and no output sent, which is what
- * parks a turn — §11.
+ * parks a turn — `docs/carries.md`.
  *
  * **Only the Proposal tool counts.** It is the one with no `execute`, so it
  * suspends for the writer and nothing expires it; the research tool resolves
- * inside the turn (§5) and its call sits at `input-available` meanwhile.
+ * inside the turn (`docs/chat.md`) and its call sits at `input-available` meanwhile.
  */
 export function waitingCount(messages: readonly UIMessage[]): number {
 	let waiting = 0
@@ -52,7 +52,7 @@ export function waitingCount(messages: readonly UIMessage[]): number {
 }
 
 /** Reads the ops off a suspended call. A payload that fails here has already
- * survived the schema's own retries (§6), so the card reports it. */
+ * survived the schema's own retries (`docs/plan.md`), so the card reports it. */
 export function readProposal(part: AnyToolPart): ProposalCall {
 	const parsed = proposePlanChangeInput.safeParse(part.input)
 	if (!parsed.success) {
@@ -66,7 +66,7 @@ export function readProposal(part: AnyToolPart): ProposalCall {
 	return { toolCallId: part.toolCallId, ops: parsed.data.ops, unreadable: null }
 }
 
-/** The `is_error: true` content a Decline sends back — §6. A refused Accept
+/** The `is_error: true` content a Decline sends back — `docs/chat.md`. A refused Accept
  * sends the refusal, so the model learns the Plan moved under it. */
 export function declineReason(call: ProposalCall, refusal: Refusal | null): string {
 	if (call.unreadable !== null) {
@@ -88,7 +88,7 @@ export function acceptReason(ops: Proposal): string {
 }
 
 /** What the tool call is answered with. An `errorText` is the `is_error: true`
- * half — §6. */
+ * half — `docs/chat.md`. */
 export type ToolAnswer = { output: string } | { errorText: string }
 
 /** Refusals by tool call, since a transcript can carry several open Proposals. */

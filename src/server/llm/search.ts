@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * Web search, over Exa's `POST /search` — `docs/architecture.md` §7. The only
+ * Web search, over Exa's `POST /search` — `docs/llm.md`. The only
  * place a search provider is named.
  *
  * The tool's schemas live here rather than in `src/shared`: the Chat Panel
@@ -10,7 +10,7 @@ import { z } from 'zod'
  */
 
 /** What the model fills in to search. Strict like the Proposal's input, so an
- * invented field is refused and retried rather than stripped — §6. */
+ * invented field is refused and retried rather than stripped — `docs/plan.md`. */
 export const webSearchInput = z.strictObject({
 	query: z.string().min(1),
 	/** Published on or after this date, as YYYY-MM-DD. */
@@ -56,7 +56,7 @@ export type WebSearch = (
 ) => Promise<WebSearchOutput>
 
 /** Undefined where no key is set, which is what gives a deployment with no key
- * no search tool rather than one that always fails — §7. */
+ * no search tool rather than one that always fails — `docs/llm.md`. */
 export function webSearch(env: Env): WebSearch | undefined {
 	const key = env.EXA_API_KEY
 	if (!key) return undefined

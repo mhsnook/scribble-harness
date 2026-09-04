@@ -10,11 +10,11 @@ import {
 } from '../shared/article'
 
 /**
- * The article index, over D1 — docs/architecture.md §9. Nothing here reaches
+ * The article index, over D1 — `docs/articles.md`. Nothing here reaches
  * into an Article Agent, so removing a row leaves one exactly as it was.
  *
  * Nothing parses a token either: Access gates the Worker at the edge, and 1a may
- * not require the Cf-Access-Jwt-Assertion header (§9).
+ * not require the Cf-Access-Jwt-Assertion header (architecture.md §4.8).
  */
 
 /** `status` is stated as what the write routes parsed rather than checked again

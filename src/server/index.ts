@@ -1,5 +1,5 @@
 // Nothing here parses a token, and nothing may require the
-// Cf-Access-Jwt-Assertion header — docs/architecture.md §9.
+// Cf-Access-Jwt-Assertion header — docs/architecture.md §4.8.
 
 import { routeAgentRequest } from 'agents'
 import { Hono } from 'hono'
@@ -15,7 +15,7 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.get('/api/health', (c) => c.json({ ok: true }))
 
-// The article index, over D1 — architecture.md §9. Mounted ahead of the
+// The article index, over D1 — `docs/articles.md`. Mounted ahead of the
 // catch-all below, which Hono would otherwise match first.
 app.route('/api/articles', articleIndex)
 
@@ -26,7 +26,7 @@ app.all('/agents/*', async (c) => {
 	return response ?? c.text('No such Agent route', 404)
 })
 
-// The party-db sync socket — architecture.md §12. routePartykitRequest maps
+// The party-db sync socket — `docs/sync.md`. routePartykitRequest maps
 // /parties/article-agent/:name onto the same ArticleAgent binding the route
 // above serves.
 app.all('/parties/*', async (c) => {

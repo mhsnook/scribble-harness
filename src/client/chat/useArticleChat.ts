@@ -16,7 +16,8 @@ import {
 } from './proposals'
 
 /**
- * One Chat on the socket the Plan already holds — §6 and §8. A ruling applies
+ * One Chat on the socket the Plan already holds — `docs/chat.md` and
+ * architecture.md §4.4. A ruling applies
  * the ops through `edit` and then answers the tool call.
  *
  * Three SDK traps sit under this. `addToolResult` is deprecated in favour of
@@ -34,7 +35,7 @@ export type ChatHandle = {
 	busy: boolean
 	/** Cancels the turn, on the server as well as here. */
 	stop: () => void
-	/** Proposals nobody has ruled on; above zero the turn is parked — §11. */
+	/** Proposals nobody has ruled on; above zero the turn is parked — `docs/carries.md`. */
 	waiting: number
 	refusals: Refusals
 	ledger: OfferLedgerHandle
@@ -50,7 +51,7 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 	const [refusals, setRefusals] = useState<Refusals>({})
 
 	// A ref, because the body is built when the turn is sent rather than when
-	// this renders. The Plan goes in `body` and not `metadata` — §6.
+	// this renders. The Plan goes in `body` and not `metadata` — `docs/chat.md`.
 	const held = useRef<Plan | null>(connection.plan)
 	useEffect(() => {
 		held.current = connection.plan
@@ -89,7 +90,7 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 
 	return {
 		messages,
-		// A turn sent over an unanswered call is refused server-side — §11.
+		// A turn sent over an unanswered call is refused server-side — `docs/carries.md`.
 		send: (text: string) => {
 			const said = text.trim()
 			if (said !== '' && waiting === 0) chat.sendMessage({ text: said })
@@ -99,7 +100,7 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 
 		// **A parked Proposal is not the guide answering.** A suspended call holds
 		// the turn open, so the SDK reports it as streaming until the client
-		// answers (§6) — but the writer is the one being waited on there, and the
+		// answers (`docs/chat.md`) — but the writer is the one being waited on there, and the
 		// Proposal card and the composer say so themselves.
 		busy: running && waiting === 0,
 		stop: () => void chat.stop(),

@@ -8,7 +8,7 @@ import { planSchema, referenceContent } from './schema'
 /**
  * The client-side applier, working on a copy so that the first op to refuse
  * throws the whole Proposal away. What the ops mean is `docs/architecture.md`
- * §6, and the vocabulary is ops.ts.
+ * `docs/plan.md`, and the vocabulary is ops.ts.
  */
 
 /**
@@ -78,7 +78,7 @@ export type Refusal = {
 	/** The second record a reason names — a merge target, the Section an anchor
 	 * was sought in — and null for the reasons that name one. */
 	other: RefusalSubject | null
-	/** One sentence for the model, which a Declined Proposal sends back (§6), so
+	/** One sentence for the model, which a Declined Proposal sends back (`docs/plan.md`), so
 	 * it names the op and the ids and may run long. The writer's sentence is
 	 * built from the fields above, in `src/client/plan/refusalText.ts`. */
 	message: string
@@ -92,7 +92,7 @@ const articleSubject: RefusalSubject = { of: 'article' }
 const sectionSubject = (id: string): RefusalSubject => ({ of: 'section', id })
 const referenceSubject = (id: string): RefusalSubject => ({ of: 'reference', id })
 
-/** A content op reads `nodeId: null` as the Article — §6. */
+/** A content op reads `nodeId: null` as the Article — `docs/plan.md`. */
 const scopeSubject = (nodeId: string | null): RefusalSubject =>
 	nodeId === null ? articleSubject : sectionSubject(nodeId)
 
@@ -289,7 +289,7 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 			if (site === null) return absent('noSection', sectionSubject(op.nodeId))
 
 			// The unplacing lands in this op or nowhere: the Plan is written whole,
-			// and a Reference naming a node that is gone does not parse — §4.
+			// and a Reference naming a node that is gone does not parse — `docs/plan.md`.
 			const gone = new Set(subtreeIds(site.siblings[site.index]))
 			site.siblings.splice(site.index, 1)
 			for (const reference of plan.references) {
@@ -432,7 +432,7 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 			}
 
 			// The content is replaced whole, so a field the op leaves out is a
-			// field the Reference no longer carries — §4's one spelling per state.
+			// field the Reference no longer carries — `docs/plan.md`, one spelling per state.
 			delete reference.text
 			delete reference.source
 			delete reference.note
@@ -496,7 +496,7 @@ function subtreeIds(node: Pick<OutlineNode, 'id' | 'children'>): string[] {
 }
 
 /** The payload of a createNode op may state an empty Adjectives list where the
- * Plan says absent — §4. */
+ * Plan says absent — `docs/plan.md`. */
 function dropEmptyAdjectives(node: OutlineNode) {
 	if (node.adjectives?.length === 0) delete node.adjectives
 	node.children.forEach(dropEmptyAdjectives)

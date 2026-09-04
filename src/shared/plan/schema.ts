@@ -2,12 +2,12 @@ import { z } from 'zod'
 
 /**
  * The Plan's schema, parsed whole on every write. The data model it enforces is
- * `docs/architecture.md` §4, who may write it is §3, and the reasoning behind
+ * `docs/plan.md`, who may write it is `docs/architecture.md` §3, and the reasoning behind
  * both is docs/adr/0002-the-plan-data-model.md.
  */
 
 // `.min(1)` throughout, so that a field carries one spelling of "nothing here"
-// rather than two — §4. A title is the exception below and carries no floor: it
+// rather than two — `docs/plan.md`. A title is the exception below and carries no floor: it
 // is empty from the moment a node is made until the writer types into it.
 export const idSchema = z.string().min(1)
 export const voiceSchema = z.string().min(1)
@@ -173,7 +173,7 @@ function checkIds(plan: Plan, ctx: z.RefinementCtx) {
 	plan.references.forEach((reference, index) => {
 		claim(referenceIds, reference.id, ['references', index, 'id'], 'References')
 
-		// One Offer becomes one Reference — §5.
+		// One Offer becomes one Reference — `docs/chat.md`.
 		const { offerId } = reference.provenance
 		if (offerId !== undefined) {
 			if (offerIds.has(offerId)) {

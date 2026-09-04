@@ -5,7 +5,7 @@ import { TextField } from '../components/Field'
 /**
  * The word-count target on screen. The total is stored and nothing derives it,
  * so the parts are allowed to disagree with the whole and the gap is
- * information rather than an error — docs/architecture.md §4.
+ * information rather than an error — `docs/plan.md`.
  */
 
 export interface TargetFieldProps {

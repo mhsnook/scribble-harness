@@ -15,7 +15,7 @@ import {
 /**
  * The op vocabulary a Proposal is written in. What the ops mean, how strict the
  * payloads are, and what to do when a model fights that strictness are all
- * `docs/architecture.md` §6. The applier is apply.ts.
+ * `docs/plan.md`. The applier is apply.ts.
  */
 
 /** Nullable and optional say different things: `afterId: null` is first child,
@@ -145,7 +145,7 @@ export const placeReferenceOpSchema = z.strictObject({
  *
  * The applier understanding an op does not mean the Chat may propose it. What
  * the model is offered is the tool schema, and research reaches the Plan
- * through the Ledger — architecture §5. Leave these out of that schema.
+ * through the Ledger — `docs/chat.md`. Leave these out of that schema.
  */
 export const createReferenceOpSchema = z.strictObject({
 	op: z.literal('createReference'),
@@ -197,7 +197,7 @@ export const proposalSchema = z.array(proposalOpSchema).min(1)
  * What the Chat may propose, against `proposalSchema`, which is everything the
  * applier understands. The Reference ops are left out: research reaches the
  * Plan by being Accepted from an Offer, and the Ledger is that bridge —
- * `docs/architecture.md` §5. A model handed `createReference` could put a
+ * `docs/chat.md`. A model handed `createReference` could put a
  * source in the Plan that the writer never ruled on.
  *
  * This is the schema the Proposal tool declares, in `src/shared/chat.ts`.

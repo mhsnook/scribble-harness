@@ -12,7 +12,7 @@ import { placementOf } from './outline'
 
 /**
  * The writer's edits, written in the op vocabulary the Chat proposes in and
- * applied by the same applier — docs/architecture.md §6. One path into the Plan
+ * applied by the same applier — `docs/plan.md`. One path into the Plan
  * means the Panel cannot make a change the applier would refuse, and a
  * structural edit carries the consequences the ops already state: deleting a
  * Section unplaces the References placed at it.
@@ -27,7 +27,7 @@ import { placementOf } from './outline'
  * control rather than sending an op the applier would refuse.
  */
 
-/** Which Scope a content op acts on. null is the Article — §6. */
+/** Which Scope a content op acts on. null is the Article — `docs/plan.md`. */
 export type Scope = string | null
 
 /** Where a new Section goes: whose child it is, and which neighbour it anchors
@@ -142,7 +142,7 @@ export function liftSection(plan: Plan, nodeId: string): ProposalInput | null {
 /**
  * A Reference the writer pasted in themselves, which is what its Provenance
  * says. The ones that arrive from the Chat are Accepted from an Offer and carry
- * that Offer's id instead — architecture §5.
+ * that Offer's id instead — `docs/chat.md`.
  */
 export function addReference(
 	content: ReferenceContent,
@@ -158,7 +158,7 @@ export function addReference(
 }
 
 /**
- * The same op as `addReference`, carrying the Offer's Provenance — §5. Null
+ * The same op as `addReference`, carrying the Offer's Provenance — `docs/chat.md`. Null
  * where the Plan already holds a copy, so a second Accept builds nothing. The
  * Offer is the one `setOfferDisposition` returned.
  */

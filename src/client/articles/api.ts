@@ -6,7 +6,7 @@ import {
 } from '../../shared/article'
 
 /**
- * The article index over HTTP — the one store that is not reactive (§8).
+ * The article index over HTTP — the one store that is not reactive (`docs/articles.md`).
  *
  * Answers are parsed rather than asserted, so a route that drifts from the
  * shared schema fails here with a sentence rather than rendering half a row.
@@ -21,7 +21,8 @@ export async function fetchArticles(): Promise<ArticleEntry[]> {
 }
 
 /** Untitled: the name travels into the Article screen and reaches the index as a
- * copy of the Plan's, so nothing may name a row ahead of the Plan (§9). */
+ * copy of the Plan's, so nothing may name a row ahead of the Plan
+ * (architecture.md §4.6). */
 export async function createArticle(): Promise<ArticleEntry> {
 	const answer = await send(base, 'POST', {})
 

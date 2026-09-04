@@ -4,7 +4,7 @@ import type { Plan } from '../../shared/plan'
 
 /**
  * The Chat turn's prompt pack — The pack is the conversation plus the Plan,
- * in roughly that order. See Architecture §7.
+ * in roughly that order. See `docs/llm.md`.
  */
 
 /**
@@ -116,7 +116,7 @@ export function planMessage(plan: Plan): ModelMessage {
 
 /**
  * The conversation with the Plan in it — in front of the writer's last message,
- * so the writer's words are the last thing the model reads, per Architecture §7.
+ * so the writer's words are the last thing the model reads, per `docs/llm.md`.
  */
 export function chatPackMessages(
 	conversation: ModelMessage[],
@@ -128,7 +128,7 @@ export function chatPackMessages(
 }
 
 /**
- * Calculates where the Plan goes, per Architecture §7.
+ * Calculates where the Plan goes, per `docs/llm.md`.
  */
 function planSlot(conversation: ModelMessage[]): number {
 	const last = conversation.length - 1

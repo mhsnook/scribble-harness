@@ -21,7 +21,7 @@ import { reviewPackMessages, type ReviewPack, reviewSystemPrompt } from './revie
  * The answer is **prose inside a structure**: the model writes the passages the
  * writer reads, and the schema is what carries each one's Notes and their
  * anchors. Nothing here parses prose to find them. One retry carries the
- * validation error back — `docs/architecture.md` §7.
+ * validation error back — `docs/llm.md`.
  */
 
 export type ReviewTurn = {

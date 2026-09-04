@@ -9,7 +9,7 @@ import type { PlanConnection } from '../plan/usePlan'
 
 /**
  * An Article's title, across the two places it lives. The Plan is written first
- * and the index copy follows it — docs/architecture.md §9.
+ * and the index copy follows it — docs/architecture.md §4.6.
  */
 
 /**

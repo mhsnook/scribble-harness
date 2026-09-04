@@ -136,7 +136,7 @@ export function planMap(plan: Plan, options: MapOptions = {}): PlanMap {
 	}
 
 	// Numbered off the walk the Panel reads, not counted again here —
-	// architecture.md §4.
+	// `docs/plan.md`.
 	const ordinals = new Map(
 		outlineEntries(plan.outline).map((entry) => [entry.node.id, entry.ordinal]),
 	)

@@ -12,7 +12,7 @@ import { failureText } from '../lib/failure'
 import { editArticle, fetchArticles } from './api'
 
 /**
- * The article index through TanStack Query — §8. One key holds the whole table:
+ * The article index through TanStack Query — `docs/articles.md`. One key holds the whole table:
  * one Team's index is small enough to send whole, and both Views read it.
  */
 

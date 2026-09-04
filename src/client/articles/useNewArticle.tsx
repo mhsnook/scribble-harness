@@ -31,7 +31,7 @@ declare module '@tanstack/react-router' {
  * the dialog asks what to call it while that request is still in flight.
  *
  * The typed title goes to the caller rather than to the index — writing it here
- * would put the index copy in front of the Plan it copies (§9) — and the caller
+ * would put the index copy in front of the Plan it copies (architecture.md §4.6) — and the caller
  * navigates, so this module stays as router-free as the rest of `articles/`.
  */
 

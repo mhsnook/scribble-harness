@@ -101,12 +101,12 @@ export type RecordedOffer = { offer: Offer; duplicate: boolean }
  * One Article Agent per Article — docs/architecture.md §2, and §3 for what goes
  * in the state blob against what goes in its SQLite. `AIChatAgent` adds the
  * Chat: it keeps the transcript in its own SQLite tables, which nothing
- * mirrors, and routes a turn to `onChatMessage` below (§6).
+ * mirrors, and routes a turn to `onChatMessage` below (`docs/chat.md`).
  */
 export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	initialState = emptyPlan()
 
-	/** The party-db core composed into this Agent — architecture.md §12. Built
+	/** The party-db core composed into this Agent — `docs/sync.md`. Built
 	 * on every wake in `onStart`, which partyserver runs before any connect,
 	 * request, or RPC reaches this class — so the `!` holds. */
 	db!: PartyDbCore
@@ -137,7 +137,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			)
 		`
 
-		// At most one row may carry a given fingerprint — §12 for the argument.
+		// At most one row may carry a given fingerprint — `docs/chat.md` for the argument.
 		this.sql`
 			CREATE UNIQUE INDEX IF NOT EXISTS offer_one_per_fingerprint
 			ON offer (fingerprint)
@@ -161,8 +161,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		// One row per Review. `seq` is what the writer reads as "Round 3", and
 		// `state` is why the row exists at all: the Article Agent runs the Review,
 		// so a writer can start one and close the tab, and both "still running" and
-		// "failed while nobody was watching" have to survive them leaving (§3,
-		// rule 4).
+		// "failed while nobody was watching" have to survive them leaving
+		// (`docs/reviews.md`).
 		this.sql`
 			CREATE TABLE IF NOT EXISTS round (
 				seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -196,7 +196,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		`
 		this.sql`CREATE INDEX IF NOT EXISTS note_by_round ON note (round_id)`
 
-		// At most one row may read `running` (§12). The pre-check in
+		// At most one row may read `running` (`docs/reviews.md`). The pre-check in
 		// `startReview` gives the worded refusal; this index closes the race
 		// when two calls interleave across `commit`'s await.
 		this.sql`
@@ -204,9 +204,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			ON round (state) WHERE state = 'running'
 		`
 
-		// The party-db core (§12). The tables above are this class's DDL; the
+		// The party-db core (`docs/sync.md`). The tables above are this class's DDL; the
 		// core CRUDs over them, adds its `_oplog`, and fans committed batches
-		// out to the tagged connections. `oplogRetention` per §11.
+		// out to the tagged connections. `oplogRetention` per `docs/sync.md`.
 		const engine: SqlEngine = {
 			exec: (query, ...bindings) => this.ctx.storage.sql.exec(query, ...bindings),
 			transaction: (fn) => this.ctx.storage.transactionSync(fn),
@@ -242,7 +242,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * ALTER would need a default for the rows already there, and an Article
 	 * carrying the double-record the column exists to stop could not take the
 	 * index at all — so the null case would reach the dedupe and every reader
-	 * past it. The migration pays that instead, once (§12).
+	 * past it. The migration pays that instead, once (`docs/sync.md`).
 	 */
 	private drainOldOfferTable(): OfferRow[] {
 		// `pragma_table_info` answers nothing for a table that does not exist,
@@ -272,7 +272,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * its twin is gone rather than carried as a case the dedupe has to know
 	 * about.
 	 *
-	 * Raw SQL against a synced table, which §12 forbids the app: this runs
+	 * Raw SQL against a synced table, which `docs/sync.md` keeps the app out of: this runs
 	 * before the party-db core is built, and every row it writes is one the
 	 * oplog already announced when the Guide first recorded it. `seq` is not
 	 * carried — the table assigns fresh ones in the same order, and nothing
@@ -303,7 +303,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		return !isPartyDbRequest(ctx.request)
 	}
 
-	/** Leaves party-db connections out of every broadcast (§12). The SDK's own
+	/** Leaves party-db connections out of every broadcast (`docs/sync.md`). The SDK's own
 	 * frames — state sync, Chat streams — route through this method too, so
 	 * one override covers them all. */
 	broadcast(message: string | ArrayBuffer | ArrayBufferView, without?: string[]): void {
@@ -327,7 +327,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/**
 	 * Refuses party-db write POSTs: no collection takes client writes, and
-	 * the ruling guards live on the `@callable` methods — §12. Opening the
+	 * the ruling guards live on the `@callable` methods — `docs/sync.md`. Opening the
 	 * client write path means forwarding these to `this.db.handleWrite`.
 	 */
 	async onRequest(request: Request): Promise<Response> {
@@ -344,7 +344,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/** The model a Chat turn runs on — one model currently serves every call
-	 * (§7). `llm/model.ts` is the boundary; this reads it so a workerd test,
+	 * (`docs/llm.md`). `llm/model.ts` is the boundary; this reads it so a workerd test,
 	 * which has no Workers AI binding to reach, can put a scripted model behind
 	 * it. */
 	chatModel(): LanguageModel {
@@ -386,7 +386,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	/**
 	 * The Plan the turn is about. The client sends it in `body`, never in
 	 * `metadata`, which persists on the `UIMessage` and re-rides every turn
-	 * (§6).
+	 * (`docs/chat.md`).
 	 *
 	 * **The body wins over state, and the two can disagree.** A client that
 	 * applies a Proposal and sends the next turn before its `setState` lands
@@ -439,7 +439,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * across local writes, so a research turn that records four Offers stamps
 	 * them with one or two milliseconds between them.
 	 *
-	 * Not `@callable` — a client reads its synced collection (§12); this reader
+	 * Not `@callable` — a client reads its synced collection (`docs/sync.md`); this reader
 	 * serves this class and its tests. */
 	listOffers(): Offer[] {
 		return this.offerRows().map(toOffer)
@@ -454,14 +454,15 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/**
 	 * One research turn. An entry this Article already carries comes back as it
-	 * stands, keeping the disposition the writer gave it — §5.
+	 * stands, keeping the disposition the writer gave it — `docs/chat.md`.
 	 *
 	 * The map below gives that answer, and `offer_one_per_fingerprint` is what
 	 * makes it hold when two turns of one step read before either committed. The
-	 * loop is the recovery a whole-call transaction forces — §12 for both.
+	 * loop is the recovery a whole-call transaction forces — `docs/chat.md` and
+	 * `docs/sync.md` for both.
 	 *
 	 * Not `@callable`: the research tool is the only caller and it runs inside
-	 * this Agent (§3, rule 4).
+	 * this Agent (`docs/chat.md`).
 	 */
 	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
@@ -500,7 +501,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			} catch (error) {
 				// A fingerprint this pass tried to write that the table now holds
 				// is another turn committing across the await. Re-reading is how
-				// the table says so, rather than the rejection's wording (§12).
+				// the table says so, rather than the rejection's wording (`docs/sync.md`).
 				const taken = new Set(this.offerRows().map((row) => row.fingerprint))
 				const lost = ops.some((op) => taken.has(op.value.fingerprint))
 
@@ -570,7 +571,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * Block it has already seen, so a second tab's paragraph is not something
 	 * this one can delete.
 	 *
-	 * The content is stored, not inspected — §3 leaves the client as the Draft's
+	 * The content is stored, not inspected — `docs/draft.md` leaves the client as the Draft's
 	 * only writer, and reading the document here would put the editor's schema in
 	 * the Worker. Size is checked, because that is the failure the writer cannot
 	 * see coming.
@@ -607,7 +608,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	/** Every Round on this Article, oldest first. `seq` orders it and numbers it,
 	 * for the reason `listOffers` gives: a Worker's clock barely moves across
 	 * local writes. Not `@callable` — a client reads its synced collection
-	 * (§12); this reader serves this class and its tests. */
+	 * (`docs/sync.md`); this reader serves this class and its tests. */
 	listRounds(): Round[] {
 		return this.sql<RoundRow>`SELECT * FROM round ORDER BY seq`.map(toRound)
 	}
@@ -623,7 +624,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 *
 	 * The Article Agent runs it, not the client: this returns as soon as the
 	 * row exists, the model call carries on under `waitUntil`, and one Review
-	 * runs at a time, guarded by the running row — §12 for the full argument.
+	 * runs at a time, guarded by the running row — `docs/reviews.md` for the full argument.
 	 */
 	@callable()
 	async startReview(request: unknown): Promise<Round> {
@@ -716,7 +717,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	/**
 	 * The response, as rows. One `commit` for the Notes and the settled Round,
 	 * so a subscriber that hears the Round settle already holds its Notes.
-	 * Each Note keeps the id its passage names it by — §12.
+	 * Each Note keeps the id its passage names it by — `docs/sync.md`.
 	 */
 	private async writeReview(
 		round: Round,
@@ -778,7 +779,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/** A Review that threw. The reason goes on the row because the writer may
-	 * have left, and a thrown call has nowhere to land — §12. A commit that
+	 * have left, and a thrown call has nowhere to land — `docs/reviews.md`. A commit that
 	 * fails here has no row left to land on either, so log it rather than
 	 * throw into `waitUntil`. */
 	private async failRound(id: string, failure: string): Promise<void> {
@@ -872,7 +873,7 @@ function offerRow(content: ReferenceContent): OfferRow {
 }
 
 /** One Note as a row, ready to commit. Starts proposed; the anchor is settled
- * here, once, against what the Review was shown (§12). */
+ * here, once, against what the Review was shown (`docs/reviews.md`). */
 function noteRow(
 	roundId: string,
 	content: NoteContent,

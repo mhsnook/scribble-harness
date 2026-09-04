@@ -10,7 +10,7 @@ import { cx } from '../lib/cx'
  * time and the nearest Scope wins outright, while Adjectives accumulate — so
  * what this Scope states is editable here, and what it inherits is shown
  * beside it, dimmed, and edited where it was said. Resolution runs at read
- * time, and nothing here stores a resolved value — docs/architecture.md §4.
+ * time, and nothing here stores a resolved value — `docs/plan.md`.
  */
 
 export interface ToneFieldsProps {

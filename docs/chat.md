@@ -26,7 +26,8 @@ Ledger from ids in the transcript. The Chat still reads the tool output to draw 
 cards.
 
 `provenance` records `writer` or `offer`. It does not say whether the Chat searched for a
-source or recalled it from memory; issue #40 covers marking that.
+source or recalled it from memory. How to mark that on an Offer, and on the Reference it
+becomes, is open and waits on issue #40.
 
 ## Deduplication
 

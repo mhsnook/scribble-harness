@@ -87,6 +87,11 @@ Recorded in [ADR 0001](./adr/0001-phase-1-storage-shape.md).
    Rounds and Offers are published as collections instead, so reads are live queries and the
    Guide's writes go through `commit()` — see [`sync.md`](./sync.md). Rulings still go over
    RPC, per rule 2. The Draft is the table left; [`draft.md`](./draft.md) says why it can wait.
+5. The writer does not author an Offer, a Round, or a Note today. This is an observation
+   rather than a rule, and it is worth stating because one thing rests on it: `recordOffers`
+   runs inside the Article Agent rather than over RPC, since nothing on the client needs to
+   write an Offer. Nothing else depends on it, so letting the writer author a Note would cost
+   that one call and no more.
 
 ## 4. Seams
 
@@ -162,12 +167,14 @@ Access gates the Worker, so an unauthenticated request never arrives. 1a needs n
 one Team, both people read everything, and no record is per-user.
 
 We avoid reading `Cf-Access-Jwt-Assertion` while we can, because localhost has no Access gate
-and therefore no header, which keeps development simple.
+and therefore no header, which keeps development simple. That is a convenience rather than a
+constraint, and we can change the DX later if we want to.
 
 At 1b, party-db's `authorize` runs in the partyserver lobby and needs a verified identity
 before the object wakes. Access injects the assertion as a header where party-db expects
 `?token=` on connect, so `authorize` reads the header. Issue #12 tracks whether the header
-survives a WebSocket upgrade into the Durable Object. If it does not, we move to WorkOS.
+survives a WebSocket upgrade into the Durable Object. WorkOS is the documented upgrade if
+it does not.
 
 Attributing Chat messages to people is wanted and deferred past 1a. The Agents SDK stores a
 role rather than a person, so this needs a field on the `UIMessage` or a parallel table.

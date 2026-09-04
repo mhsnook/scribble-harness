@@ -1,9 +1,5 @@
 # Reviews and Notes
 
-What the feature is and how it behaves. The cross-module rules it has to obey
-are [`architecture.md`](./architecture.md), the sync it rides is
-[`sync.md`](./sync.md), and the words are [`context.md`](./context.md).
-
 ## The loop
 
 The writer types what a Review should look for and runs it. The Guide reads the

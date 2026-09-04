@@ -23,14 +23,8 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/agents/*", "/api/*", "/parties/*"],
   },
-  // One Article Agent per Article, and one House for the Team. The Agents SDK
-  // needs SQLite-backed storage, which is spelled new_sqlite_classes in the
-  // migrations below. The House keeps its rows in D1 rather than in its own
-  // storage, and takes the same class type because a new class has no other.
-  //
-  // The binding name in kebab-case is the party route's first segment, so the
-  // House is served at /parties/house/house — routePartykitRequest in
-  // src/server/index.ts, and HOUSE_ROOM in src/shared/house.ts.
+  // One Article Agent per Article, and one House. The Agents SDK needs
+  // SQLite-backed storage, which is spelled new_sqlite_classes below.
   "durable_objects": {
     "bindings": [
       {
@@ -54,8 +48,8 @@
     },
   ],
   // The article index and the House — docs/articles.md, docs/house.md. Their
-  // schemas live in ./migrations;
-  // `pnpm db:migrate` applies it locally and `db:migrate:remote` to the deploy.
+  // schemas live in ./migrations; `pnpm db:migrate` applies them locally and
+  // `db:migrate:remote` to the deploy.
   // database_id is what binds; database_name is a label.
   "d1_databases": [
     {

@@ -45,9 +45,7 @@ import { AllocationNote, TargetField } from './WordCount'
 export interface SectionRowProps {
 	entry: OutlineEntry
 	plan: Plan
-	/** The House's own Voice and Adjectives — the outermost Scope, which this
-	 * Section's Tone resolves against. Empty where the House states nothing. */
-	house?: ScopeTerms
+	houseStyle?: ScopeTerms
 	edit: (ops: ProposalInput | null) => void
 	/** True when this is the Section the writer has open. */
 	open: boolean
@@ -64,7 +62,7 @@ export interface SectionRowProps {
 export function SectionRow({
 	entry,
 	plan,
-	house = {},
+	houseStyle = {},
 	edit,
 	open,
 	onOpen,
@@ -167,7 +165,7 @@ export function SectionRow({
 		)
 	}
 
-	const resolved = resolveNodeScope(plan, node.id, house) ?? {
+	const resolved = resolveNodeScope(plan, node.id, houseStyle) ?? {
 		voice: null,
 		adjectives: [],
 	}

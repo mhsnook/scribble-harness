@@ -25,13 +25,9 @@ import { houseSync } from '../lib/houseSync'
 import { carryOldSkills } from './carrySkills'
 
 /**
- * The House, live. Reads are live queries over the four collections and writes
- * go straight to them — party-db POSTs the row and the change comes back down
- * the socket, so nothing here holds an optimistic copy.
- *
- * The writer authors every row, which is what makes this different from
- * `useNotes`: the Article Agent's collections are guide-written and ruled on
- * over RPC, and the House has no server-side guard to route around.
+ * The House, live — `docs/house.md`. Reads are live queries and writes go
+ * straight to the collections, so nothing here holds an optimistic copy: the
+ * row coming back down the socket is the read.
  */
 
 export type LexiconDraft = { term: string; definition: string }
@@ -213,7 +209,7 @@ export function useHouse(): HouseHandle {
 
 /** The House Tone alone, for a screen that resolves a Scope against it and
  * writes nothing — the Plan Panel and the Section rows under it. */
-export function useHouseTone(): ScopeTerms {
+export function useHouseStyle(): ScopeTerms {
 	const sync = houseSync()
 	const toneRows = useLiveQuery((q) => q.from({ tone: sync.tone }), [sync.tone])
 

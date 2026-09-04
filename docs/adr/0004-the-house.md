@@ -29,14 +29,14 @@ this is where it lands. Nothing builds an entry from an Offer today, so every en
 than deferred because the alternative is a migration on a table the writer already has rows
 in.
 
-## The House takes client writes
+## The House writes over party-db, where the Article Agent writes over RPC
 
-The Article Agent refuses a party-db write POST with a 403: its rows are guide-written, and
-the rulings' guards live on `@callable` RPC. The House is the opposite case — every row is
-the writer's to author and no guard sits between them and it — so `PartyDbServer.onRequest`
-forwards to `handleWrite` unchanged.
+The Article Agent refuses a party-db write POST with a 403 and takes its writes on
+`@callable` RPC instead, because its rows are guide-written and the rulings' guards live
+there. The House has no such guard — every row is the writer's to author — so it uses
+party-db the way party-db is meant to be used, and overrides nothing to do it.
 
-This is what makes the House cheap. There is no endpoint, no query key, and no
+That is what makes the House cheap. There is no endpoint, no query key, and no
 invalidation: `collection.insert(row)` is the write, and the row coming back down the socket
 is the read.
 

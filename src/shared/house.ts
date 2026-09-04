@@ -11,24 +11,16 @@ import {
 } from './plan'
 
 /**
- * The House — the writer's own standing material, held across every Article:
- * the Lexicon, the standing rules, the Skills, and the House Tone.
- * `docs/house.md` says what it is for, `docs/architecture.md` §2 where it lives.
- *
- * Four party-db collections over D1, spelled the way `src/shared/sync.ts`
- * spells the Article Agent's three: snake_case column names, JSON columns as
- * the text they store, and one pair of mappers per collection.
- *
- * The writer authors every row here, so unlike the Article Agent's collections
- * these take client writes over party-db's own write path.
+ * The House's four collections — `docs/house.md`. Spelled the way
+ * `src/shared/sync.ts` spells the Article Agent's three: snake_case column
+ * names, JSON columns as the text they store, and one pair of mappers per
+ * collection.
  */
 
-/** The House is one room, so its name is a constant on both sides of the wire
- * — `docs/architecture.md` §2. */
+/** The room name, on both sides of the wire. */
 export const HOUSE_ROOM = 'house'
 
-/** party-db's `oplogRetention`, low so a returning client takes the snapshot
- * path — `docs/sync.md`. The Article Agent's core sets the same number. */
+/** Low so a returning client takes the snapshot path — `docs/sync.md`. */
 export const HOUSE_OPLOG_RETENTION = 200
 
 /** The `tone` table holds exactly one row, and this is its key. */
@@ -70,10 +62,12 @@ export const skillRowSchema = z.object({
 })
 export type SkillRow = z.infer<typeof skillRowSchema>
 
-/** The one `tone` row. `voice` says "no Voice here" with null, where a Section
- * says it by leaving the field out — `toHouseTone` maps between the two. */
 export const toneRowSchema = z.object({
+	/** Always `HOUSE_TONE_ID`. party-db needs a key column; the table holds one
+	 * row. */
 	id: idSchema,
+	/** Null where the House states no Voice. `ScopeTerms` spells that as an
+	 * absent field, and `toHouseTone` is where the two meet. */
 	voice: z.string().nullable(),
 	/** JSON text of `string[]`. */
 	adjectives: z.string(),

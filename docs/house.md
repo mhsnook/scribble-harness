@@ -33,11 +33,11 @@ line.
 
 ## The writer is the only writer
 
-Every House row is the writer's to author, so the House takes client writes on party-db's
-own write path — `PartyDbServer.onRequest` forwards to `handleWrite` and nothing overrides
-it. This is the one room in the app that does: the Article Agent refuses the same POST with
-a 403, because its rows are guide-written and the rulings' guards live on `@callable` RPC
-(`sync.md`).
+Every House row is the writer's to author, so the House uses party-db the way party-db is
+meant to be used: `PartyDbServer.onRequest` forwards a write POST to `handleWrite`, and
+nothing overrides it. This is the one room in the app that does. The Article Agent refuses
+the same POST with a 403 and takes its writes on `@callable` RPC instead, because its rows
+are guide-written and the rulings' guards live there (`sync.md`).
 
 Nothing in the House reads an identity. Access gates the Worker, one Team holds two people,
 and both may read everything — `architecture.md` §4.8. party-db enforces no per-row policy
@@ -63,7 +63,7 @@ side" rather than as `\b`, so a term ending in punctuation — "C++" — still m
 **The Scope resolver.** `resolveArticleScope` and `resolveNodeScope` have always taken a
 `house: ScopeTerms` argument defaulting to empty; 1b passes one. `ScopeTerms` is
 `Pick<OutlineNode, 'voice' | 'adjectives'>`, so the House cannot drift from the Article and
-the Section as terms are added. The Plan Panel reads the House Tone through `useHouseTone`
+the Section as terms are added. The Plan Panel reads the House Tone through `useHouseStyle`
 and hands it down; resolution still runs at read time and nothing stores a resolved value
 (`plan.md`).
 

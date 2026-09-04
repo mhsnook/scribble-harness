@@ -13,12 +13,9 @@ import { StandingRules } from './StandingRules'
 import type { LexiconDraft } from './useHouse'
 
 /**
- * The House screen — the writer's standing material, reached from its own
- * top-level entry point rather than from inside an Article
- * (`docs/context.md`).
- *
- * Takes its actions as props the way `PlanPanel` does, so a story can drive it
- * from local state and the route can drive it from the room.
+ * The House screen — `docs/house.md`. Takes its actions as props the way
+ * `PlanPanel` does, so a story can drive it from local state and the route can
+ * drive it from the room.
  */
 
 export interface HouseScreenProps {

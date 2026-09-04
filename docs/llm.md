@@ -1,28 +1,27 @@
 # Inference
 
-The model, the search provider, and the prompt packs — `src/server/llm/`. The Gateway and
-the keys are [`deploy.md`](./deploy.md). What the model may propose is
-[`plan.md`](./plan.md).
+The model, the search provider, and the prompt packs, in `src/server/llm/`. Keys and the
+Gateway are [`deploy.md`](./deploy.md).
 
 ## The model
 
-**Currently `@cf/zai-org/glm-5.2` on Workers AI**, over the `env.AI` binding. 262k context,
-tool calling and streaming supported, Workers Paid plan required. Swapping it is one string,
-and #16 names the fallback and why it is a swap rather than a spike.
+We currently run `@cf/zai-org/glm-5.2` on Workers AI over the `env.AI` binding: 262k context,
+tool calling and streaming supported, Workers Paid plan required. Swapping it changes one
+string. Issue #16 names the fallback and why it is a swap rather than a spike.
 
-**One model serves every call today** — the Chat, the ambient Guidance notes, the Review. No
-routing machinery and no per-call-type selection.
+One model serves every call today — the Chat, the ambient Guidance notes, and the Review. We
+have no routing machinery and no per-call-type selection.
 
-**The AI SDK follows from "Cloudflare throughout" rather than being chosen against
-alternatives.** `@cloudflare/ai-chat` declares `ai` and `@ai-sdk/react` as peer dependencies,
-and `workers-ai-provider` is an AI SDK provider whose `createWorkersAI` returns an `ai`
-`LanguageModel` over the `env.AI` binding. So the SDK arrives with both packages, and
+The AI SDK follows from "Cloudflare throughout" rather than from a comparison.
+`@cloudflare/ai-chat` declares `ai` and `@ai-sdk/react` as peer dependencies, and
+`workers-ai-provider` is an AI SDK provider whose `createWorkersAI` returns an `ai`
+`LanguageModel` over the `env.AI` binding. The SDK therefore arrives with both packages, and
 dropping it would mean dropping `AIChatAgent` and calling the binding by hand. It stays
-provider-agnostic, which is what keeps the model swap above down to one string.
+provider-agnostic, which is what keeps the model swap down to one string.
 
-**The swappable boundary is the model instance, not a wrapper API.** AI SDK v7 already
-provides `generateText`, `streamText`, and `generateObject`; a wrapper would duplicate it and
-break the `execute`-less tool machinery.
+The swappable boundary is the model instance rather than a wrapper API. AI SDK v7 already
+provides `generateText`, `streamText`, and `generateObject`, so a wrapper would duplicate it
+and break the `execute`-less tool machinery.
 
 ```ts
 // src/server/llm/model.ts — the whole boundary
@@ -31,43 +30,43 @@ export const model = (env: Env) =>
   createWorkersAI({ binding: env.AI })('@cf/zai-org/glm-5.2')
 ```
 
-**Cost does not constrain the design** — #16 priced a guide pass at about a tenth of a cent.
+Cost does not constrain the design. Issue #16 priced a guide pass at about a tenth of a cent.
 
 ## Search
 
-**Search is Exa**, in `src/server/llm/search.ts` — the one place a provider is named, as
-`llm/model.ts` is for the model.
+`src/server/llm/search.ts` names Exa, as `llm/model.ts` names the model.
 
-- **No key means no search tool**, and the guide is told to answer from memory instead: the
-  registry and the guide rules read one value, so they cannot disagree about what the turn
-  can reach.
-- **A search that fails answers rather than throws**, because a rejected `execute` ends a
-  turn that still owes the writer a reply.
+The registry and the guide rules read one value, so they cannot disagree about what a turn can
+reach: without a key there is no search tool, and the guide is told to answer from memory.
 
-## Model output is validated rather than parsed out of prose
+A failed search returns an answer rather than throwing, because a rejected `execute` ends a
+turn that still owes the writer a reply.
 
-A Proposal is a tool call and a Review is `generateObject` against a zod schema — both
-checked in the Article Agent, with one retry carrying the validation error. A Review's prose
-lives _inside_ that schema rather than being scanned for structure.
+## Validation
+
+We validate model output rather than parsing it out of prose. A Proposal is a tool call and a
+Review is `generateObject` against a zod schema. The Article Agent checks both and retries
+once, carrying the validation error. A Review's prose lives inside that schema rather than
+being scanned for structure.
 
 ## Prompt packs
 
-**Stable part first** — system prompt, then Lexicon entries in play, then the standing rules,
-then everything that changes. The Plan and the Draft change all the time, so they go at the
-end. Whether this ordering saves anything on Workers AI is unmeasured; the argument for it is
-structural, and the arithmetic is in #16.
+Each pack puts the stable part first: the system prompt, then the Lexicon entries in play,
+then the standing rules, then everything that changes. The Plan and the Draft change all the
+time, so they go last. Whether this saves anything on Workers AI is unmeasured; the argument
+is structural, and the arithmetic is in issue #16.
 
-**Where the writer has just spoken, their message is the last thing the model reads**, and
-the Plan sits in front of it. A model weights the final message as the one to answer, so a
-pack ending on the Plan's JSON risks a turn that discusses the Plan rather than the question
-the writer asked. This is the rule the Chat pack is built around.
+A model weights the final message as the one to answer. So where the writer has just spoken,
+their message goes last and the Plan sits in front of it — a pack ending on the Plan's JSON
+risks a turn that discusses the Plan instead of answering the question. The Chat pack is built
+around this.
 
-**The exception is a turn that resumes after a tool call**, where the transcript ends with a
-tool result rather than the writer. A tool result answers the assistant message before it,
-and the Plan is a user message, so slotting it in front would split that pair — which the AI
-SDK refuses outright with `MissingToolResultsError`, before the model is called at all. The
-Plan goes last in that case, and there is no writer message to keep last anyway.
-`chatPackMessages` and `planSlot` in `src/server/llm/prompt.ts` are the whole of it.
+A turn that resumes after a tool call is the exception, because the transcript ends with a
+tool result. A tool result answers the assistant message before it, and the Plan is a user
+message, so slotting the Plan in front would split that pair. The AI SDK refuses that outright
+with `MissingToolResultsError`, before calling the model. The Plan goes last in that case, and
+no writer message needs the final slot anyway. `chatPackMessages` and `planSlot` in
+`src/server/llm/prompt.ts` are the whole of it.
 
 Each row reads in pack order, stable to volatile.
 
@@ -78,5 +77,5 @@ Each row reads in pack order, stable to volatile.
 | Guide pass | The Plan, then the Draft or active Section with neighbours, then recent deltas. **No Chat** |
 | Review     | The same, plus the existing Notes. **No Chat**                                              |
 
-Research reaches a Review by being Accepted into the Plan. The Ledger is the bridge, and
-curation is forced rather than assumed.
+Research reaches a Review by being Accepted into the Plan, so the Ledger forces curation
+rather than assuming it.

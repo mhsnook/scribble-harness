@@ -1,15 +1,7 @@
 # The Plan
 
-The Plan is one JSON blob in Article Agent state. This file is the module: the shape,
-the ops that change it, and the applier that refuses a bad change. The cross-module
-rules — who may write the blob, and how a Proposal reaches it — are
-[`architecture.md`](./architecture.md). The decision record is
-[ADR 0002](./adr/0002-the-plan-data-model.md).
-
-The code is `src/shared/plan/` (schema, ops, applier, Scope resolver, word-count
-arithmetic) and `src/client/plan/` (the edits, the writer, the refusal text).
-
-## Shape
+One JSON blob in Article Agent state. Code in `src/shared/plan/` and `src/client/plan/`;
+decision record in [ADR 0002](./adr/0002-the-plan-data-model.md).
 
 ```
 plan: {
@@ -20,69 +12,75 @@ plan: {
 }
 ```
 
-- **The Outline is a nested tree**, sibling order carried by array position, every Section
-  with a stable ID that stays put for the life of the Section. What the writer reads is that
-  position, worked out in `outlineEntries`: the bare `ordinal` for a gutter of them and for a
-  phrase that composes one ("Section 2"), and `sectionLabel` for the standalone form ("§2").
-  Both come from the one walk, so no two Panels can number a Section differently.
-- **References are flat with an optional `nodeId`**, so an Accepted Reference can sit at a
-  Section or nowhere yet.
-- **References are type Link or Quote**, and Reference is the umbrella over either type. The
-  type is **assigned, not derived from the contents**, so an Offer and the Reference it was
-  Accepted into carry the same `type`. Amended in
-  [ADR 0002](./adr/0002-the-plan-data-model.md).
-- **Voice cascades; Adjectives compose.** Both resolve down the same path — House, then
-  Article, then Section, **at read time** — and they differ when two Scopes each state one.
-  The nearest Voice wins outright. Adjectives accumulate instead: a "slow" Section inside a
-  "fast" Article carries both, and the resolved list runs widest first, so the nearest lands
-  last and reads as the strongest. Restating a term moves it to the end, which lets the
-  writer say it again for emphasis.
-- **The word-count total is stored rather than derived/summed.** The parts may disagree with
-  the whole; the gap is information about under/over allocation.
+## Shape
+
+The Outline is a nested tree. Array position carries sibling order, and every Section keeps a
+stable ID for its lifetime. `outlineEntries` walks the tree once and produces both forms the
+writer reads: `ordinal` for a gutter and for a composed phrase ("Section 2"), and
+`sectionLabel` for the standalone form ("§2"). One walk means two Panels cannot number a
+Section differently.
+
+References are flat and carry an optional `nodeId`, so an Accepted Reference can sit at a
+Section or nowhere yet.
+
+A Reference has type Link or Quote. We assign the type rather than deriving it from the
+contents, so an Offer and the Reference it becomes carry the same `type`. Amended in
+[ADR 0002](./adr/0002-the-plan-data-model.md).
+
+Voice cascades and Adjectives compose. Both resolve at read time down the same path — House,
+then Article, then Section. The nearest Voice wins outright. Adjectives accumulate instead, so
+a "slow" Section inside a "fast" Article carries both; the resolved list runs widest first, so
+the nearest term lands last and reads as the strongest. Restating a term moves it to the end,
+which lets the writer repeat it for emphasis.
+
+We store the word-count total rather than summing it. The parts may disagree with the whole,
+and that gap tells the writer about under- or over-allocation.
 
 ## One spelling per state
 
 A field that may be absent says "nothing here" by being absent, and not also by an empty
-string or an empty list. The blob is written whole, compared whole-field by a Proposal's
-`expected`, and sent whole in every prompt pack, so two Plans that mean the same thing
-should be the same, field for field. The schema enforces this today: an empty `adjectives`
-on a Section is refused.
+string or an empty list. Two Plans that mean the same thing must match field for field,
+because we write the blob whole, compare it whole-field against a Proposal's `expected`, and
+send it whole in every prompt pack. The schema enforces this today by refusing an empty
+`adjectives` on a Section.
 
-Some fields always carry their key and indicate "nothing here" with a value; others are
-absent when empty. **Choosing for a new field: a question the record is always asked carries
-its key and answers with a value, and a Section's own refinement is absent until it is set.**
-`nodeId`, `totalTarget`, and `children` are the first kind — every Reference has a placement
-even when unplaced. `intent`, `target`, and `voice` are the second. Read which one a field
-takes off `src/shared/plan/schema.ts` rather than from a list here.
+Some fields always carry their key and answer with a value; others are absent until set. To
+choose for a new field: a question the record is always asked carries its key, and a Section's
+own refinement stays absent until the writer sets it. `nodeId`, `totalTarget`, and `children`
+take the first form, because every Reference has a placement even when unplaced. `intent`,
+`target`, and `voice` take the second. Read `src/shared/plan/schema.ts` for which form a field
+takes.
 
-## The schema guards client writes
+## Validation
 
-`validateStateChange` parses the whole Plan on every write. The model's outputs do not go
-through it — the Chat proposes and the client applies, so the blob holds client writes only.
-What the model does meet are the **piece** schemas, `outlineNodeSchema`, `referenceSchema`,
-and `sourceSchema`, reused inside a Proposal's op payloads.
+`validateStateChange` parses the whole Plan on every client write. Model output never reaches
+it, because the Chat proposes and the client applies. The model meets the piece schemas
+instead — `outlineNodeSchema`, `referenceSchema`, and `sourceSchema` — which a Proposal's op
+payloads reuse.
 
-Four invariants sit above the object shape, checked in the same parse:
+The same parse checks four invariants above the object shape:
 
 1. A Section id is unique among Sections.
 2. A Reference id is unique among References.
 3. No two References were copied from one Offer.
 4. A placed Reference names a node that exists.
 
-The last one means an op that deletes a node unplaces its References in the same Proposal,
-because the Plan is written whole and validated whole.
+Invariant 4 means an op that deletes a node must unplace its References in the same Proposal,
+because we write and validate the Plan whole.
 
 ## Size
 
-A normal Plan runs about 40 KB. The soft ceiling is around 100 KB, where re-broadcasting on
-every write gets noticeable; the hard wall is 2 MB, the Durable Object limit on a single row
-or value. Growth comes from References carrying long passages. The relief valve is moving
-References into SQLite rows, which is the phase 2 move anyway. **Debounce `setState` while
-the writer types**, or 40 KB goes over the wire per keystroke.
+A normal Plan runs about 40 KB. Above roughly 100 KB, re-broadcasting on every write gets
+noticeable. The hard wall is 2 MB, the Durable Object limit on one row or value. Growth comes
+from References carrying long passages, and the relief valve is moving References into SQLite
+rows, which is the phase 2 move anyway.
 
-## Proposal shape
+`setState` is debounced while the writer types. Without that, 40 KB goes over the wire per
+keystroke.
 
-A list of ops, applied all-or-nothing.
+## Proposals
+
+A Proposal is a list of ops, applied all-or-nothing.
 
 ```
 proposal: [
@@ -91,84 +89,74 @@ proposal: [
 ]
 ```
 
-- **`expected` is content-addressed staleness** — it names the value the Proposal thinks is
-  there, not a version. Compared **whole-field**, because Plan fields are short.
-- **Structural ops anchor on IDs and carry no `expected`.** Exactly one of `afterId` or
-  `beforeId`, so the model anchors to whichever neighbour its insertion relates to: a Section
-  leading into §3 says `before: §3` and survives §2 being deleted. `afterId: null` means
-  first child, `beforeId: null` means last child.
-- **If any op's `expected` fails, the whole Proposal is Stale.** Whole-field comparison is
-  conservative and will refuse a Proposal against a field the writer has since touched, so
-  the card says why — [`ui.md`](./ui.md).
+`expected` names the value the Proposal thinks is in the field, rather than a version. We
+compare it whole-field, because Plan fields are short. If any op's `expected` fails, the whole
+Proposal is Stale, and the card says why ([`ui.md`](./ui.md)).
 
-**Staleness is not a multi-client problem.** It comes from the gap between generating a
-Proposal and applying it, and inference is slower than typing, so it exists with one writer
-in one tab. We are strict about marking Proposals Stale today, and heuristics that forgive
-more are open.
+Structural ops anchor on IDs and carry no `expected`. Each takes exactly one of `afterId` or
+`beforeId`, so the model anchors to whichever neighbour its insertion relates to: a Section
+leading into §3 says `before: §3` and survives §2 being deleted. `afterId: null` means first
+child; `beforeId: null` means last child.
+
+Staleness comes from the gap between generating a Proposal and applying it. Inference is
+slower than typing, so staleness exists with one writer in one tab and is not a multi-client
+problem. We are strict about it today, and more forgiving heuristics are open.
 
 ## The ops
 
-**Thirteen**, in `src/shared/plan/ops.ts`: `createNode`, `moveNode`, `mergeNodes`,
-`deleteNode`, `setTitle`, `setIntent`, `setTarget`, `setVoice`, `setAdjectives`,
-`placeReference`, `createReference`, `deleteReference`, `setReference`.
+Thirteen, in `src/shared/plan/ops.ts`: `createNode`, `moveNode`, `mergeNodes`, `deleteNode`,
+`setTitle`, `setIntent`, `setTarget`, `setVoice`, `setAdjectives`, `placeReference`,
+`createReference`, `deleteReference`, `setReference`.
 
-**The Chat is offered ten of them.** The three Reference ops are how the writer pastes a
-Reference in themselves, and `chatProposalSchema` leaves them out of the tool the model
-sees — research reaches the Plan by being Accepted from an Offer, and handing a model
-`createReference` would be a way round the Ledger. The applier takes all thirteen, because
-the writer's own paste goes through it too.
+`chatProposalSchema` offers the model ten of them. It withholds `createReference`,
+`deleteReference`, and `setReference`, which are how the writer pastes a Reference in
+themselves, so that research reaches the Plan only by being Accepted from an Offer. The
+applier takes all thirteen, because the writer's own paste goes through it.
 
 A content op reads `nodeId: null` as the Article Scope, so setting the Article's Voice and
-setting one node's Voice are one op rather than two. Two ops carry a consequence worth
-stating:
+setting one node's Voice use one op rather than two.
 
-- **`deleteNode` unplaces every Reference placed at the node it removes or at any node
-  below it**, because the Plan is written whole and a Reference naming a node that is gone
-  does not parse.
-- **`mergeNodes` keeps the target's own fields**, moving the source's children and placed
-  References onto it, so a Proposal that wants the source's intent note carried over says so
-  with a `setIntent` op in the same batch.
+Two ops carry a consequence worth stating. `deleteNode` unplaces every Reference placed at the
+node it removes or at any node below it, because a Reference naming a deleted node does not
+parse. `mergeNodes` keeps the target's own fields and moves the source's children and placed
+References onto it, so a Proposal that wants the source's intent note must add a `setIntent`
+op to the same batch.
 
-**The op payloads are strict, and a rejected tool call retries with the validation error.**
-The piece schemas the payloads reuse are `strictObject`, so a model that adds one field
-fails the whole tool call rather than having the field stripped. Stripping would produce a
-Proposal the model did not make, and the writer would rule on it without seeing what was
-dropped. The cost is real: a model that adds the same field every time thrashes the retry
-instead of converging, and the answer to that is naming the field in the schema, not
-loosening every payload to strip.
+The op payloads are `strictObject`. A model that invents one field fails the whole tool call
+and retries with the validation error. Stripping the field instead would hand the writer a
+Proposal the model did not make, with no sign of what was dropped. The cost is real: a model
+that adds the same field every time thrashes the retry rather than converging, and the fix
+for that is naming the field in the schema, not loosening every payload.
 
-## The applier refuses with a reason
+## Refusals
 
 `applyProposal` in `src/shared/plan/apply.ts` returns either a new Plan or a refusal naming
-which op failed, its position in the Proposal, and what it expected against what it found.
-It sorts refusals into four types, listed on `RefusalType` where they cannot drift away from
-the union. It also parses the Plan it produces, so a Proposal the Article Agent would reject
-is refused here, where there is a reason to show, rather than there, where there is none.
+the op that failed, its position in the Proposal, and what it expected against what it found.
+`RefusalType` lists the four kinds, in the union so they cannot drift. `applyProposal` also
+parses the Plan it produces, so a Proposal the Article Agent would reject gets refused here,
+where there is a reason to show.
 
-**A refusal has two readers, the LLM and the human.** `refusal.message` is for the model's:
-a Declined Proposal sends it back, so it names the op and the ids and may run long. The
-writer's sentence is built at the edge from `refusal.reason` — a closed code naming exactly
-what went wrong — plus the records it is about, in `src/client/plan/refusalText.ts`. The
-Panel that shows it holds the Plan, so it can name a Section the way the Outline numbers it,
-where the applier only has an id.
+One refusal serves two readers. `refusal.message` goes back to the model with a Decline, so it
+names the op and the ids and may run long. `src/client/plan/refusalText.ts` builds the writer's
+sentence from `refusal.reason` — a closed code — plus the records it names. The Panel holds
+the Plan, so it can name a Section the way the Outline numbers it, where the applier has only
+an id.
 
-Two things follow. **One English string lives in `src/shared`**, aimed at an LLM. The
-writer's half is a table over a closed union, so a second language would be a second table
-rather than a sweep through the applier. `refusalText.ts` is total over `RefusalReason`, so
-a new refusal site stops it compiling until it says what the new one reads as.
+So `src/shared` carries one English string, aimed at the model, and the writer's half is a
+table over a closed union. A second language would be a second table rather than a sweep
+through the applier. `refusalText.ts` is total over `RefusalReason`, so a new refusal site
+stops it compiling until it says what the new one reads as.
 
 ## The client's own edits
 
-**The Plan Panel's edits are ops, and the applier applies them.** A field the writer types
-in builds the same op a Proposal would carry, `src/client/plan/edits.ts` reads its
-`expected` out of the Plan on screen, and `applyProposal` produces the Plan that goes to
-`setState`. One write path means the Panel cannot make a change the applier would refuse,
-and a structural edit gets the consequences the ops already state — deleting a Section
-unplaces its References. The writer's own edits do not go Stale: staleness is the gap
-between generating a Proposal and applying it, and there is no gap here.
+A field the writer types builds the same op a Proposal would carry.
+`src/client/plan/edits.ts` reads `expected` from the Plan on screen, and `applyProposal`
+produces the Plan that goes to `setState`. One write path means the Panel cannot make a change
+the applier would refuse, and a structural edit gets the consequences the ops already state.
+The writer's own edits never go Stale, because there is no gap between generating and applying
+them.
 
-**One writer holds the Plan and the debounce**, in `src/client/plan/writer.ts`. It applies
-each edit locally, sends after a pause for the four ops a keystroke produces, and sends at
-once for everything else. An update arriving from the Article Agent over an unsent edit is
-the echo of an older write and is dropped — the client is the Plan's only writer, so there
-is nothing else it can be.
+`src/client/plan/writer.ts` holds the Plan and the debounce. It applies each edit locally,
+sends after a pause for the four ops a keystroke produces, and sends at once for everything
+else. It drops an update that arrives from the Article Agent over an unsent edit, because the
+client is the Plan's only writer and that update can only be an echo of an older write.

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-import type { Plan, ProposalInput, Refusal } from '../../shared/plan'
+import type { Plan, ProposalInput, Refusal, ScopeTerms } from '../../shared/plan'
 import { planAllocation, resolveArticleScope } from '../../shared/plan'
 import { GroupHeading } from '../components/Divider'
 import { EmptySlot, TextField } from '../components/Field'
@@ -28,6 +28,11 @@ import { AllocationNote, TargetField } from './WordCount'
 
 export interface PlanPanelProps {
 	plan: Plan
+	/** The House's own Voice and Adjectives — the outermost Scope, which the
+	 * Article's Tone and every Section's resolve against (`docs/house.md`).
+	 * Empty where the House states nothing, which is what it says before the
+	 * writer has been to the House screen. */
+	house?: ScopeTerms
 	edit: (ops: ProposalInput | null) => void
 	/** The rule between this Panel and its neighbour. */
 	divider?: PanelProps['divider']
@@ -42,6 +47,7 @@ export interface PlanPanelProps {
 
 export function PlanPanel({
 	plan,
+	house = {},
 	edit,
 	divider,
 	grow,
@@ -71,7 +77,7 @@ export function PlanPanel({
 
 	const entries = outlineEntries(plan.outline)
 	const allocation = planAllocation(plan)
-	const resolved = resolveArticleScope(plan)
+	const resolved = resolveArticleScope(plan, house)
 
 	// The bar is the shape of the piece, drawn from the Sections that carry a
 	// share of it. A Section with no target is left out rather than taking the
@@ -144,6 +150,7 @@ export function PlanPanel({
 								key={entry.node.id}
 								edit={edit}
 								entry={entry}
+								house={house}
 								onOpen={setOpenId}
 								onShowReference={setAccented}
 								open={entry.node.id === openId}

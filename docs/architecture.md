@@ -5,9 +5,9 @@ the form "P does Q, because R requires S" — that way, when R changes, the rule
 review. Anything true of one module alone belongs in that module's file:
 [`plan.md`](./plan.md), [`chat.md`](./chat.md), [`sync.md`](./sync.md),
 [`llm.md`](./llm.md), [`draft.md`](./draft.md), [`articles.md`](./articles.md),
-[`reviews.md`](./reviews.md), [`ui.md`](./ui.md), [`carries.md`](./carries.md),
-[`deploy.md`](./deploy.md), [`context.md`](./context.md), [`later.md`](./later.md), and
-[`adr/`](./adr/).
+[`house.md`](./house.md), [`reviews.md`](./reviews.md), [`ui.md`](./ui.md),
+[`carries.md`](./carries.md), [`deploy.md`](./deploy.md), [`context.md`](./context.md),
+[`later.md`](./later.md), and [`adr/`](./adr/).
 
 ## 1. Scale
 
@@ -21,7 +21,7 @@ Where two options are close, take the one that puts a usable writing product in 
 soonest. Cost and throughput arguments decide only when they threaten that.
 
 The build order and its stages are project management, not architecture. Stage 1a shipped as
-issues #21 to #29. Stage 1b is #53, the House. Stage 2 is #54, the Draft and the Guide.
+issues #21 to #29, and stage 1b as #53, the House. Stage 2 is #54, the Draft and the Guide.
 
 ## 2. Shape
 
@@ -34,7 +34,8 @@ Browser — React + Vite + TanStack Router
                                                 ├─ SQLite rows: Blocks
                                                 ├─ party-db collections over its SQLite:
                                                 │    Notes, Rounds, Offers (synced)
-                   ── party-db WebSocket ──►  The House (one party-db room, → D1)   [1b]
+                   ── party-db WebSocket ──►  The House (one party-db room, → D1)
+                                                 lexicon, rule, skill, tone (synced)
                    ── HTTP (Hono) ─────────►  The article index (→ D1)
                                               Archived reads, export
                                               Workers AI binding → the model
@@ -46,17 +47,18 @@ Each Article gets one Article Agent, built on the Cloudflare Agents SDK, which h
 everything about that Article. We write the name in full to distinguish it from the general
 term and from any agent we add later.
 
-The House arrives at 1b as one party-db room persisted to D1. It holds the Lexicon, the
-standing rules, the Skills, and House-scoped Voice and Adjectives. It is small and its API is
-plain CRUD, so a `PartyDbServer` serves it directly. [`context.md`](./context.md) says what
-the House is for.
+The House is one party-db room persisted to D1. It holds the Lexicon, the standing rules, the
+Skills, and House-scoped Voice and Adjectives. It is small and its API is plain CRUD, so a
+`PartyDbServer` serves it directly, and it is the one room the client writes to.
+[`house.md`](./house.md) says what it holds and how its material reaches the Guide;
+[`context.md`](./context.md) says what it is for.
 
 Plain D1 tables hold Archived Plans, Drafts, and Finals. A Worker endpoint reads them; they
 are not synced. D1 also carries the backup story, because a Durable Object's storage has no
 export path and D1 has `wrangler d1 export`.
 
 Hono serves the HTTP routes in the same Worker: the Agents SDK's chat route, the article
-index, party-db's lobby and write path at 1b, archived reads, and export.
+index, party-db's lobby and write path, archived reads, and export.
 
 The client is React and Vite with TanStack Router, served as static assets from the Worker.
 We left out TanStack Start, because its value is a typed server boundary in both directions,
@@ -87,7 +89,12 @@ Recorded in [ADR 0001](./adr/0001-phase-1-storage-shape.md).
    Rounds and Offers are published as collections instead, so reads are live queries and the
    Guide's writes go through `commit()` — see [`sync.md`](./sync.md). Rulings still go over
    RPC, per rule 2. The Draft is the table left; [`draft.md`](./draft.md) says why it can wait.
-5. The writer does not author an Offer, a Round, or a Note today. This is an observation
+5. **The House is the one room the client writes to.** Every House row is the writer's to
+   author, so `PartyDbServer.onRequest` forwards a party-db write POST to `handleWrite`
+   unchanged, where the Article Agent answers the same POST with a 403. There is no
+   endpoint and no guard between the writer and their own material — see
+   [`house.md`](./house.md).
+6. The writer does not author an Offer, a Round, or a Note today. This is an observation
    rather than a rule, and it is worth stating because one thing rests on it: `recordOffers`
    runs inside the Article Agent rather than over RPC, since nothing on the client needs to
    write an Offer. Nothing else depends on it, so letting the writer author a Note would cost
@@ -161,20 +168,23 @@ Nothing there may touch a Worker binding or React, so both sides can import it. 
 lets the Article Agent validate a Plan against the same file the client used, and lets the
 client refuse a Proposal at the edge where it has a reason to show.
 
-### 4.8 Cloudflare Access gates the edge; identity arrives at 1b
+### 4.8 Cloudflare Access gates the edge, and no code reads an identity
 
-Access gates the Worker, so an unauthenticated request never arrives. 1a needs no auth code:
-one Team, both people read everything, and no record is per-user.
+Access gates the Worker, so an unauthenticated request never arrives. Nothing built so far
+needs auth code: one Team, both people read everything, and no record is per-user. That
+covers the House as well as the Article Agent — the House is Team-scoped, and party-db
+enforces no per-row policy in any case (party-db#33).
 
 We avoid reading `Cf-Access-Jwt-Assertion` while we can, because localhost has no Access gate
 and therefore no header, which keeps development simple. That is a convenience rather than a
 constraint, and we can change the DX later if we want to.
 
-At 1b, party-db's `authorize` runs in the partyserver lobby and needs a verified identity
-before the object wakes. Access injects the assertion as a header where party-db expects
-`?token=` on connect, so `authorize` reads the header. Issue #12 tracks whether the header
-survives a WebSocket upgrade into the Durable Object. WorkOS is the documented upgrade if
-it does not.
+The first record that belongs to one person rather than to the Team is what makes this
+change. party-db's `authorize` runs in the partyserver lobby and needs a verified identity
+before the object wakes, and Access injects the assertion as a header where party-db expects
+`?token=` on connect — so `authorize` would read the header. Issue #12 tracks whether that
+header survives a WebSocket upgrade into the Durable Object, and it is still unproven.
+WorkOS is the documented upgrade if it does not.
 
 Attributing Chat messages to people is wanted and deferred past 1a. The Agents SDK stores a
 role rather than a person, so this needs a field on the `UIMessage` or a parallel table.
@@ -184,6 +194,16 @@ role rather than a person, so this needs a field on the `UIMessage` or a paralle
 The writer rules on all three the same way, so we use the same two words. The records still
 differ in shape: an Offer starts `undecided`, a Note starts `proposed`, and a Proposal stores
 no disposition and dies with its turn. Issue #79 asks whether to reconcile them.
+
+### 4.10 The Article Agent reads the House over D1, not over a socket
+
+A turn needs the House once and holds no view of it between turns, and the House's tables are
+in the D1 the Article Agent is already bound to. So `readHouse` is three SELECTs rather than
+a second sync client inside the Durable Object. `docs/sync.md`'s `commit()` rule is about
+writes, and nothing on the server writes the House.
+
+What this costs: a Chat turn and a Review each pay a D1 read, and a House edit reaches the
+next turn rather than the one in flight. See [`house.md`](./house.md).
 
 ## 5. Out of scope
 

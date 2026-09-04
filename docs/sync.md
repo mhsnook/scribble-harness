@@ -1,13 +1,15 @@
 # Sync
 
 party-db (`mhsnook/party-db`, checked out at `~/code/party-db`) runs inside the Article Agent
-and serves the `note`, `round` and `offer` collections. Issue #92 set these rules.
+and serves the `note`, `round` and `offer` collections. Issue #92 set these rules. The House
+is the other room, and [`house.md`](./house.md) has the rules that are its own.
 
 ## Hosting
 
 The Article Agent cannot subclass `PartyDbServer`, because it already extends `AIChatAgent`.
 It holds a `PartyDbCore` built over its own SQLite instead (party-db#43), so no room Durable
-Object sits beside it. The House gets a room of its own at 1b.
+Object sits beside it. The House is a room of its own and does subclass `PartyDbServer`,
+over D1 rather than over its object's storage.
 
 Four seams hold that composition together, all keyed on party-db's `?proto=party-db` marker:
 
@@ -21,7 +23,8 @@ Four seams hold that composition together, all keyed on party-db's `?proto=party
   sync subscriber hears `SequencedBatch` frames and nothing else.
 - `onRequest` answers a party-db write POST with 403. Rulings are server-side state-machine
   moves, and party-db has no per-row policy layer to hold their guards yet (party-db#33).
-  Forwarding to `handleWrite` is the whole change when a client-authored collection arrives.
+  Forwarding to `handleWrite` is the whole change when a client-authored collection arrives —
+  which is exactly what the House does, and it overrides nothing to do it.
 
 ## Writing
 
@@ -59,9 +62,15 @@ the next guard. A typed rejection out of `commit()` retires this.
 `src/shared/sync.ts` declares the three collections as the columns stand — snake_case, and
 JSON columns as the text they store — and owns the one mapping to the shapes the app reads.
 JSON-typed fields would arrive unparsed anyway, because party-db's column codec reads Zod v3
-internals and this repo is on Zod v4 (party-db#45).
+internals and this repo is on Zod v4 (party-db#45). `src/shared/house.ts` declares the
+House's four the same way.
 
 ## Migrations
+
+The House migrates through `wrangler`, because its tables are D1: they are
+`migrations/0002_house.sql`, they go out with `pnpm db:migrate`, and party-db's D1 adapter
+CRUDs them without creating anything but its own `_oplog`. The rest of this section is about
+the Article Agent's own storage, which has none of that.
 
 A Durable Object's SQLite migrates on the wake. `migrations_dir` in `wrangler.jsonc` belongs
 to the D1 binding, and there are as many Article databases as there are Articles, so no
@@ -73,12 +82,13 @@ column needs a `pragma_table_info` guard.
 
 - Set `oplogRetention` to about 200, against a default of 10,000. For a hot row the reconnect
   delta measured 400× the snapshot, and party-db has no large-delta bail-out, so low retention
-  pushes a returning client onto the cheap snapshot path. The Article Agent's core sets 200,
-  and the House's room should too.
+  pushes a returning client onto the cheap snapshot path. The Article Agent's core and the
+  House's room both set 200.
 - `articleSync` caches one client per Article for the session and holds a standing
   subscription per collection. party-db exposes no way to close a transport (party-db#46), and
   a collection that restarts after TanStack DB's GC gets no second snapshot (party-db#47).
-  Both carries undo when the upstream teardown lands.
+  Both carries undo when the upstream teardown lands. `houseSync` keeps its one client for
+  the session outright, since there is one House and every screen may read it.
 - party-db does not compare `previousValue`, so any concurrent write clobbers the whole row.
   The Block shape limits the blast radius; nothing removes it.
 - party-db has no per-row access control. `src/server/access.ts` warns that `access` and

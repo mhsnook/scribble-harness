@@ -67,6 +67,9 @@ export interface TextFieldProps {
 	onChange: (value: string) => void
 	/** Where Enter means something — closing the Section being edited, say. */
 	onKeyDown?: (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+	/** Where leaving the field is what commits it — a House row, which is one
+	 * write per edit rather than a debounced blob. */
+	onBlur?: () => void
 	placeholder?: string
 	suffix?: ReactNode
 	size?: 'sm' | 'md'
@@ -82,6 +85,7 @@ export function TextField({
 	value,
 	onChange,
 	onKeyDown,
+	onBlur,
 	placeholder,
 	suffix,
 	size = 'md',
@@ -106,6 +110,7 @@ export function TextField({
 					<textarea
 						aria-label={hiddenLabel}
 						className={cx(inputClass, 'resize-none leading-snug')}
+						onBlur={onBlur}
 						onChange={handle}
 						onKeyDown={onKeyDown}
 						placeholder={placeholder}
@@ -116,6 +121,7 @@ export function TextField({
 					<input
 						aria-label={hiddenLabel}
 						className={inputClass}
+						onBlur={onBlur}
 						onChange={handle}
 						onKeyDown={onKeyDown}
 						placeholder={placeholder}

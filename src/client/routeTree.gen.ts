@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AreaRouteImport } from './routes/_area'
+import { Route as HouseRouteImport } from './routes/house'
 import { Route as AreaIndexRouteImport } from './routes/_area.index'
 import { Route as AreaBoardRouteImport } from './routes/_area.board'
 import { Route as AArticleIdRouteImport } from './routes/a.$articleId'
 
 const AreaRoute = AreaRouteImport.update({
   id: '/_area',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HouseRoute = HouseRouteImport.update({
+  id: '/house',
+  path: '/house',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AreaIndexRoute = AreaIndexRouteImport.update({
@@ -36,10 +42,12 @@ const AArticleIdRoute = AArticleIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AreaIndexRoute
+  '/house': typeof HouseRoute
   '/board': typeof AreaBoardRoute
   '/a/$articleId': typeof AArticleIdRoute
 }
 export interface FileRoutesByTo {
+  '/house': typeof HouseRoute
   '/board': typeof AreaBoardRoute
   '/a/$articleId': typeof AArticleIdRoute
   '/': typeof AreaIndexRoute
@@ -47,20 +55,28 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_area': typeof AreaRouteWithChildren
+  '/house': typeof HouseRoute
   '/_area/board': typeof AreaBoardRoute
   '/a/$articleId': typeof AArticleIdRoute
   '/_area/': typeof AreaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/board' | '/a/$articleId'
+  fullPaths: '/' | '/house' | '/board' | '/a/$articleId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/board' | '/a/$articleId' | '/'
-  id: '__root__' | '/_area' | '/_area/board' | '/a/$articleId' | '/_area/'
+  to: '/house' | '/board' | '/a/$articleId' | '/'
+  id:
+    | '__root__'
+    | '/_area'
+    | '/house'
+    | '/_area/board'
+    | '/a/$articleId'
+    | '/_area/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AreaRoute: typeof AreaRouteWithChildren
+  HouseRoute: typeof HouseRoute
   AArticleIdRoute: typeof AArticleIdRoute
 }
 
@@ -71,6 +87,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AreaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/house': {
+      id: '/house'
+      path: '/house'
+      fullPath: '/house'
+      preLoaderRoute: typeof HouseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_area/': {
@@ -111,6 +134,7 @@ const AreaRouteWithChildren = AreaRoute._addFileChildren(AreaRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AreaRoute: AreaRouteWithChildren,
+  HouseRoute: HouseRoute,
   AArticleIdRoute: AArticleIdRoute,
 }
 export const routeTree = rootRouteImport

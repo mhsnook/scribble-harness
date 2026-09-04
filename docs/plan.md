@@ -28,7 +28,9 @@ contents, so an Offer and the Reference it becomes carry the same `type`. Amende
 [ADR 0002](./adr/0002-the-plan-data-model.md).
 
 Voice cascades and Adjectives compose. Both resolve at read time down the same path — House,
-then Article, then Section. The nearest Voice wins outright. Adjectives accumulate instead, so
+then Article, then Section. The House end of that path is [`house.md`](./house.md); the
+resolver takes it as a `ScopeTerms` argument, so this file's rules are the same whether one
+is passed or not. The nearest Voice wins outright. Adjectives accumulate instead, so
 a "slow" Section inside a "fast" Article carries both; the resolved list runs widest first, so
 the nearest term lands last and reads as the strongest. Restating a term moves it to the end,
 which lets the writer repeat it for emphasis.

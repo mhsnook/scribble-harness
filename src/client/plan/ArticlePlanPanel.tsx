@@ -1,4 +1,5 @@
 import { Panel } from '../components/Panel'
+import { useHouseTone } from '../house/useHouse'
 import { useArticle } from '../lib/article'
 import { PlanPanel, type PlanPanelProps } from './PlanPanel'
 
@@ -13,6 +14,7 @@ export interface ArticlePlanPanelProps {
 
 export function ArticlePlanPanel({ divider, grow, className }: ArticlePlanPanelProps) {
 	const { plan, edit, refusal, rejected } = useArticle().plan
+	const house = useHouseTone()
 
 	// Says what it waits on rather than drawing a skeleton, since the socket
 	// settles well inside a second.
@@ -30,6 +32,7 @@ export function ArticlePlanPanel({ divider, grow, className }: ArticlePlanPanelP
 			divider={divider}
 			edit={edit}
 			grow={grow}
+			house={house}
 			plan={plan}
 			refusal={refusal}
 			rejected={rejected}

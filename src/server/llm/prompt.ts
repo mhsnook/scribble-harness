@@ -1,5 +1,6 @@
 import type { ModelMessage } from 'ai'
 
+import { emptyHouse, type HouseContext, lexiconInPlay } from '../../shared/house'
 import type { Plan } from '../../shared/plan'
 
 /**
@@ -39,9 +40,9 @@ const guideRules = [
 	judgeAgainstThePlan,
 	'',
 	'One Voice applies at a time and the nearest Scope wins outright, so switching a Voice replaces',
-	'it. Adjectives compose instead, accumulating from the Article down to the Section. They arrive',
-	'widest first, so the nearest ones weigh most: where a Section and the Article pull against each',
-	"other, the Section's term is the one to write to.",
+	'it. Adjectives compose instead, accumulating from the House down through the Article to the',
+	'Section. They arrive widest first, so the nearest ones weigh most: where a Section and the',
+	"Article pull against each other, the Section's term is the one to write to.",
 	'',
 	'You do not use marketing-speak, or make claims you have not verified.',
 ].join('\n')
@@ -76,15 +77,89 @@ const recallingPrompt = [guideRules, '', cannotSearchRules, '', fromMemoryRules]
 )
 
 /**
- * The stable prefix of one Chat turn.
+ * The stable prefix of one Chat turn: the product's own rules, identical on
+ * every turn of every Article.
  *
- * Two things join the guide rules here, and both arrive with the House at 1b:
- * the Lexicon entries in play, and the writer's own standing rules. Nothing
- * goes in either slot until then. The Plan does not belong here — see the
- * ordering note above.
+ * The House's material sits behind this rather than inside it — `houseMessage`
+ * below — so this string stays the same bytes on every turn and the Plan stays
+ * out of the prefix entirely, per the ordering note above.
  */
 export function chatSystemPrompt(canSearch: boolean): string {
 	return canSearch ? searchingPrompt : recallingPrompt
+}
+
+/**
+ * The House, in front of everything that changes — the Lexicon entries in play,
+ * then the writer's own standing rules, then the House Tone. `docs/llm.md`
+ * gives the order and `docs/house.md` the contents.
+ *
+ * The `user` role rather than `system`, for the reason `planMessage` gives: a
+ * system message after the first is not portable across providers. Null where
+ * the House is empty, so a writer who has authored nothing pays no tokens and
+ * reads no empty headings.
+ */
+export function houseMessage(house: HouseContext): ModelMessage | null {
+	const { tone, lexicon, rules } = house
+
+	const parts: string[] = []
+
+	if (lexicon.length > 0) {
+		parts.push(
+			"Terms from the House Lexicon that this Article invokes. These are the writer's own",
+			'definitions, and they beat yours wherever the two disagree.',
+			'',
+			...lexicon.map((entry) => `- ${entry.term}: ${entry.definition}`),
+		)
+	}
+
+	if (rules.length > 0) {
+		if (parts.length > 0) parts.push('')
+		parts.push(
+			'The standing rules the writer holds every piece to. They apply on top of the Plan,',
+			'and where one of them and your own taste disagree, the rule wins.',
+			'',
+			...rules.map((rule) => `- ${rule.body}`),
+		)
+	}
+
+	const adjectives = tone.adjectives ?? []
+	if (tone.voice !== undefined || adjectives.length > 0) {
+		if (parts.length > 0) parts.push('')
+		parts.push(
+			'The House Tone, which is the outermost Scope: the Article and its Sections state',
+			'theirs against this one.',
+			...(tone.voice === undefined ? [] : [`Voice: ${tone.voice}`]),
+			...(adjectives.length === 0 ? [] : [`Adjectives: ${adjectives.join(', ')}`]),
+		)
+	}
+
+	if (parts.length === 0) return null
+
+	return { role: 'user', content: parts.join('\n') }
+}
+
+/**
+ * The House with its Lexicon narrowed to the entries these texts invoke — what
+ * `docs/context.md` means by injecting an entry "whenever the term is invoked".
+ *
+ * A pack calls this rather than sending the whole Lexicon, because a Lexicon
+ * grows for as long as the writer uses the app and a turn about one Article
+ * needs the handful of terms that Article uses.
+ */
+export function houseInPlay(house: HouseContext, texts: readonly string[]): HouseContext {
+	return { ...house, lexicon: lexiconInPlay(house.lexicon, texts) }
+}
+
+/** The words in a message, for the invocation scan above. A model message
+ * carries either a string or the SDK's parts array, and only the text parts of
+ * the second one are words the writer or the guide wrote. */
+export function messageText(message: ModelMessage): string {
+	const { content } = message
+	if (typeof content === 'string') return content
+
+	return content
+		.map((part) => ('text' in part && typeof part.text === 'string' ? part.text : ''))
+		.join('\n')
 }
 
 /**
@@ -115,16 +190,29 @@ export function planMessage(plan: Plan): ModelMessage {
 }
 
 /**
- * The conversation with the Plan in it — in front of the writer's last message,
- * so the writer's words are the last thing the model reads, per `docs/llm.md`.
+ * The conversation with the House in front of it and the Plan in it — the Plan
+ * ahead of the writer's last message, so the writer's words are the last thing
+ * the model reads, per `docs/llm.md`.
+ *
+ * A term counts as invoked when it appears anywhere in the turn's own material:
+ * the Plan the writer is looking at, or something either of them said. A term
+ * the writer used four turns ago is still what they meant by the word.
  */
 export function chatPackMessages(
 	conversation: ModelMessage[],
 	plan: Plan,
+	house: HouseContext = emptyHouse,
 ): ModelMessage[] {
 	const at = planSlot(conversation)
+	const said = conversation.map(messageText)
+	const opening = houseMessage(houseInPlay(house, [...said, JSON.stringify(plan)]))
 
-	return [...conversation.slice(0, at), planMessage(plan), ...conversation.slice(at)]
+	return [
+		...(opening === null ? [] : [opening]),
+		...conversation.slice(0, at),
+		planMessage(plan),
+		...conversation.slice(at),
+	]
 }
 
 /**

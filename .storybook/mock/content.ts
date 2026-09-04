@@ -1,4 +1,5 @@
 import type { ArticleEntry } from '../../src/shared/article'
+import type { HouseContext, Skill } from '../../src/shared/house'
 import type { Offer } from '../../src/shared/offer'
 import type { OutlineNode, Plan } from '../../src/shared/plan'
 
@@ -327,5 +328,71 @@ export const offers: Offer[] = [
 		disposition: 'undecided',
 		createdAt: 7,
 		decidedAt: null,
+	},
+]
+
+/** The House the showcase draws — `docs/house.md`. The real shapes, because
+ * `HouseScreen` is the live component and the story drives it. */
+export const houseContext: HouseContext = {
+	tone: { voice: 'House plain', adjectives: ['warm', 'well researched'] },
+	lexicon: [
+		{
+			id: 'lx-beat',
+			term: 'the Beat',
+			definition:
+				'A subject I cover over time, and the research I have built up on it. A piece on my Beat starts from what the last one turned up.',
+			provenance: { type: 'writer' },
+			createdAt: Date.UTC(2026, 5, 2),
+			updatedAt: Date.UTC(2026, 5, 2),
+		},
+		{
+			id: 'lx-crane',
+			term: 'crane index',
+			definition:
+				'Counting tower cranes on a skyline as a proxy for construction activity. Silly, and everybody in the trade uses it.',
+			provenance: { type: 'writer' },
+			createdAt: Date.UTC(2026, 5, 9),
+			updatedAt: Date.UTC(2026, 5, 9),
+		},
+	],
+	rules: [
+		{
+			id: 'rl-question',
+			ord: 1,
+			body: 'Never open a piece on a rhetorical question.',
+			createdAt: Date.UTC(2026, 4, 1),
+			updatedAt: Date.UTC(2026, 4, 1),
+		},
+		{
+			id: 'rl-attribute',
+			ord: 2,
+			body: 'Attribute every claim in the sentence that makes it, rather than in a footnote.',
+			createdAt: Date.UTC(2026, 4, 1),
+			updatedAt: Date.UTC(2026, 4, 1),
+		},
+		{
+			id: 'rl-numbers',
+			ord: 3,
+			body: 'A number in the prose carries its unit and its year.',
+			createdAt: Date.UTC(2026, 4, 3),
+			updatedAt: Date.UTC(2026, 4, 3),
+		},
+	],
+}
+
+export const houseSkills: Skill[] = [
+	{
+		id: 'sk-cuts',
+		name: 'Cuts',
+		prompt: 'Where can this lose a line without losing a point?',
+		createdAt: Date.UTC(2026, 5, 20),
+		updatedAt: Date.UTC(2026, 5, 20),
+	},
+	{
+		id: 'sk-openings',
+		name: 'Openings',
+		prompt: 'Read the first paragraph of each Section. Does it earn the one after it?',
+		createdAt: Date.UTC(2026, 6, 1),
+		updatedAt: Date.UTC(2026, 6, 1),
 	},
 ]

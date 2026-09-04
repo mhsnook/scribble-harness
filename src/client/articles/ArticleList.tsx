@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Columns3 } from 'lucide-react'
+import { Columns3, House as HouseIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import type { ArticleEntry } from '../../shared/article'
@@ -47,6 +47,10 @@ export function ArticleList({
 				title="Articles"
 				actions={
 					<>
+						<Link className={buttonClass({ size: 'sm', variant: 'quiet' })} to="/house">
+							<HouseIcon aria-hidden className="size-3.5" />
+							house
+						</Link>
 						<Link className={buttonClass({ size: 'sm', variant: 'quiet' })} to="/board">
 							<Columns3 aria-hidden className="size-3.5" />
 							board view

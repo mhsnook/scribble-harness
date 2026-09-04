@@ -1,15 +1,16 @@
 import type { ModelMessage } from 'ai'
 
 import { type BlockRow, blockOrdinals, blockText } from '../../shared/draft'
+import { emptyHouse, type HouseContext } from '../../shared/house'
 import type { Note } from '../../shared/note'
 import type { Plan } from '../../shared/plan'
 import type { ReviewDepth } from '../../shared/review'
-import { judgeAgainstThePlan, planMessage } from './prompt'
+import { houseInPlay, houseMessage, judgeAgainstThePlan, planMessage } from './prompt'
 
 /**
  * The Review's prompt pack — `docs/llm.md`, and issue #16 for the
- * contents: the Plan, then the Draft, then the Notes already in play, and
- * **no Chat**. Research reaches a Review only by having been Accepted into the
+ * contents: the House, then the Plan, then the Draft, then the Notes already in
+ * play, and **no Chat**. Research reaches a Review only by having been Accepted into the
  * Plan, so the Ledger is the bridge and curation is forced rather than assumed.
  *
  * The writer's prompt goes last, because a model weights the final message as
@@ -144,6 +145,9 @@ export type ReviewPack = {
 	notes: readonly Note[]
 	/** What the writer typed. */
 	prompt: string
+	/** The writer's standing material. A Review reads the House the Chat reads,
+	 * so the two cannot judge the same Draft by different rules. */
+	house?: HouseContext
 }
 
 /** Stable to volatile, and the writer's words last. */
@@ -152,10 +156,26 @@ export function reviewPackMessages({
 	blocks,
 	notes,
 	prompt,
+	house = emptyHouse,
 }: ReviewPack): ModelMessage[] {
+	const draft = blocks.length === 0 ? noDraft : draftMessage(blocks)
+
+	// A Review's material is the whole piece, so a term is invoked if it appears
+	// anywhere the Guide is about to read — including in what the writer asked
+	// for, which is where a one-word question names the term it is about.
+	const opening = houseMessage(
+		houseInPlay(house, [
+			JSON.stringify(plan),
+			String(draft.content),
+			...notes.map((note) => note.body),
+			prompt,
+		]),
+	)
+
 	return [
+		...(opening === null ? [] : [opening]),
 		planMessage(plan),
-		blocks.length === 0 ? noDraft : draftMessage(blocks),
+		draft,
 		...(notes.length === 0 ? [] : [notesMessage(notes)]),
 		{ role: 'user', content: `The writer asks:\n\n${prompt}` },
 	]

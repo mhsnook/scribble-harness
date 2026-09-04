@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import type { Plan, ProposalInput } from '../../shared/plan'
+import type { Plan, ProposalInput, ScopeTerms } from '../../shared/plan'
 import { nodeAllocation, resolveNodeScope } from '../../shared/plan'
 import { Button } from '../components/Button'
 import { FieldRow, InlineInput, TextField } from '../components/Field'
@@ -45,6 +45,9 @@ import { AllocationNote, TargetField } from './WordCount'
 export interface SectionRowProps {
 	entry: OutlineEntry
 	plan: Plan
+	/** The House's own Voice and Adjectives — the outermost Scope, which this
+	 * Section's Tone resolves against. Empty where the House states nothing. */
+	house?: ScopeTerms
 	edit: (ops: ProposalInput | null) => void
 	/** True when this is the Section the writer has open. */
 	open: boolean
@@ -61,6 +64,7 @@ export interface SectionRowProps {
 export function SectionRow({
 	entry,
 	plan,
+	house = {},
 	edit,
 	open,
 	onOpen,
@@ -163,7 +167,10 @@ export function SectionRow({
 		)
 	}
 
-	const resolved = resolveNodeScope(plan, node.id) ?? { voice: null, adjectives: [] }
+	const resolved = resolveNodeScope(plan, node.id, house) ?? {
+		voice: null,
+		adjectives: [],
+	}
 	const allocation = nodeAllocation(node)
 
 	return (

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
+import type { Skill } from '../../shared/house'
 import { type ReviewDepth, reviewDepths } from '../../shared/review'
 import { Button, ButtonGroup } from '../components/Button'
 import { GrowingField } from '../components/GrowingField'
-import type { Skill } from './skills'
 
 /** The one ask that starts a Review. Not a chat composer — each ask is a fresh
  * pass, and nothing accumulates between them. */

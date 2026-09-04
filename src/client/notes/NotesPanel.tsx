@@ -1,3 +1,4 @@
+import type { Skill } from '../../shared/house'
 import type { NotesQueue, QueueView } from '../../shared/notes-queue'
 import type { ReviewDepth, Round } from '../../shared/review'
 import { Button } from '../components/Button'
@@ -9,7 +10,6 @@ import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
 import { NoteCard } from './NoteCard'
 import { ReviewComposer } from './ReviewComposer'
-import type { Skill } from './skills'
 
 /**
  * The Notes Panel — the Round's written response, flattened into a queue.

@@ -56,6 +56,16 @@ then the standing rules, then everything that changes. The Plan and the Draft ch
 time, so they go last. Whether this saves anything on Workers AI is unmeasured; the argument
 is structural, and the arithmetic is in issue #16.
 
+The House's three parts ride as one `user` message rather than inside the system prompt —
+`houseMessage` in `src/server/llm/prompt.ts`, and
+[ADR 0004](./adr/0004-the-house.md) for why. A system message after the first is not portable
+across providers, and the system prompt is the same bytes on every turn of every Article,
+which is the property worth keeping. The message is null where the House is empty.
+
+Which Lexicon entries are "in play" is decided per turn: an entry whose term appears in the
+turn's own material, matched whole and case-insensitively. See
+[`house.md`](./house.md).
+
 A model weights the final message as the one to answer. So where the writer has just spoken,
 their message goes last and the Plan sits in front of it — a pack ending on the Plan's JSON
 risks a turn that discusses the Plan instead of answering the question. The Chat pack is built
@@ -70,12 +80,12 @@ no writer message needs the final slot anyway. `chatPackMessages` and `planSlot`
 
 Each row reads in pack order, stable to volatile.
 
-| Pack       | Contents                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| Chat turn  | The Chat transcript, then the Plan, then the writer's own last message                      |
-| Proposal   | The affected span, plus adjacent Section titles and intent notes. Nothing else              |
-| Guide pass | The Plan, then the Draft or active Section with neighbours, then recent deltas. **No Chat** |
-| Review     | The same, plus the existing Notes. **No Chat**                                              |
+| Pack       | Contents                                                                                                    |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| Chat turn  | The House, then the Chat transcript, then the Plan, then the writer's own last message                      |
+| Proposal   | The affected span, plus adjacent Section titles and intent notes. Nothing else                              |
+| Guide pass | The House, then the Plan, then the Draft or active Section with neighbours, then recent deltas. **No Chat** |
+| Review     | The same, plus the existing Notes. **No Chat**                                                              |
 
 Research reaches a Review by being Accepted into the Plan, so the Ledger forces curation
 rather than assuming it.

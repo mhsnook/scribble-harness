@@ -8,8 +8,10 @@ A row carries `{ id, title, status, createdAt, updatedAt, archivedAt }` and noth
 the Article Agent stays the source of truth for an Article's contents and nothing on the index
 path reaches into one.
 
-The index does not wait for the House. An Article created on one machine appears on the other,
-which is what makes the index worth having.
+The index is its own D1 table rather than a House collection. ADR 0001 put it in the House,
+and #29 shipped it ahead of one; keeping it there costs a party-db room nothing and keeps the
+Article list off the sync path. An Article created on one machine appears on the other either
+way, which is what makes the index worth having.
 
 `status` records the writer's word rather than an inference. 1a has no Draft to measure, so
 the Article screen carries the one control that sets it and the Board View reads it.

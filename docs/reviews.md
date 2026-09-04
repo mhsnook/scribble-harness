@@ -61,9 +61,12 @@ ones is open — the current answer is no.
 
 ## Skills
 
-A saved review prompt, picked from the composer. It belongs in the House, which
-arrives at 1b; until then it lives in `localStorage`, so a Skill saved on one
-machine is not on the other.
+A saved review prompt, picked from the composer. It lives in the House's `skill`
+collection, so a Skill saved on one machine is on the other —
+[`house.md`](./house.md). Saving under a name that is taken replaces that Skill.
+
+They lived in `localStorage` until the House arrived; those are carried into the
+room once, on the first open.
 
 ## What a Review reads
 

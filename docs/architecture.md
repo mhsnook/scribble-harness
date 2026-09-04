@@ -20,8 +20,8 @@ Team grows, revisit section 3 first.
 Where two options are close, take the one that puts a usable writing product in front of you
 soonest. Cost and throughput arguments decide only when they threaten that.
 
-The build order and its stages are project management, not architecture. They live in issue
-#5 with the rest of the wayfinding map.
+The build order and its stages are project management, not architecture. Stage 1a shipped as
+issues #21 to #29. Stage 1b is #53, the House. Stage 2 is #54, the Draft and the Guide.
 
 ## 2. Shape
 

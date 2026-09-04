@@ -72,7 +72,7 @@ describe('reading a transcript', () => {
 		expect(waitingCount(messages)).toBe(0)
 	})
 
-	/** The research tool resolves inside the turn (§5), so its call sits at
+	/** The research tool resolves inside the turn (`docs/chat.md`), so its call sits at
 	 * `input-available` for as long as the lookup takes. */
 	it('leaves out a research call, which nobody has to rule on', () => {
 		const messages = transcript(

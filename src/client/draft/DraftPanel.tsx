@@ -25,7 +25,7 @@ export interface DraftPanelProps {
  * change; loading and saving are `ArticleDraftPanel`'s.
  *
  * Who may write here, and why the writer places their own headings and section
- * breaks, is docs/architecture.md §3 and §10.
+ * breaks, is architecture.md §3 and `docs/draft.md`.
  */
 export function DraftPanel({
 	blocks,

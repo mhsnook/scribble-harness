@@ -7,8 +7,8 @@ import { answers, ask, response, settled } from './review-fixtures'
 import { inAgent, scriptModel } from './scripted'
 
 /**
- * The Review, end to end inside the Article Agent — `docs/architecture.md` §3,
- * §7, and §12. What these drive is `reviewModel()`, replaced with a scripted
+ * The Review, end to end inside the Article Agent — architecture.md §3,
+ * `docs/llm.md`, and `docs/sync.md`. What these drive is `reviewModel()`, replaced with a scripted
  * one — `scripted.ts` for why no test calls a real model.
  */
 

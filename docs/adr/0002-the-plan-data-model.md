@@ -9,7 +9,7 @@ project into party-db rows at phase 2 without a rewrite.
 
 **Amended:** this paragraph first said the schema serves `generateObject` as a second
 caller. It does not — the Chat proposes and the client applies, so nothing the model emits
-is ever parsed as a Plan. Corrected in `docs/architecture.md` §4 and recorded on #24, where
+is ever parsed as a Plan. Corrected in `docs/plan.md` and recorded on #24, where
 the op payloads are built.
 
 ```

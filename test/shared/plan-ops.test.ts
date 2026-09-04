@@ -107,7 +107,7 @@ describe('what the Chat may propose', () => {
 	})
 
 	// Research reaches the Plan by being Accepted from an Offer, and the Ledger
-	// is that bridge — docs/architecture.md §5. The applier still understands
+	// is that bridge — `docs/chat.md`. The applier still understands
 	// the op, because the writer's own paste goes through it.
 	it('refuses the Reference ops, which the applier understands', () => {
 		expect(chatProposalSchema.safeParse([createReference]).success).toBe(false)

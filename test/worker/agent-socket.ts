@@ -79,7 +79,7 @@ export async function openAgentSocket(name: string) {
 		 *
 		 * The Plan rides in `body`, which is request-only, and never in
 		 * `metadata`, which persists on the `UIMessage` and re-rides every turn
-		 * — docs/architecture.md §6. */
+		 * — `docs/chat.md`. */
 		async chat(text: string, body: Record<string, unknown> = {}): Promise<Frame[]> {
 			const id = crypto.randomUUID()
 			const message = {

@@ -245,7 +245,7 @@ describe('the Reference invariant', () => {
 		expect(result.success).toBe(true)
 	})
 
-	// One Offer becomes one Reference — §5.
+	// One Offer becomes one Reference — `docs/chat.md`.
 	it('refuses two References copied from one Offer', () => {
 		const twice = makePlan({
 			references: [

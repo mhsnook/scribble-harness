@@ -163,7 +163,7 @@ describe('discarding a row', () => {
 })
 
 describe('the index against the Article Agent', () => {
-	// The index is a list, not a store — architecture.md §9.
+	// The index is a list, not a store — `docs/articles.md`.
 	it('leaves the Article Agent alone when its row is removed', async () => {
 		const article = await createdArticle({ title: 'Held elsewhere' })
 

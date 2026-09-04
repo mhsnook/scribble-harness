@@ -42,7 +42,7 @@ export function inAgent<T>(
  * Put a scripted model behind one of the Article Agent's model boundaries.
  *
  * The method is named rather than assumed, because the Chat and the Review each
- * read their own (§7 leaves room for them to differ), and a test that scripts
+ * read their own (`docs/llm.md` leaves room for them to differ), and a test that scripts
  * the wrong one passes for the wrong reason.
  */
 export function scriptModel(

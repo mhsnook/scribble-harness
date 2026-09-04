@@ -1,8 +1,8 @@
 # Reviews and Notes
 
 What the feature is and how it behaves. The cross-module rules it has to obey
-are [`architecture.md`](./architecture.md) §12; the words are
-[`context.md`](./context.md).
+are [`architecture.md`](./architecture.md), the sync it rides is
+[`sync.md`](./sync.md), and the words are [`context.md`](./context.md).
 
 ## The loop
 
@@ -75,7 +75,35 @@ The Draft as it was last saved. The Draft's flush lives inside the Draft Panel,
 so a Review run mid-keystroke can miss the last sentence. The Notes Panel numbers
 its anchors off the same read, so "¶3" on a card is the paragraph the model saw.
 
+## The Article Agent runs the Review, and the client does not
+
+A Review is long-running and produces a batch, so a client-run one is lost the
+moment the writer closes the tab — issue #11. `startReview` writes a Round row,
+answers with it, and carries on under `waitUntil`. Two things follow:
+
+- **`state` is a column.** `running` has to survive the writer leaving, and a
+  Review that fails with nobody connected has to leave its reason on the row
+  rather than on a call. A `running` row seen at wake is one a restart cut off —
+  the Review itself holds the Agent awake — so `onStart` fails it, freeing the
+  guard below.
+- **One Review at a time per Article**, guarded by the running row and enforced
+  by the table: a partial unique index allows at most one `running` row. The
+  pre-check in `startReview` gives the friendly refusal; the index holds when two
+  calls interleave across an `await` (#9), which a field could not — in-memory
+  state does not survive hibernation, and a check-then-write races itself.
+
+**A Note's anchor is settled once, at write time**, against the Plan and Draft
+the model was shown. An anchor the client cannot resolve reads as the whole piece
+and breaks nothing, so the write is taken and the anchor settled rather than the
+Note refused — issue #42's line, applied where nothing is load-bearing.
+
 ## Not built
 
-Streaming (#77), scoping a Review to one Section (#78), notes drawn beside the
-prose (#81), the last-save gap (#82), and grouping the queue by Section (#83).
+**A Review does not stream, and it is the thing that should.** Its Notes arrive
+live as rows, but the Round's prose lands whole; the streaming version is
+`streamObject` over the Agent's `onRequest` — issue #77. The cost is smaller than
+it looks, because the Round is durable: the wait is a row rather than a call being
+held open.
+
+Also open: scoping a Review to one Section (#78), notes drawn beside the prose
+(#81), the last-save gap (#82), and grouping the queue by Section (#83).

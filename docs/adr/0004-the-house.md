@@ -3,9 +3,12 @@
 Status: accepted
 
 [ADR 0001](./0001-phase-1-storage-shape.md) put the House in one party-db room over D1 and
-left its shape open. Issue #53 named that shape as 1b's one genuinely unspecified thing:
-what collections the House defines, and how its material reaches the Guide's context.
-Defining the collections is the API, so this decides both at once.
+left its shape open. Issue #53 named that shape as 1b's one genuinely unspecified thing.
+
+Two decisions settle it. **What the collections are**, which is also what the API is, since
+party-db has no layer above them. And **how their material reaches the Guide**, which the
+collections do not answer on their own. Everything else fell out of ADR 0001, and the last
+section says so rather than dressing it as a third decision.
 
 ## Four collections, not one document
 
@@ -28,17 +31,6 @@ this is where it lands. Nothing builds an entry from an Offer today, so every en
 `{ type: 'writer' }` and the column is a JSON text like `offer.source`. It is here rather
 than deferred because the alternative is a migration on a table the writer already has rows
 in.
-
-## The House writes over party-db, where the Article Agent writes over RPC
-
-The Article Agent refuses a party-db write POST with a 403 and takes its writes on
-`@callable` RPC instead, because its rows are guide-written and the rulings' guards live
-there. The House has no such guard — every row is the writer's to author — so it uses
-party-db the way party-db is meant to be used, and overrides nothing to do it.
-
-That is what makes the House cheap. There is no endpoint, no query key, and no
-invalidation: `collection.insert(row)` is the write, and the row coming back down the socket
-is the read.
 
 ## The House reaches the Guide as one message, not as a system prompt
 
@@ -68,6 +60,22 @@ app, and a piece about batteries does not need the term they defined for obituar
 The cost is real and worth stating: the House message now varies with the Article, so the
 prefix caches per Article rather than per writer. The standing rules and the Tone do not
 vary, and they are the larger half of the message for most writers.
+
+## The House is the plain case, and the Article Agent is the exception
+
+Neither decision above needed a third one about the write path, and that is worth saying,
+because `sync.md` reads as though it would. The House reads and writes over party-db as
+party-db intends: `PartyDbServer` serves the socket down, `handleWrite` takes the POSTs up,
+and nothing is overridden.
+
+The four seams in `sync.md` — a `PartyDbCore` composed by hand, tagged connections, an
+overridden `broadcast`, a 403 on the write path — are the Article Agent paying for two
+things the House does not have. It already extends `AIChatAgent`, so it cannot subclass
+`PartyDbServer`. And its rows are guide-written under guards that live on `@callable` RPC,
+so it has somewhere else for writes to go.
+
+So the four collections are the whole API: no endpoint, no query key, no invalidation.
+`collection.insert(row)` is the write, and the row coming back down the socket is the read.
 
 ## Consequences
 

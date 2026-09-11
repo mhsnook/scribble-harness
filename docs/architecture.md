@@ -89,10 +89,10 @@ Recorded in [ADR 0001](./adr/0001-phase-1-storage-shape.md).
    Rounds and Offers are published as collections instead, so reads are live queries and the
    Guide's writes go through `commit()` — see [`sync.md`](./sync.md). Rulings still go over
    RPC, per rule 2. The Draft is the table left; [`draft.md`](./draft.md) says why it can wait.
-5. **The House is the one room the client writes to.** Every House row is the writer's to
-   author, so `PartyDbServer.onRequest` forwards a party-db write POST to `handleWrite`
-   unchanged, where the Article Agent answers the same POST with a 403. There is no
-   endpoint and no guard between the writer and their own material — see
+5. **A House write goes over party-db itself.** Every House row is the writer's to author,
+   so nothing overrides `PartyDbServer`: the client writes the collection and the row comes
+   back down the socket. The Article Agent answers the same POST with a 403 because of
+   rule 2, which is what makes it the odd one rather than the House — see
    [`house.md`](./house.md).
 6. The writer does not author an Offer, a Round, or a Note today. This is an observation
    rather than a rule, and it is worth stating because one thing rests on it: `recordOffers`

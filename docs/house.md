@@ -34,10 +34,10 @@ line.
 ## The writer is the only writer
 
 Every House row is the writer's to author, so the House uses party-db the way party-db is
-meant to be used: `PartyDbServer.onRequest` forwards a write POST to `handleWrite`, and
-nothing overrides it. This is the one room in the app that does. The Article Agent refuses
-the same POST with a 403 and takes its writes on `@callable` RPC instead, because its rows
-are guide-written and the rulings' guards live there (`sync.md`).
+meant to be used: `PartyDbServer` serves the socket down, `handleWrite` takes the POSTs up,
+and nothing is overridden. The Article Agent is the other room, and it refuses the same
+POST with a 403 — its rows are guide-written and the rulings' guards live on `@callable`
+RPC (`sync.md`). [ADR 0004](./adr/0004-the-house.md) sets the two side by side.
 
 Nothing in the House reads an identity. Access gates the Worker, one Team holds two people,
 and both may read everything — `architecture.md` §4.8. party-db enforces no per-row policy

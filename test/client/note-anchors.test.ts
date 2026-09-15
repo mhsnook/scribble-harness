@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { anchorLabel, anchorNaming } from '../../src/client/notes/anchors'
-import { makeNode, makePlan } from '../shared/plan-fixtures'
-
-const plan = makePlan({
-	outline: [
-		makeNode({ id: 'n1', title: 'The opening' }),
-		makeNode({
-			id: 'n2',
-			title: 'The middle',
-			children: [makeNode({ id: 'n2a', title: 'The wards' })],
-		}),
-	],
-})
 
 const blocks = [
 	{ id: 'b1', ord: 1, json: { type: 'paragraph' } },
@@ -21,7 +9,7 @@ const blocks = [
 	{ id: 'b4', ord: 4, json: { type: 'paragraph' } },
 ]
 
-const naming = anchorNaming(plan, blocks)
+const naming = anchorNaming(blocks)
 
 describe('what a Note anchor reads as', () => {
 	it('names the whole piece', () => {
@@ -29,11 +17,6 @@ describe('what a Note anchor reads as', () => {
 			text: 'whole piece',
 			orphaned: false,
 		})
-	})
-
-	it('numbers a Section the way the Outline does', () => {
-		expect(anchorLabel({ kind: 'section', nodeId: 'n2' }, naming).text).toBe('§2')
-		expect(anchorLabel({ kind: 'section', nodeId: 'n2a' }, naming).text).toBe('§2.1')
 	})
 
 	it('numbers one paragraph', () => {
@@ -47,7 +30,7 @@ describe('what a Note anchor reads as', () => {
 	})
 
 	it('narrows a run to the paragraphs that survive a deletion', () => {
-		const fewer = anchorNaming(plan, blocks.slice(0, 3))
+		const fewer = anchorNaming(blocks.slice(0, 3))
 
 		expect(anchorLabel({ kind: 'blocks', blockIds: ['b2', 'b3', 'b4'] }, fewer)).toEqual({
 			text: '¶2–¶3',
@@ -59,19 +42,6 @@ describe('what a Note anchor reads as', () => {
 		expect(anchorLabel({ kind: 'blocks', blockIds: ['cut'] }, naming)).toEqual({
 			text: 'a paragraph that is gone',
 			orphaned: true,
-		})
-	})
-
-	it('says so when the Section a Note was about is gone', () => {
-		expect(anchorLabel({ kind: 'section', nodeId: 'cut' }, naming).orphaned).toBe(true)
-	})
-
-	it('does not call a Section gone when it is the Plan that has not arrived', () => {
-		const early = anchorNaming(null, blocks)
-
-		expect(anchorLabel({ kind: 'section', nodeId: 'n2' }, early)).toEqual({
-			text: 'a Section',
-			orphaned: false,
 		})
 	})
 })

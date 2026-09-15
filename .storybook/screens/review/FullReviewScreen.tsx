@@ -38,7 +38,7 @@ export function FullReviewScreen() {
 			<FrameBody className="h-[32rem]" row>
 				<ReviewPanel
 					actions={actions}
-					naming={anchorNaming(plan, draft)}
+					naming={anchorNaming(draft)}
 					notes={notes}
 					onBack={() => {}}
 					onOpenRound={() => {}}

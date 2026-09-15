@@ -208,8 +208,9 @@ describe('how wide each Panel gets', () => {
 		expect(shares(['chat', 'plan', 'draft'])).toEqual([0.25, 0.25, 0.5])
 	})
 
-	it('keeps Notes narrow and splits what is left', () => {
-		expect(shares(['draft', 'notes'])).toEqual([0.75, 0.25])
+	it('gives Notes what any other supporting Panel gets', () => {
+		expect(shares(['draft', 'notes'])).toEqual([2 / 3, 1 / 3])
+		expect(shares(['chat', 'draft', 'notes'])).toEqual([0.25, 0.5, 0.25])
 		expect(shares(['chat', 'plan', 'draft', 'notes'])).toEqual([0.2, 0.2, 0.4, 0.2])
 	})
 

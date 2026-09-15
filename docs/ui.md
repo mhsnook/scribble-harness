@@ -61,9 +61,8 @@ narrow screen. Each is its own small interface, and the interactions between the
 specific, explicit, and user-gated.
 
 `usePanels` holds which Panels are open and keeps them in one order, drawn by a `Rail`
-component in the navbar. It also sets the widths: Notes takes a fixed slice as the margin
-rail, and the Draft takes twice what a supporting Panel does out of what remains, so the prose
-keeps its room whatever sits beside it.
+component in the navbar. It also sets the widths: the Draft takes twice what a supporting
+Panel does, so the prose keeps its room whatever sits beside it.
 
 ## Show a Loading state rather than an empty value
 

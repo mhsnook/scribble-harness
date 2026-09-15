@@ -1,6 +1,5 @@
 import type { Note, NoteContent } from '../../src/shared/note'
 import type { Round } from '../../src/shared/review'
-import { plan } from './content'
 
 /**
  * One Review, as the showcase reads it. The real schemas, because the Notes
@@ -12,11 +11,6 @@ import { plan } from './content'
  */
 
 const at = Date.UTC(2026, 7, 12, 13, 2)
-
-/** Anchored where the mock's Plan already has Sections, so the cards number
- * themselves rather than reading as "a Section that is gone". */
-const first = plan.outline[0]?.id ?? 'n1'
-const second = plan.outline[1]?.id ?? 'n2'
 
 const written: (NoteContent & { id: string; disposition: Note['disposition'] })[] = [
 	{
@@ -47,7 +41,7 @@ const written: (NoteContent & { id: string; disposition: Note['disposition'] })[
 		id: 'note-4',
 		disposition: 'declined',
 		type: 'tone drift',
-		anchor: { kind: 'section', nodeId: second },
+		anchor: { kind: 'blocks', blockIds: ['b5'] },
 		label: 'editorialising',
 		body: '"Always the plan" restates the paragraph above it in a different register. Pick one.',
 	},
@@ -62,7 +56,7 @@ const written: (NoteContent & { id: string; disposition: Note['disposition'] })[
 		id: 'note-6',
 		disposition: 'resolved',
 		type: 'citations',
-		anchor: { kind: 'section', nodeId: first },
+		anchor: { kind: 'article' },
 		body: 'The £4,100 figure is used twice and attributed once.',
 	},
 ]

@@ -1,26 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { blockOrdinals, blockText } from '../../src/shared/draft'
-import { type NoteAnchor, noteContentSchema, settleAnchor } from '../../src/shared/note'
+import { noteContentSchema, readAnchor, settleAnchor } from '../../src/shared/note'
 
-const known = {
-	nodeIds: new Set(['n1', 'n2']),
-	blockIds: ['b1', 'b2', 'b3'],
-}
+const known = { blockIds: ['b1', 'b2', 'b3'] }
 
 describe('settling a Note anchor', () => {
-	it('keeps a Section the Plan carries', () => {
-		const anchor: NoteAnchor = { kind: 'section', nodeId: 'n2' }
-
-		expect(settleAnchor(anchor, known)).toEqual(anchor)
-	})
-
-	it('drops a Section the Plan does not carry to the whole piece', () => {
-		expect(settleAnchor({ kind: 'section', nodeId: 'gone' }, known)).toEqual({
-			kind: 'article',
-		})
-	})
-
 	it('expands a run to every Block in its span', () => {
 		expect(
 			settleAnchor({ kind: 'blocks', blockIds: ['b1', 'gone', 'b3'] }, known),
@@ -76,6 +61,16 @@ describe('what the Guide may write', () => {
 		expect(written.success).toBe(false)
 	})
 
+	it('refuses a Section, which is no longer somewhere a Note may point', () => {
+		const written = noteContentSchema.safeParse({
+			type: 'plan divergence',
+			anchor: { kind: 'section', nodeId: 'n1' },
+			body: 'The Plan asks for costs here.',
+		})
+
+		expect(written.success).toBe(false)
+	})
+
 	it('refuses a run anchored to nothing', () => {
 		const written = noteContentSchema.safeParse({
 			type: 'repetition',
@@ -117,5 +112,22 @@ describe('reading the Draft for a prompt', () => {
 			['b2', 2],
 			['b3', 3],
 		])
+	})
+})
+
+describe('reading a stored anchor', () => {
+	it('reads back what was written', () => {
+		expect(readAnchor('{"kind":"blocks","blockIds":["b1","b2"]}')).toEqual({
+			kind: 'blocks',
+			blockIds: ['b1', 'b2'],
+		})
+	})
+
+	it('opens a Note written when a Section was somewhere a Note could point', () => {
+		expect(readAnchor('{"kind":"section","nodeId":"n1"}')).toEqual({ kind: 'article' })
+	})
+
+	it('opens a Note whose anchor is not JSON at all', () => {
+		expect(readAnchor('not json')).toEqual({ kind: 'article' })
 	})
 })

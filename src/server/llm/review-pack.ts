@@ -38,19 +38,21 @@ const reviewerRules = [
 	'remind them of the point rather than restate it. Give a part no Notes at all where the prose',
 	'is doing framing rather than landing on a line.',
 	'',
-	'A Note anchors to the text or to the whole piece, and there is nothing in between.',
+	'An anchored Note points the writer at the line. A Note that names ¶5 reaches them as "¶5" and',
+	'takes them to it; the same Note naming no paragraph leaves them scanning the piece for what',
+	'you meant. That is most of what a Note is worth to them, so name the paragraphs whenever the',
+	'observation is about particular ones - a Note saying that ¶5 re-argues ¶2 belongs on ¶5.',
 	'',
-	'{"kind":"blocks","blockIds":[...]} names one paragraph or a run of them. Use only the tags',
+	'{"kind":"blocks","blockIds":[...]} names one paragraph or a run of them. Use the tags',
 	'bracketed in the Draft below, copied exactly. A run means the span from its first paragraph',
-	'to its last, so name both ends rather than every paragraph between them.',
+	'to its last, so name both ends rather than every paragraph between them. Where one point',
+	'covers two stretches that do not touch, write two Notes rather than one loose one.',
 	'',
-	'{"kind":"article"} is for a point that lands nowhere in particular: a Section the Plan asks',
-	'for and the Draft never writes, a piece that reads as two pieces, anything true of the whole.',
-	'',
-	'Anchor to the text wherever the text exists. A Section the Draft does write is judged through',
-	'its paragraphs, so name them and not the Section - including where the point is that the',
-	'paragraphs and the Plan disagree. Where one point covers two stretches that do not touch,',
-	'write two Notes rather than one loose one.',
+	'{"kind":"article"} is the fallback, for an observation that pertains to no particular',
+	'paragraphs: a Section the Plan asks for and the Draft never writes, a piece that reads as two',
+	'pieces, anything true of the whole. A point about a Section the Draft does write is not one',
+	"of these. It belongs on that Section's paragraphs, including where the point is that those",
+	'paragraphs and the Plan disagree.',
 	'',
 	"A Note's type is one or two words saying what sort of observation it is - structure,",
 	'tone drift, citations, repetition, budget, pacing, plan divergence, and whatever else the',
@@ -79,8 +81,8 @@ export function reviewSystemPrompt(depth: ReviewDepth): string {
 	return [reviewerRules, '', depthRules[depth]].join('\n')
 }
 
-/** Where a tag starts. Six hex characters over one Draft is a collision about
- * as often as never; `blockTags` checks rather than trusting that. */
+/** Where a tag starts. `blockTags` grows it rather than trusting six to be
+ * unique. */
 const TAG_LENGTH = 6
 
 export type BlockTags = {
@@ -93,17 +95,13 @@ export type BlockTags = {
 /**
  * The short name the model copies instead of a Block id.
  *
- * A Block id is a UUID, and every anchor carries one verbatim — 36 characters
- * the model has to transcribe with no error to anchor a Note to a paragraph.
- * A tail of six is the same work a git short hash does.
+ * **Derived from the Block ids alone.** The pack computes these to write the
+ * prompt and `writeReview` computes them again to read the answer, so the two
+ * calls have to agree: nothing else may reach in here — not the ordinal, not
+ * the text, not the Round.
  *
- * **Derived from the Block ids alone**, because the pack computes these to
- * write the prompt and `writeReview` computes them again to read the answer.
- * Two calls over the same Blocks have to agree, so nothing else may reach in
- * here — not the ordinal, not the text, not the Round.
- *
- * The tail grows until every Block has its own tag, so a tag is unique within
- * the one Review that uses it, which is all it has to be.
+ * A tag is unique within the one Review that uses it, which is all it has to
+ * be. Nothing stores one.
  */
 export function blockTags(blockIds: readonly string[]): BlockTags {
 	const longest = blockIds.reduce((most, id) => Math.max(most, id.length), 0)

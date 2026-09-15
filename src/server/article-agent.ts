@@ -906,10 +906,7 @@ function noteRow(
  *
  * The writer sees the same card either way — a Note the model addressed to the
  * whole piece and a Note whose tags the Draft would not take both read "whole
- * piece" — so the log is the only place the two are told apart. It is why the
- * ids are in the message: a Review that keeps losing anchors is either a model
- * mistyping tags or a prompt letting it off the hook, and which one decides
- * what to fix.
+ * piece" — so the log is the only place the two are told apart.
  */
 function reportLostAnchor(
 	roundId: string,

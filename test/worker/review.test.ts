@@ -174,7 +174,6 @@ describe('running a Review', () => {
 		await settled('review-tags')
 		const notes = await inAgent('review-tags', (agent) => agent.listNotes())
 
-		// The model never sees the id, only the tail the Draft bracketed for it.
 		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).not.toContain(tagged[1].id)
 		expect(notes[0].anchor).toEqual({ kind: 'blocks', blockIds: [tagged[1].id] })
 	})

@@ -53,30 +53,46 @@ export const A_FullReview: Story = {
 }
 
 export const B_ReviewRail: Story = {
-	name: '4(b) The Notes queue beside the Draft',
+	name: '4(b) The Notes beside the Draft',
 	render: () => (
 		<div className="flex flex-col">
 			<ReviewRailScreen />
 			<Annotation>
-				The written response, flattened. Every Round's Notes sit in one list, because a
-				Note accepted three Rounds ago is still owed.
+				The Panel stays on the Round it ran, the way the Chat stays on its last turn. `all
+				notes` opens the whole record over it, because a Note accepted three Rounds ago is
+				still owed.
 			</Annotation>
 		</div>
 	),
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement)
 
-		// A resolved Note waits to be asked for; a declined one stays, struck
-		// through, because undoing it is the only way back — mock 8(c).
-		await waitFor(() => expect(canvas.getByText(/Strongest version/)).toBeVisible())
-		await expect(canvas.queryByText(/£4,100 figure/)).toBeNull()
-		await expect(canvas.getByText(/Always the plan/)).toBeVisible()
-
-		await userEvent.click(canvas.getByRole('button', { name: 'show resolved' }))
-		await waitFor(() => expect(canvas.getByText(/£4,100 figure/)).toBeVisible())
+		// The Panel opens on a Round, the way the Chat opens on the transcript.
+		await waitFor(() => expect(canvas.getByText(/you asked/)).toBeVisible())
 
 		// An anchor is read as a position, and the record holds an id.
 		await expect(canvas.getAllByText(/¶2/).length).toBeGreaterThan(0)
+
+		// The whole record is a drawer away. Every assertion below reads inside it,
+		// because the Round it opens over is still drawing its own Notes.
+		await userEvent.click(canvas.getByRole('button', { name: /All Notes/ }))
+
+		const ledger = within(canvas.getByRole('group', { name: 'All Notes' }))
+		await waitFor(() => expect(ledger.getByText('All Notes')).toBeVisible())
+
+		// A Note the writer declined is counted rather than listed, because they
+		// have already said no to it.
+		await expect(ledger.queryByText(/Always the plan/)).toBeNull()
+		await userEvent.click(ledger.getByRole('button', { name: /1 declined/ }))
+		await waitFor(() => expect(ledger.getByText(/Always the plan/)).toBeVisible())
+
+		// A settled Note is a line until it is asked for, and then it is a card
+		// with its way back.
+		await expect(ledger.queryByRole('button', { name: 'undo' })).toBeNull()
+		await userEvent.click(ledger.getByText(/£4,100 figure/))
+		await waitFor(() =>
+			expect(ledger.getByRole('button', { name: 'undo' })).toBeVisible(),
+		)
 	},
 }
 
@@ -102,11 +118,20 @@ export const G_RunReview: Story = {
 		)
 		await userEvent.click(canvas.getByRole('button', { name: 'run review' }))
 
-		// The wait says what is happening and that leaving is safe.
-		await waitFor(() => expect(canvas.getByText(/is reading the Draft/)).toBeVisible())
+		// Asking moves the Panel onto the Round it just started, rather than
+		// leaving the writer reading the one before it. The wait says what is
+		// happening and that leaving is safe.
+		await waitFor(() => expect(canvas.getByText(/Reading the Draft/)).toBeVisible())
+		await expect(canvas.getByText(/you asked/)).toBeVisible()
 
-		// And the Notes arrive without the writer asking again.
-		await waitFor(() => expect(canvas.getByText(/Strongest version/)).toBeVisible(), {
+		// And the Notes arrive without the writer asking again. Read inside the
+		// Round rather than across the Panel: the ledger stays mounted when it is
+		// closed, so every Note is in the DOM twice.
+		const round = within(
+			canvasElement.querySelector('[data-panel] [data-scroller]') as HTMLElement,
+		)
+
+		await waitFor(() => expect(round.getByText(/Strongest version/)).toBeVisible(), {
 			timeout: 5_000,
 		})
 	},

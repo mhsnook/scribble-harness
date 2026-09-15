@@ -1,6 +1,9 @@
+import { useState } from 'react'
+
 import { Notice } from '../components/Notice'
 import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
 import { useArticle } from '../lib/article'
+import { useMarginNotes } from '../notes/useMarginNotes'
 import { DraftPanel } from './DraftPanel'
 import { useDraft } from './useDraft'
 
@@ -15,6 +18,11 @@ export interface ArticleDraftPanelProps {
 
 export function ArticleDraftPanel({ divider, grow, className }: ArticleDraftPanelProps) {
 	const { blocks, failure, status, attachEditor, touch } = useDraft(useArticle().draft)
+
+	// A ruling made in the margin fails the way one made in the Notes Panel does,
+	// and the Draft's own Notice is where this Panel already says so.
+	const [refused, setRefused] = useState<string | null>(null)
+	const margin = useMarginNotes(setRefused)
 
 	// The editor is built from the Blocks and reads them once, so it mounts
 	// after they arrive rather than being filled in afterwards. Loading it late
@@ -35,10 +43,14 @@ export function ArticleDraftPanel({ divider, grow, className }: ArticleDraftPane
 
 	return (
 		<DraftPanel
+			anchored={margin.blockIds}
 			blocks={blocks}
 			className={className}
 			divider={divider}
+			failure={refused}
 			grow={grow}
+			noteActions={margin.actions}
+			notes={margin.notes}
 			onAttach={attachEditor}
 			onChange={touch}
 			status={status}

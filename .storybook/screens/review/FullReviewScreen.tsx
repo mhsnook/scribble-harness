@@ -2,10 +2,11 @@ import { type ReactNode, useState } from 'react'
 
 import { ArticleBar } from '../../../src/client/components/ArticleBar'
 import { Frame, FrameBody } from '../../../src/client/components/Frame'
+import { Panel } from '../../../src/client/components/Panel'
 import { ArticleProvider } from '../../../src/client/lib/article'
 import type { NoteActions } from '../../../src/client/notes/actions'
 import { anchorNaming } from '../../../src/client/notes/anchors'
-import { ReviewPanel } from '../../../src/client/notes/ReviewPanel'
+import { RoundView } from '../../../src/client/notes/RoundView'
 import type { Note } from '../../../src/shared/note'
 import { restoredTo } from '../../../src/shared/note'
 import type { Round } from '../../../src/shared/review'
@@ -14,8 +15,8 @@ import { memoryArticle, memoryDraftStore } from '../../mock/MockArticle'
 import { reviewNotes, reviewRound, reviewRounds } from '../../mock/review'
 
 /**
- * 4(a) — One Review, read whole. The Notes Panel drawing a Round's response
- * instead of the queue: same column, wider because the other Panels are closed.
+ * 4(a) — One Review, read whole. The Notes Panel's own view, wider here because
+ * the other Panels are closed.
  */
 export function FullReviewScreen() {
 	const [notes, setNotes] = useState<Note[]>(reviewNotes)
@@ -36,16 +37,19 @@ export function FullReviewScreen() {
 		<Frame width={760}>
 			<ArticleBar open={['notes']} status="round 3" title={ARTICLE_TITLE} />
 			<FrameBody className="h-[32rem]" row>
-				<ReviewPanel
-					actions={actions}
-					naming={anchorNaming(draft)}
-					notes={notes}
-					onBack={() => {}}
-					onOpenRound={() => {}}
-					onSaveSkill={() => {}}
-					round={reviewRound}
-					rounds={reviewRounds}
-				/>
+				<Panel variant="sunk">
+					<RoundView
+						actions={actions}
+						following
+						naming={anchorNaming(draft)}
+						notes={notes}
+						onPick={() => {}}
+						onRunAgain={() => {}}
+						onSaveSkill={() => {}}
+						round={reviewRound}
+						rounds={reviewRounds}
+					/>
+				</Panel>
 			</FrameBody>
 		</Frame>
 	)

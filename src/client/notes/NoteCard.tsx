@@ -4,13 +4,13 @@ import { cx } from '../lib/cx'
 import type { NoteActions } from './actions'
 import { type AnchorNaming, anchorLabel } from './anchors'
 
-/** One Note, drawn the same way in the queue and in a Review's response. */
+/** One Note, drawn the same way wherever it appears. */
 
 export interface NoteCardProps {
 	note: Note
 	naming: AnchorNaming
 	actions: NoteActions
-	/** The queue's running number: "01". A response numbers nothing. */
+	/** The queue's running number: "01". A Round's response numbers nothing. */
 	ordinal?: number
 	className?: string
 }
@@ -52,14 +52,50 @@ export function NoteCard({ note, naming, actions, ordinal, className }: NoteCard
 			</p>
 
 			<div className="mt-0.5 flex flex-wrap gap-1.5">
-				<Controls actions={actions} note={note} />
+				<NoteControls actions={actions} note={note} />
 			</div>
 		</article>
 	)
 }
 
-/** Every disposition offers a way forward and a way back. */
-function Controls({ note, actions }: { note: Note; actions: NoteActions }) {
+export interface NoteLineProps {
+	note: Note
+	naming: AnchorNaming
+	/** Opens the full card in its place. */
+	onOpen: () => void
+}
+
+/**
+ * A Note the writer has already ruled on, as one line: where it points, and as
+ * much of the body as the column fits.
+ *
+ * The line is the whole click target rather than carrying its own controls. A
+ * settled Note has one thing left to do to it — undo — and offering that on
+ * every line would put the rarest action in front of the writer most often.
+ */
+export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
+	const anchor = anchorLabel(note.anchor, naming)
+
+	return (
+		<button
+			className="flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-hush"
+			onClick={onOpen}
+			type="button"
+		>
+			<span className="label-meta shrink-0">{anchor.text}</span>
+			<span className="min-w-0 flex-1 truncate text-12 text-muted">{note.body}</span>
+		</button>
+	)
+}
+
+/**
+ * Every disposition offers a way forward and a way back.
+ *
+ * Exported because the margin draws its own card — it has no `naming` for the
+ * meta line and needs to be placed absolutely — but the rulings it offers are
+ * these, and there is one right answer to what an accepted Note can do next.
+ */
+export function NoteControls({ note, actions }: { note: Note; actions: NoteActions }) {
 	if (note.disposition === 'proposed') {
 		return (
 			<>

@@ -1,43 +1,49 @@
-import type { NotesQueue, QueueView } from '../../shared/notes-queue'
+import type { ReactNode } from 'react'
+
+import type { Note } from '../../shared/note'
 import type { ReviewDepth, Round } from '../../shared/review'
-import { Button } from '../components/Button'
-import { Chip } from '../components/Chip'
 import { Notice } from '../components/Notice'
-import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
-import { dateAndTime } from '../lib/when'
+import { Panel, type PanelProps } from '../components/Panel'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
-import { NoteCard } from './NoteCard'
 import { ReviewComposer } from './ReviewComposer'
+import { RoundView } from './RoundView'
 import type { Skill } from './skills'
 
 /**
- * The Notes Panel — the Round's written response, flattened into a queue.
+ * The Notes Panel — one Round at a time, with the whole record a drawer away.
  *
- * `ArticleNotesPanel` drives it from the Article Agent, the same split as
- * `PlanPanel` and `ChatPanel`. Every Round's Notes sit in one list rather than
- * only the last Review's: a Note accepted three Rounds ago is still owed, and a
- * Review that turns up nothing new should not clear the list.
+ * **It reads like the Chat Panel, because it works like it.** An ask makes a
+ * Round the way a message makes a turn, and the Panel shows the newest one. The
+ * writer rules on what that Round found; the Notes they accepted and have not
+ * resolved are still owed, and the ledger is where they are all kept.
  *
- * Ruling here and ruling inside the response are the same act, because both
- * draw the same rows.
+ * Which Round is on screen and whether the ledger is open are
+ * `ArticleNotesPanel`'s, the same split as `PlanPanel` and `ChatPanel`.
  */
 
 export interface NotesPanelProps {
-	queue: NotesQueue
-	/** Every Round, oldest first. Which one is running and which was the last to
-	 * finish are read off this rather than passed beside it. */
+	/** Every Round, oldest first. Which one is running is read off this. */
 	rounds: readonly Round[]
+	/** The Round on screen, or null before any Review has run. */
+	round: Round | null
+	/** The Round on screen is the newest because the Panel follows, not because
+	 * the writer picked it. */
+	following: boolean
+	/** Every Note on the Article. A passage names its own by id. */
+	notes: readonly Note[]
 	loading: boolean
 	failure: string | null
-	view: QueueView
-	onView: (view: QueueView) => void
 	naming: AnchorNaming
 	actions: NoteActions
 	skills: readonly Skill[]
 	onRun: (prompt: string, depth: ReviewDepth) => void
-	/** Opens one Round's written response, which is where the reasoning is. */
-	onRead: (round: Round) => void
+	onPick: (roundId: string | null) => void
+	onSaveSkill: (name: string) => void
+	/** Opens and closes the ledger — sits left of `run review`. */
+	ledgerToggle: ReactNode
+	/** The ledger itself, drawn over the Round and stopping at the composer. */
+	drawer: ReactNode
 	divider?: PanelProps['divider']
 	/** This Panel's share of the Panel row — `panelShare`. */
 	grow?: PanelProps['grow']
@@ -45,28 +51,25 @@ export interface NotesPanelProps {
 }
 
 export function NotesPanel({
-	queue,
 	rounds,
+	round,
+	following,
+	notes,
 	loading,
 	failure,
-	view,
-	onView,
 	naming,
 	actions,
 	skills,
 	onRun,
-	onRead,
+	onPick,
+	onSaveSkill,
+	ledgerToggle,
+	drawer,
 	divider,
 	grow,
 	className,
 }: NotesPanelProps) {
-	const running = rounds.find((round) => round.state === 'running') ?? null
-	const latest = [...rounds].reverse().find((round) => round.state === 'done') ?? null
-
-	// Only the last Round can still be failed-and-unanswered: running one again
-	// is the way past a failure, and that puts a newer Round after it.
-	const last = rounds.length === 0 ? null : rounds[rounds.length - 1]
-	const failed = last !== null && last.state === 'failed' ? last : null
+	const running = rounds.some((one) => one.state === 'running')
 
 	return (
 		<Panel
@@ -76,142 +79,54 @@ export function NotesPanel({
 			padded={false}
 			variant="sunk"
 		>
-			<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+			{/* The Round and the drawer share this box, so the drawer covers what
+			    the writer is reading and stops at the composer. `overflow-hidden` is
+			    what keeps it out of sight when it is closed. */}
+			<div className="relative flex min-h-0 flex-1 overflow-hidden">
 				<div
 					className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3.5"
 					data-scroller=""
 				>
-					<PanelHeader
-						meta={queue.counts.all === 0 ? undefined : `${queue.counts.accepted} open`}
-						title="Notes"
-					/>
-
-					<div className="flex flex-wrap items-center gap-1.5">
-						<Chip
-							interactive
-							onClick={() => onView({ ...view, acceptedOnly: !view.acceptedOnly })}
-							variant={view.acceptedOnly ? 'solid' : 'outline'}
-						>
-							accepted only
-						</Chip>
-						<Chip
-							interactive
-							onClick={() => onView({ ...view, showResolved: !view.showResolved })}
-							variant={view.showResolved ? 'solid' : 'outline'}
-						>
-							show resolved
-						</Chip>
-					</div>
-
-					{latest === null ? null : (
-						<button
-							className="flex items-baseline gap-2 rounded-md border border-edge bg-surface px-2.5 py-1.5 text-left hover:border-ink/30"
-							onClick={() => onRead(latest)}
-							type="button"
-						>
-							<span className="text-12 text-ink">Round {latest.ordinal}</span>
-							<span className="label-meta">{dateAndTime(latest.startedAt)}</span>
-							<span className="ml-auto text-12 text-muted">read →</span>
-						</button>
-					)}
-
 					{failure === null ? null : <Notice>{failure}</Notice>}
 
-					{failed === null ? null : (
-						<Notice>
-							<span className="flex flex-col items-start gap-2">
-								<span>
-									Round {failed.ordinal} did not finish.{' '}
-									{failed.failure ?? 'No reason was recorded.'}
-								</span>
-								<Button onClick={() => onRun(failed.prompt, failed.depth)} size="sm">
-									run again
-								</Button>
-							</span>
-						</Notice>
+					{round === null ? (
+						<FirstRound loading={loading} />
+					) : (
+						<RoundView
+							actions={actions}
+							following={following}
+							naming={naming}
+							notes={notes}
+							onPick={onPick}
+							onRunAgain={() => onRun(round.prompt, round.depth)}
+							onSaveSkill={onSaveSkill}
+							round={round}
+							rounds={rounds}
+						/>
 					)}
-
-					{running === null ? null : (
-						<p className="text-12 leading-relaxed text-faint">
-							Round {running.ordinal} is reading the Draft. It carries on if you close
-							this — come back and the findings will be here.
-						</p>
-					)}
-
-					<Queue
-						loading={loading}
-						naming={naming}
-						queue={queue}
-						rounds={rounds}
-						actions={actions}
-						view={view}
-					/>
 				</div>
 
-				<ReviewComposer onRun={onRun} running={running !== null} skills={skills} />
+				{drawer}
 			</div>
+
+			<ReviewComposer
+				leading={ledgerToggle}
+				onRun={onRun}
+				running={running}
+				skills={skills}
+			/>
 		</Panel>
 	)
 }
 
-/** The list, and what stands in for it when there is none. Loading and empty
- * are told apart rather than both drawing nothing — `docs/ui.md`. */
-function Queue({
-	queue,
-	view,
-	loading,
-	naming,
-	actions,
-	rounds,
-}: Pick<
-	NotesPanelProps,
-	'queue' | 'view' | 'loading' | 'naming' | 'actions' | 'rounds'
->) {
-	if (loading) {
-		return <p className="text-12 text-faint">Opening the Notes…</p>
-	}
-
-	if (queue.counts.all === 0) {
-		if (rounds.length === 0) {
-			return (
-				<p className="text-12 leading-relaxed text-faint">
-					No Reviews yet. Say what this one should look for, and the Guide reads the Draft
-					against the Plan.
-				</p>
-			)
-		}
-
-		// A running or failed Round says its own piece above the queue.
-		if (!rounds.some((round) => round.state === 'done')) return null
-
-		return (
-			<p className="text-12 leading-relaxed text-faint">
-				No Notes from these Reviews. The reasoning is in the written response.
-			</p>
-		)
-	}
-
-	if (queue.visible.length === 0) {
-		return (
-			<p className="text-12 leading-relaxed text-faint">
-				{view.acceptedOnly
-					? 'No Notes accepted yet.'
-					: `${queue.counts.resolved} Notes, all resolved.`}
-			</p>
-		)
-	}
-
+/** Loading and empty are told apart rather than both drawing nothing —
+ * `docs/ui.md`. */
+function FirstRound({ loading }: { loading: boolean }) {
 	return (
-		<div className="flex flex-col gap-2">
-			{queue.visible.map((note, index) => (
-				<NoteCard
-					key={note.id}
-					naming={naming}
-					note={note}
-					ordinal={index + 1}
-					actions={actions}
-				/>
-			))}
-		</div>
+		<p className="text-12 leading-relaxed text-faint">
+			{loading
+				? 'Opening the Notes…'
+				: 'No Reviews yet. Say what this one should look for, and the Guide reads the Draft against the Plan.'}
+		</p>
 	)
 }

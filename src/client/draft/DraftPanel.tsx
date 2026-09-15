@@ -4,14 +4,26 @@ import { useEffect } from 'react'
 import type { BlockRow } from '../../shared/draft'
 import { Notice } from '../components/Notice'
 import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
+import type { NoteActions } from '../notes/actions'
+import type { AnchoredNote } from '../notes/useMarginNotes'
+import { markAnchored } from './anchored'
 import { toDoc } from './blocks'
 import { draftExtensions } from './editor'
+import { MarginNotes } from './MarginNotes'
 import type { DraftStatus } from './writer'
 
 export interface DraftPanelProps {
 	/** What the Article Agent holds. Read once, when the editor is built. */
 	blocks: readonly BlockRow[]
 	status: DraftStatus
+	/** Accepted Notes pointing at paragraphs — drawn in the margin, issue #81. */
+	notes: readonly AnchoredNote[]
+	/** Every Block those Notes name, for the rule under the prose. */
+	anchored: readonly string[]
+	noteActions: NoteActions
+	/** A ruling made in the margin that the Article Agent refused. The save's own
+	 * failure is on `status`. */
+	failure?: string | null
 	onAttach: (editor: Editor) => void
 	onChange: () => void
 	divider?: PanelProps['divider']
@@ -30,6 +42,10 @@ export interface DraftPanelProps {
 export function DraftPanel({
 	blocks,
 	status,
+	notes,
+	anchored,
+	noteActions,
+	failure = null,
 	onAttach,
 	onChange,
 	divider,
@@ -51,6 +67,12 @@ export function DraftPanel({
 		if (editor !== null) onAttach(editor)
 	}, [editor, onAttach])
 
+	// The rule under the prose is drawn from editor state, so the Blocks reach it
+	// through a transaction rather than a prop — `anchored.ts`.
+	useEffect(() => {
+		if (editor !== null) markAnchored(editor, anchored)
+	}, [editor, anchored])
+
 	return (
 		<Panel className={className} divider={divider} grow={grow} padded={false}>
 			{/* Sticky, so the controls stay in reach however far down the Draft the
@@ -60,6 +82,7 @@ export function DraftPanel({
 				<PanelHeader meta={<SaveState status={status} />} title="Draft" />
 				<Toolbar editor={editor} />
 				{status.state === 'failed' ? <Notice>{status.failure}</Notice> : null}
+				{failure === null ? null : <Notice>{failure}</Notice>}
 			</div>
 
 			{/* Heading, subheading, and section-break styling is `.prose-draft` in
@@ -70,10 +93,29 @@ export function DraftPanel({
 			    point below the toolbar is then inside the editable, so a click in
 			    the gutter or in the space under the last line puts the caret in
 			    the prose instead of landing on a dead wrapper. */}
-			<EditorContent
-				className="prose-draft flex min-w-0 flex-auto flex-col [&_.ProseMirror]:flex-auto [&_.ProseMirror]:px-8 [&_.ProseMirror]:py-4 [&_.ProseMirror]:outline-none"
-				editor={editor}
-			/>
+			<div className="flex min-w-0 flex-auto">
+				<EditorContent
+					className="prose-draft flex min-w-0 flex-auto flex-col [&_.ProseMirror]:flex-auto [&_.ProseMirror]:px-8 [&_.ProseMirror]:py-4 [&_.ProseMirror]:outline-none"
+					editor={editor}
+				/>
+
+				{/* Only when there is something to draw, so a Draft with no accepted
+				    Notes keeps the full measure for its prose. */}
+				{notes.length === 0 ? null : (
+					// The side padding lives out here: a card is positioned against its
+					// column's padding box, so padding on the column itself would not
+					// hold it off the Panel's edge. No padding on top — a card's
+					// measured position already carries the editor's own.
+					<div className="w-[11rem] shrink-0 pr-3.5">
+						<MarginNotes
+							actions={noteActions}
+							className="h-full"
+							editor={editor}
+							notes={notes}
+						/>
+					</div>
+				)}
+			</div>
 		</Panel>
 	)
 }

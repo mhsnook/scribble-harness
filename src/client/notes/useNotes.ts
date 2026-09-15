@@ -3,32 +3,27 @@ import { useEffect, useState } from 'react'
 
 import type { BlockRow } from '../../shared/draft'
 import type { Note } from '../../shared/note'
-import {
-	type NotesQueue,
-	notesQueue,
-	type QueueView,
-	wholeQueue,
-} from '../../shared/notes-queue'
+import { type NotesLedger, notesLedger, owed } from '../../shared/notes-ledger'
 import type { ReviewDepth, Round } from '../../shared/review'
 import { toNote, toRound } from '../../shared/sync'
 import { useArticle } from '../lib/article'
 import { failureText } from '../lib/failure'
-import type { NoteActions } from './actions'
+import { type NoteActions, noteActions } from './actions'
 import { type AnchorNaming, anchorNaming } from './anchors'
 
 /** The Notes Panel's half of one Article Agent: live queries over the synced
  * collections, writes over RPC — `docs/sync.md`. */
 
 export type NotesHandle = {
-	queue: NotesQueue
-	/** Every Note, unfiltered — a Round's response draws the ones it named
-	 * whatever the queue is showing. */
+	ledger: NotesLedger
+	/** Every Note, in the order the Guide wrote them. A passage names its own
+	 * by id, so it reads this rather than the ledger's grouping. */
 	notes: readonly Note[]
 	rounds: readonly Round[]
 	loading: boolean
 	failure: string | null
-	view: QueueView
-	setView: (view: QueueView) => void
+	/** Notes the writer has to rule on or has agreed to and not resolved. */
+	owed: number
 	naming: AnchorNaming
 	actions: NoteActions
 	runReview: (prompt: string, depth: ReviewDepth) => void
@@ -39,7 +34,6 @@ export function useNotes(): NotesHandle {
 
 	const [blocks, setBlocks] = useState<BlockRow[]>([])
 	const [failure, setFailure] = useState<string | null>(null)
-	const [view, setView] = useState<QueueView>(wholeQueue)
 
 	// Ordered by `seq` in the query, the way the server orders the tables.
 	const noteRows = useLiveQuery(
@@ -80,38 +74,18 @@ export function useNotes(): NotesHandle {
 		}
 	}, [draft, ready, lastSettled])
 
-	/** The ruled row returns through the sync; only a failure needs handling. */
-	const rule = (what: string, write: () => Promise<Note>) => {
-		setFailure(null)
-		write().catch((error: unknown) => setFailure(failureText(what, error)))
-	}
+	const actions = noteActions(store, setFailure)
 
-	const actions: NoteActions = {
-		accept: (note) =>
-			rule('This Note was not accepted.', () =>
-				store.setNoteDisposition(note.id, 'accepted'),
-			),
-		decline: (note) =>
-			rule('This Note was not declined.', () =>
-				store.setNoteDisposition(note.id, 'declined'),
-			),
-		resolve: (note) =>
-			rule('This Note was not resolved.', () => store.resolveNote(note.id)),
-		restore: (note) =>
-			rule('This Note was not restored.', () => store.restoreNote(note.id)),
-	}
-
-	const queue = notesQueue(notes, view)
+	const ledger = notesLedger(notes, rounds)
 	const naming = anchorNaming(blocks)
 
 	return {
-		queue,
+		ledger,
 		notes,
 		rounds,
 		loading: !ready,
 		failure,
-		view,
-		setView,
+		owed: owed(ledger.counts),
 		naming,
 		actions,
 

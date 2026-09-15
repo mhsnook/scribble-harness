@@ -19,8 +19,46 @@ and then the Notes that passage produced. The prose carries the argument, so a
 Note can be short — roughly 15 to 35 words, because the writer has just read the
 case for it.
 
-The Notes Panel shows the same rows flattened into a queue. Ruling in either
-place is one write, because both draw the same rows.
+## The Panel shows one Round, and the ledger shows them all
+
+The Notes Panel works the way the Chat Panel works. An ask makes a Round the way
+a message makes a turn, and the Panel shows the newest one: its prose, and the
+Notes each passage produced. Asking again moves the Panel onto the Round it
+started, running and all. A picker in the header reads an earlier Round.
+
+The other view is the **ledger** — every Note on the Article, newest Round
+first, in a drawer over the Round the Panel is showing. It is the sibling of the
+Offer ledger in `chat.md`, down to leaving the composer uncovered.
+
+The ledger grades rather than filters. Nothing is hidden, and how much room a
+Note takes says how much is left to do with it:
+
+- **proposed** — a card, with accept and decline.
+- **accepted** and **resolved** — one line, opening back into the card.
+- **declined** — a count per Round, opening into lines.
+
+Ruling in the Round, in the ledger, or beside the prose is one write, because
+all three draw the same rows.
+
+## Accepted Notes are drawn beside the prose
+
+An accepted Note pointing at paragraphs also appears in the Draft's margin,
+level with the first paragraph it names, with a rule down that paragraph's left
+— issue #81, screen 3(d). It is there whether the Notes Panel is open or not,
+because what the writer still owes the piece belongs next to the piece.
+
+Two cards that would overlap are pushed down rather than drawn over each other,
+so a card can sit below its own paragraph. They are placed by measuring, since
+the prose and the margin are columns of different lengths.
+
+**The rule is drawn, never stored.** It is a ProseMirror decoration, which
+`docs/adr/0003` reserves for exactly this: something drawn with the prose and
+kept out of it, so it never syncs and never reaches the Final. Reading the
+document's own children to place it also settles #54's trap, where a bare
+`[data-block-id]` matches a paragraph nested in a list item.
+
+A Note about the whole piece has no paragraph to sit beside and stays in the
+Panel.
 
 ## Depth
 
@@ -102,5 +140,5 @@ lands whole. The streaming version is `streamObject` over the Agent's `onRequest
 and it costs less than it looks, because the Round is durable — the wait is a row rather than
 a call held open.
 
-Also open: scoping a Review to one Section (#78), notes drawn beside the prose (#81), the
-last-save gap (#82), and grouping the queue by Section (#83).
+Also open: scoping a Review to one Section (#78), the last-save gap (#82), and grouping
+the ledger by Section (#83).

@@ -2,6 +2,7 @@ import { getSchema } from '@tiptap/core'
 import UniqueID from '@tiptap/extension-unique-id'
 import StarterKit from '@tiptap/starter-kit'
 
+import { AnchoredBlocks } from './anchored'
 import { BLOCK_ID_ATTR, mintBlockId, topLevelTypes } from './blocks'
 
 /** What the document is made of. `UniqueID` is left out because it is
@@ -17,6 +18,9 @@ export const BLOCK_TYPES = topLevelTypes(getSchema(schemaExtensions))
  */
 export const draftExtensions = [
 	...schemaExtensions,
+	// Draws over the document without entering it — `anchored.ts`. Left out of
+	// `schemaExtensions` because it adds no node, mark or attribute.
+	AnchoredBlocks,
 	UniqueID.configure({
 		// Renders as `data-block-id`.
 		attributeName: BLOCK_ID_ATTR,

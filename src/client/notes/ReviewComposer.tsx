@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 
 import { type ReviewDepth, reviewDepths } from '../../shared/review'
 import { Button, ButtonGroup } from '../components/Button'
@@ -13,10 +13,12 @@ export interface ReviewComposerProps {
 	/** A Review is in flight, so a second ask would be refused. */
 	running: boolean
 	onRun: (prompt: string, depth: ReviewDepth) => void
+	/** Controls left of `run review` — the ledger toggle. */
+	leading?: ReactNode
 	className?: string
 }
 
-export function ReviewComposer({ skills, running, onRun }: ReviewComposerProps) {
+export function ReviewComposer({ skills, running, onRun, leading }: ReviewComposerProps) {
 	const [prompt, setPrompt] = useState('')
 	// Thorough by default. A quick pass is the one to ask for, not the one to
 	// get by accident.
@@ -69,6 +71,8 @@ export function ReviewComposer({ skills, running, onRun }: ReviewComposerProps) 
 			<p className="label-meta text-faint">each ask starts a new review</p>
 
 			<div className="flex flex-wrap items-center gap-2">
+				{leading}
+
 				<ButtonGroup label="How hard the Review works">
 					{reviewDepths.map((one) => (
 						<Button

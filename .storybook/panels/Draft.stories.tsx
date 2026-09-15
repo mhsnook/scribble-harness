@@ -6,6 +6,7 @@ import { Frame, FrameBody } from '../../src/client/components/Frame'
 import { ArticleDraftPanel } from '../../src/client/draft/ArticleDraftPanel'
 import { ArticleProvider, type DraftStore } from '../../src/client/lib/article'
 import type { BlockRow } from '../../src/shared/draft'
+import type { Note } from '../../src/shared/note'
 import { ARTICLE_TITLE } from '../mock/content'
 import { memoryArticle, memoryDraftStore } from '../mock/MockArticle'
 
@@ -36,12 +37,19 @@ const SEEDED: BlockRow[] = [
  * behind them should not be rebuilt on every keystroke. */
 const others = memoryArticle()
 
-/** Only the Draft's half of the Article seam; nothing here reads the Plan. */
-function DraftScreen({ store }: { store: DraftStore }) {
+/** Only the Draft's half of the Article seam; nothing here reads the Plan.
+ * `seam` is given where a story needs Notes in the margin. */
+function DraftScreen({
+	store,
+	seam = others,
+}: {
+	store: DraftStore
+	seam?: typeof others
+}) {
 	return (
 		<ArticleProvider
 			value={{
-				...others,
+				...seam,
 				draft: store,
 				plan: { plan: null, edit: () => null, refusal: null, rejected: null },
 			}}
@@ -213,5 +221,72 @@ export const ClickAnywhere: Story = {
 		})
 		await userEvent.keyboard('Clicked low, typed anyway.')
 		await expect(canvas.getByText('Clicked low, typed anyway.')).toBeVisible()
+	},
+}
+
+const accepted = (id: string, blockIds: string[], body: string): Note => ({
+	id,
+	roundId: 'round-1',
+	type: 'repetition',
+	anchor: { kind: 'blocks', blockIds },
+	body,
+	disposition: 'accepted',
+	createdAt: 0,
+	decidedAt: 1,
+})
+
+/** Built once, for the same reason `others` is. */
+const withNotes = memoryArticle({
+	notes: [
+		accepted(
+			'n1',
+			['b1'],
+			'The vote is the lead, so say what changed rather than that it happened.',
+		),
+		accepted(
+			'n2',
+			['b2'],
+			'Attribute the £2.4m, or say plainly that nobody has published it.',
+		),
+	],
+})
+
+export const MarginNotes: Story = {
+	name: 'Accepted Notes beside the prose',
+	render: () => (
+		<DraftScreen seam={withNotes} store={memoryDraftStore({ seed: SEEDED })} />
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement)
+		await waitFor(() => expect(surface(canvasElement)).toBeInTheDocument())
+
+		// Each Note sits against the paragraph it points at, and the paragraph
+		// carries the rule that says so.
+		await waitFor(() => expect(canvas.getByText(/The vote is the lead/)).toBeVisible())
+
+		const anchored = canvasElement.querySelectorAll('.ProseMirror > .is-anchored')
+		await expect(anchored.length).toBe(2)
+
+		// The point of the whole thing: a card sits level with the paragraph it is
+		// about. ¶1 is the second row the store holds and the first in the Draft,
+		// so this also holds that placement reads document order, not row order.
+		const top = (el: Element | null) => el?.getBoundingClientRect().top ?? 0
+		const paragraphs = canvasElement.querySelectorAll('.ProseMirror > p')
+		const first = canvas.getByText(/The vote is the lead/).closest('article')
+		const second = canvas.getByText(/Attribute the £2\.4m/).closest('article')
+
+		await expect(Math.abs(top(first) - top(paragraphs[0]))).toBeLessThan(4)
+
+		// The second is pushed down off its own paragraph only because the first
+		// card is taller than the gap between the two paragraphs.
+		await expect(top(second)).toBeGreaterThanOrEqual(top(paragraphs[1]) - 4)
+		await expect(top(first)).toBeLessThan(top(second))
+
+		// The rule is drawn, never stored: it reaches the writer's eye and not
+		// their document — `docs/adr/0003`.
+		await expect(
+			canvasElement.querySelector('.ProseMirror')?.innerHTML.includes('is-anchored'),
+		).toBe(true)
+		await expect(JSON.stringify(SEEDED).includes('is-anchored')).toBe(false)
 	},
 }

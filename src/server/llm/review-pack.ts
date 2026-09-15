@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai'
 
 import { type BlockRow, blockOrdinals, blockText } from '../../shared/draft'
-import type { Note } from '../../shared/note'
+import type { Note, NoteAnchor } from '../../shared/note'
 import type { Plan } from '../../shared/plan'
 import type { ReviewDepth } from '../../shared/review'
 import { judgeAgainstThePlan, planMessage } from './prompt'
@@ -38,12 +38,19 @@ const reviewerRules = [
 	'remind them of the point rather than restate it. Give a part no Notes at all where the prose',
 	'is doing framing rather than landing on a line.',
 	'',
-	'Anchor every Note as tightly as the observation allows, and name ids rather than numbers:',
-	'{"kind":"blocks","blockIds":[...]} for one paragraph or a run of them, {"kind":"section",',
-	'"nodeId":"..."} for a Section of the Plan, and {"kind":"article"} where the point is about the',
-	'whole piece and lands nowhere in particular. Use only ids you were given below. A run of',
-	'Blocks means the span from the first to the last, so name both ends rather than every',
-	'paragraph between them.',
+	'A Note anchors to the text or to the whole piece, and there is nothing in between.',
+	'',
+	'{"kind":"blocks","blockIds":[...]} names one paragraph or a run of them. Use only the tags',
+	'bracketed in the Draft below, copied exactly. A run means the span from its first paragraph',
+	'to its last, so name both ends rather than every paragraph between them.',
+	'',
+	'{"kind":"article"} is for a point that lands nowhere in particular: a Section the Plan asks',
+	'for and the Draft never writes, a piece that reads as two pieces, anything true of the whole.',
+	'',
+	'Anchor to the text wherever the text exists. A Section the Draft does write is judged through',
+	'its paragraphs, so name them and not the Section - including where the point is that the',
+	'paragraphs and the Plan disagree. Where one point covers two stretches that do not touch,',
+	'write two Notes rather than one loose one.',
 	'',
 	"A Note's type is one or two words saying what sort of observation it is - structure,",
 	'tone drift, citations, repetition, budget, pacing, plan divergence, and whatever else the',
@@ -72,8 +79,66 @@ export function reviewSystemPrompt(depth: ReviewDepth): string {
 	return [reviewerRules, '', depthRules[depth]].join('\n')
 }
 
+/** Where a tag starts. Six hex characters over one Draft is a collision about
+ * as often as never; `blockTags` checks rather than trusting that. */
+const TAG_LENGTH = 6
+
+export type BlockTags = {
+	/** Block id → the tag the model is shown. */
+	tagOf: ReadonlyMap<string, string>
+	/** Tag → Block id, for reading an anchor back. */
+	idOf: ReadonlyMap<string, string>
+}
+
 /**
- * The Draft, numbered for the writer and identified for the anchors.
+ * The short name the model copies instead of a Block id.
+ *
+ * A Block id is a UUID, and every anchor carries one verbatim — 36 characters
+ * the model has to transcribe with no error to anchor a Note to a paragraph.
+ * A tail of six is the same work a git short hash does.
+ *
+ * **Derived from the Block ids alone**, because the pack computes these to
+ * write the prompt and `writeReview` computes them again to read the answer.
+ * Two calls over the same Blocks have to agree, so nothing else may reach in
+ * here — not the ordinal, not the text, not the Round.
+ *
+ * The tail grows until every Block has its own tag, so a tag is unique within
+ * the one Review that uses it, which is all it has to be.
+ */
+export function blockTags(blockIds: readonly string[]): BlockTags {
+	const longest = blockIds.reduce((most, id) => Math.max(most, id.length), 0)
+
+	for (let length = TAG_LENGTH; length < longest; length += 1) {
+		const idOf = new Map(blockIds.map((id) => [id.slice(-length), id]))
+		if (idOf.size === blockIds.length) return withTags(idOf)
+	}
+
+	// Every id in full. Ids are unique, so this always is.
+	return withTags(new Map(blockIds.map((id) => [id, id])))
+}
+
+function withTags(idOf: Map<string, string>): BlockTags {
+	return { idOf, tagOf: new Map([...idOf].map(([tag, id]) => [id, tag])) }
+}
+
+/**
+ * One anchor as the model wrote it, with its tags turned back into Block ids.
+ *
+ * A name that is not a tag is left as it is rather than dropped, so an id the
+ * model invented reaches `settleAnchor` and is refused there, in the one place
+ * that reports it. A full Block id survives for the same reason.
+ */
+export function expandAnchor(anchor: NoteAnchor, tags: BlockTags): NoteAnchor {
+	if (anchor.kind !== 'blocks') return anchor
+
+	return {
+		kind: 'blocks',
+		blockIds: anchor.blockIds.map((named) => tags.idOf.get(named) ?? named),
+	}
+}
+
+/**
+ * The Draft, numbered for the writer and tagged for the anchors.
  *
  * Both are needed and neither replaces the other: the writer reads "¶3", and an
  * anchor stores the Block id, which survives the paragraph moving. The ordinal
@@ -86,19 +151,20 @@ export function reviewSystemPrompt(depth: ReviewDepth): string {
  */
 function draftMessage(blocks: readonly BlockRow[]): ModelMessage {
 	const ordinals = blockOrdinals(blocks)
+	const tags = blockTags(blocks.map((block) => block.id))
 
 	const lines = blocks.map((block) => {
 		const text = blockText(block.json)
 		const said = text === '' ? `(${block.json.type}, no text)` : text
 
-		return `¶${ordinals.get(block.id)} [${block.id}] ${block.json.type}: ${said}`
+		return `¶${ordinals.get(block.id)} [${tags.tagOf.get(block.id)}] ${block.json.type}: ${said}`
 	})
 
 	return {
 		role: 'user',
 		content: [
 			'The Draft as it stands now, one line per paragraph. The number is what the writer',
-			'reads and the bracketed id is what an anchor names.',
+			'reads and the bracketed tag is what an anchor names.',
 			'',
 			...lines,
 		].join('\n'),

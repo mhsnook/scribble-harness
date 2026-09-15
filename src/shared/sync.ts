@@ -1,7 +1,7 @@
 import { definePartyCollection } from 'party-db'
 import { z } from 'zod'
 
-import { type Note, type NoteAnchor, noteDispositions } from './note'
+import { type Note, noteDispositions, readAnchor } from './note'
 import { dispositions, type Offer, offerFingerprint } from './offer'
 import { referenceTypeSchema, type Source } from './plan/schema'
 import { reviewDepths, type Round, type RoundPassage, roundStates } from './review'
@@ -143,7 +143,7 @@ export function toNote(row: NoteRow): Note {
 		id: row.id,
 		roundId: row.round_id,
 		type: row.type,
-		anchor: JSON.parse(row.anchor) as NoteAnchor,
+		anchor: readAnchor(row.anchor),
 		...(row.label === null ? {} : { label: row.label }),
 		body: row.body,
 		disposition: row.disposition,

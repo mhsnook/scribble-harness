@@ -13,9 +13,9 @@ export const noteRulingSchema = z.enum(['accepted', 'declined'])
 export type NoteRuling = z.infer<typeof noteRulingSchema>
 
 /**
- * Where a Note points. A Block anchor is a run rather than one id, because
- * `docs/adr/0003` anchors at paragraph range: the target is the span from the
- * first Block to the last.
+ * Where a Note points: at the text, or at the whole piece. A Block anchor is a
+ * run rather than one id, because `docs/adr/0003` anchors at paragraph range —
+ * the target is the span from the first Block to the last.
  *
  * **A Block id here means a Block**, a direct child of the document. `UniqueID`
  * also mints ids for paragraphs nested in a list item, so anything asking "is
@@ -23,12 +23,26 @@ export type NoteRuling = z.infer<typeof noteRulingSchema>
  */
 export const noteAnchorSchema = z.discriminatedUnion('kind', [
 	z.strictObject({ kind: z.literal('article') }),
-	z.strictObject({ kind: z.literal('section'), nodeId: idSchema }),
 	z.strictObject({ kind: z.literal('blocks'), blockIds: z.array(idSchema).min(1) }),
 ])
 export type NoteAnchor = z.infer<typeof noteAnchorSchema>
 
 export const wholePiece: NoteAnchor = { kind: 'article' }
+
+/**
+ * A stored anchor, as the app reads it back. Validated rather than cast: the
+ * column holds text written by an older build, and a Note anchored to a Section
+ * before that kind was dropped still has to open.
+ */
+export function readAnchor(stored: string): NoteAnchor {
+	try {
+		const read = noteAnchorSchema.safeParse(JSON.parse(stored))
+
+		return read.success ? read.data : wholePiece
+	} catch {
+		return wholePiece
+	}
+}
 
 /** What the Guide writes, against the row fields the Article Agent adds.
  * `type` is a free string because `context.md` calls the list illustrative; the
@@ -52,8 +66,8 @@ export type Note = NoteContent & {
 }
 
 /**
- * The anchor as it will be stored, given what the Article and the Draft carry.
- * `blockIds` is the Draft in reading order, since a run is settled by position.
+ * The anchor as it will be stored, given what the Draft carries. `blockIds` is
+ * the Draft in reading order, since a run is settled by position.
  *
  * Runs once, when the Note is written. A run is stored as every Block in its
  * span rather than the ends the model named, so a Block deleted later drops
@@ -62,13 +76,9 @@ export type Note = NoteContent & {
  */
 export function settleAnchor(
 	anchor: NoteAnchor,
-	known: { nodeIds: ReadonlySet<string>; blockIds: readonly string[] },
+	known: { blockIds: readonly string[] },
 ): NoteAnchor {
 	if (anchor.kind === 'article') return anchor
-
-	if (anchor.kind === 'section') {
-		return known.nodeIds.has(anchor.nodeId) ? anchor : wholePiece
-	}
 
 	const at = new Map(known.blockIds.map((id, index) => [id, index]))
 	const indices = anchor.blockIds

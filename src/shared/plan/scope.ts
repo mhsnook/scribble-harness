@@ -54,28 +54,6 @@ export function resolveNodeScope(
 	return resolveScope([house, plan, ...path])
 }
 
-/**
- * Every Section id the Plan carries, at any depth.
- *
- * Here rather than wherever a caller needs it, because the Plan's shape is
- * `src/shared/plan`'s to know: the Article Agent settling a Note's anchor and
- * the schema's own uniqueness check are both asking this question, and neither
- * should re-learn how the Outline nests to answer it.
- */
-export function sectionIds(plan: Plan): Set<string> {
-	const ids = new Set<string>()
-
-	const walk = (nodes: readonly OutlineNode[]) => {
-		for (const node of nodes) {
-			ids.add(node.id)
-			walk(node.children)
-		}
-	}
-	walk(plan.outline)
-
-	return ids
-}
-
 /** The chain of Sections from the outermost down to `nodeId`, or null when
  * no node carries that id. The node itself is the last element. */
 export function findNodePath(

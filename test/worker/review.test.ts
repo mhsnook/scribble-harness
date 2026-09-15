@@ -1,6 +1,7 @@
 import { MockLanguageModelV3 } from 'ai/test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import { blockTags, expandAnchor } from '../../src/server/llm/review-pack'
 import { makeNode, makePlan } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
 import { answers, ask, response, settled } from './review-fixtures'
@@ -58,6 +59,21 @@ const blocks = [
 	},
 	{
 		id: 'b2',
+		ord: 2,
+		json: { type: 'paragraph', content: [{ type: 'text', text: 'Two.' }] },
+	},
+]
+
+/** Ids the length the app really mints, so a tag is a tail rather than the
+ * whole thing. */
+const tagged = [
+	{
+		id: '5f1c0f6a-1d3e-4a9b-9c2f-8d41b0e7c2a5',
+		ord: 1,
+		json: { type: 'paragraph', content: [{ type: 'text', text: 'One.' }] },
+	},
+	{
+		id: '7b2d1a4c-8e6f-4b0d-9a3e-1c9f60d3ba87',
 		ord: 2,
 		json: { type: 'paragraph', content: [{ type: 'text', text: 'Two.' }] },
 	},
@@ -127,22 +143,65 @@ describe('running a Review', () => {
 		expect(notes[0].anchor).toEqual({ kind: 'article' })
 	})
 
-	it('settles an anchor against the Plan the Review was shown, not the stored one', async () => {
+	it('shows the model the Plan the client sent, not the stored one', async () => {
+		const model = answers(response({ kind: 'article' }))
+
 		await openAgentSocket('review-newer-plan')
-		await scriptReview(
-			'review-newer-plan',
-			answers(response({ kind: 'section', nodeId: 'n1' })),
-		)
+		await scriptReview('review-newer-plan', model)
 
 		// The client holds a Section its `setState` has not landed yet, and sends
-		// it with the Review — §3, rule 1. Checking the anchor against state would
-		// call that Section gone and drop the Note to the whole piece.
+		// it with the Review — §3, rule 1. Reading state instead would judge the
+		// Draft against a Plan the writer has already moved past.
 		await inAgent('review-newer-plan', (agent) => agent.startReview({ ...ask, plan }))
-
 		await settled('review-newer-plan')
-		const notes = await inAgent('review-newer-plan', (agent) => agent.listNotes())
 
-		expect(notes[0].anchor).toEqual({ kind: 'section', nodeId: 'n1' })
+		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).toContain('The permit queue')
+	})
+
+	it('anchors a Note to the paragraph whose tag the model copied', async () => {
+		// Read through `blockTags` rather than sliced here, so the test fails if
+		// the pack and the reader ever stop agreeing on what a tag is.
+		const tag = blockTags(tagged.map((block) => block.id)).tagOf.get(tagged[1].id)
+		const model = answers(response({ kind: 'blocks', blockIds: [tag ?? ''] }))
+
+		await openAgentSocket('review-tags')
+		await scriptReview('review-tags', model)
+		await inAgent('review-tags', (agent) => {
+			agent.saveBlocks({ blocks: tagged, removed: [] })
+			agent.startReview(ask)
+		})
+
+		await settled('review-tags')
+		const notes = await inAgent('review-tags', (agent) => agent.listNotes())
+
+		// The model never sees the id, only the tail the Draft bracketed for it.
+		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).not.toContain(tagged[1].id)
+		expect(notes[0].anchor).toEqual({ kind: 'blocks', blockIds: [tagged[1].id] })
+	})
+
+	it('says in the log which Block a lost anchor named', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+		await openAgentSocket('review-warns')
+		await scriptReview(
+			'review-warns',
+			answers(response({ kind: 'blocks', blockIds: ['no-such-tag'] })),
+		)
+		await inAgent('review-warns', (agent) => {
+			agent.saveBlocks({ blocks: tagged, removed: [] })
+			agent.startReview(ask)
+		})
+		await settled('review-warns')
+
+		// A Note the model addressed to a paragraph and one it addressed to the
+		// whole piece are the same card on screen, so the log is where the two are
+		// told apart.
+		const said = warn.mock.calls.map((call) => String(call[0])).join('\n')
+
+		expect(said).toContain('no-such-tag')
+		expect(said).toContain('the whole piece')
+
+		warn.mockRestore()
 	})
 
 	it('records a failure on the Round, where the writer will find it', async () => {
@@ -320,5 +379,47 @@ describe('ruling on a Note', () => {
 		await expect(
 			inAgent('note-missing', (agent) => agent.setNoteDisposition('nope', 'accepted')),
 		).rejects.toThrow(/No Note carries the id nope/)
+	})
+})
+
+describe('the tag the model names a Block by', () => {
+	const ids = [
+		'5f1c0f6a-1d3e-4a9b-9c2f-aaaaaaaaaaaa',
+		'7b2d1a4c-8e6f-4b0d-9a3e-bbbbbbbbbbbb',
+	]
+
+	it('is the tail of the id, so the model copies six characters and not thirty-six', () => {
+		const tags = blockTags(ids)
+
+		expect(tags.tagOf.get(ids[0])).toBe('aaaaaa')
+		expect(tags.idOf.get('aaaaaa')).toBe(ids[0])
+	})
+
+	it('grows until two Blocks cannot share one', () => {
+		const shared = ['aaa-1-tailtail', 'bbb-2-tailtail']
+		const tags = blockTags(shared)
+
+		expect(new Set(tags.tagOf.values()).size).toBe(2)
+		expect(tags.idOf.get(tags.tagOf.get(shared[0]) ?? '')).toBe(shared[0])
+	})
+
+	it('names an id in full where it is shorter than a tag', () => {
+		expect(blockTags(['b1', 'b2']).tagOf.get('b1')).toBe('b1')
+	})
+
+	it('reads an anchor back as Block ids', () => {
+		expect(
+			expandAnchor({ kind: 'blocks', blockIds: ['bbbbbb'] }, blockTags(ids)),
+		).toEqual({
+			kind: 'blocks',
+			blockIds: [ids[1]],
+		})
+	})
+
+	it('leaves a name that is no tag alone, for settleAnchor to refuse', () => {
+		expect(expandAnchor({ kind: 'blocks', blockIds: ['¶2'] }, blockTags(ids))).toEqual({
+			kind: 'blocks',
+			blockIds: ['¶2'],
+		})
 	})
 })

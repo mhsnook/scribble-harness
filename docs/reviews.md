@@ -30,19 +30,39 @@ steering.
 
 ## Anchors
 
-A Note points at the whole piece, one Section, or a run of Blocks. A run means
-the span from its first Block to its last; the Guide names the ends, and the
-stored anchor carries every Block in the span.
+A Note points at a run of Blocks or at the whole piece, and at nothing in
+between. A run means the span from its first Block to its last; the Guide names
+the ends, and the stored anchor carries every Block in the span.
+
+**A Note does not point at a Section.** A Section the Draft writes is judged
+through its paragraphs, so a point about it anchors to them — including the
+point that the paragraphs and the Plan disagree. Where the point covers two
+stretches that do not touch, the Guide writes two Notes. A Section the Draft
+never writes is a point about the whole piece, because there is no text to
+stand under it. This keeps every anchor resolvable against the Draft alone,
+which is what lets a Note be drawn beside the prose it is about (#81).
 
 Anchors are **stored as ids and read as positions**: the record holds a Block id,
 and the card shows "¶3". The ids survive the prose moving; the positions do not.
 
-An anchor is settled once, when the Note is written, against the Plan and Draft
-the model was shown. One naming something that was never there falls back to the
-whole piece. A Block deleted later drops out of the run and the rest still hold,
-so a Note on ¶3–¶5 reads as ¶3–¶4 once ¶5 goes. A Note whose every Block is
-gone, or whose Section is, reads as orphaned — the writer may undo the deletion,
-and the Note is still theirs to resolve.
+An anchor is settled once, when the Note is written, against the Draft the model
+was shown. One naming a Block that was never there falls back to the whole
+piece. A Block deleted later drops out of the run and the rest still hold, so a
+Note on ¶3–¶5 reads as ¶3–¶4 once ¶5 goes. A Note whose every Block is gone
+reads as orphaned — the writer may undo the deletion, and the Note is still
+theirs to resolve.
+
+### The Guide names a Block by a tag, not by its id
+
+A Block id is a UUID, and an anchor has to carry one with no transcription
+error. The Draft in the prompt brackets a six-character tail instead, grown
+until no two Blocks in that Draft share one, and `writeReview` reads the tags
+back. The model copies six characters rather than thirty-six.
+
+A Note the Guide addressed to a paragraph and a Note it addressed to the whole
+piece draw the same card, so a lost anchor is invisible on screen. The Article
+Agent logs one warning naming the Blocks the Draft would not take, which is how
+a Review that keeps missing is told apart from one that is answering broadly.
 
 ## Dispositions
 
@@ -87,9 +107,9 @@ Second, one Review runs at a time per Article. A partial unique index allows at 
 when two calls interleave across an `await` (#9). A field could not do this: in-memory state
 does not survive hibernation, and a check-then-write races itself.
 
-A Note's anchor is settled once, at write time, against the Plan and Draft the model was
-shown. An anchor the client cannot resolve reads as the whole piece and breaks nothing, so we
-take the write and settle the anchor rather than refusing the Note (issue #42).
+A Note's anchor is settled once, at write time, against the Draft the model was shown. An
+anchor the client cannot resolve reads as the whole piece and breaks nothing, so we take the
+write and settle the anchor rather than refusing the Note (issue #42).
 
 ## Not built
 

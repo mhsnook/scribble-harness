@@ -102,7 +102,7 @@ export function useNotes(): NotesHandle {
 	}
 
 	const queue = notesQueue(notes, view)
-	const naming = anchorNaming(connection.plan, blocks)
+	const naming = anchorNaming(blocks)
 
 	return {
 		queue,

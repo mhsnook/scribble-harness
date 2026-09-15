@@ -23,6 +23,7 @@ import {
 	alreadyRuled,
 	missingNote,
 	type Note,
+	type NoteAnchor,
 	type NoteContent,
 	type NoteDisposition,
 	type NoteRuling,
@@ -49,7 +50,6 @@ import {
 	planSchema,
 	type ReferenceContent,
 	referenceContentSchema,
-	sectionIds,
 } from '../shared/plan'
 import {
 	type ReviewOutput,
@@ -73,7 +73,12 @@ import {
 import { chatTurn } from './llm/chat-turn'
 import { model } from './llm/model'
 import { reviewTurn } from './llm/review'
-import type { ReviewPack } from './llm/review-pack'
+import {
+	type BlockTags,
+	blockTags,
+	expandAnchor,
+	type ReviewPack,
+} from './llm/review-pack'
 import { webSearch, type WebSearch } from './llm/search'
 
 /** One Block row as SQLite returns it. `this.sql` asserts the row type rather
@@ -724,15 +729,13 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		output: ReviewOutput,
 		pack: ReviewPack,
 	): Promise<void> {
-		const known = {
-			nodeIds: sectionIds(pack.plan),
-			blockIds: pack.blocks.map((block) => block.id),
-		}
+		const blockIds = pack.blocks.map((block) => block.id)
+		const tags = blockTags(blockIds)
 
 		const notes: NoteRow[] = []
 		const passages = output.passages.map((passage): RoundPassage => {
 			const noteIds = passage.notes.map((content) => {
-				const note = noteRow(round.id, content, known)
+				const note = noteRow(round.id, content, tags, { blockIds })
 				notes.push(note)
 
 				return note.id
@@ -877,19 +880,58 @@ function offerRow(content: ReferenceContent): OfferRow {
 function noteRow(
 	roundId: string,
 	content: NoteContent,
-	known: { nodeIds: ReadonlySet<string>; blockIds: readonly string[] },
+	tags: BlockTags,
+	known: { blockIds: readonly string[] },
 ): NoteRow {
+	const named = expandAnchor(content.anchor, tags)
+	const settled = settleAnchor(named, known)
+
+	reportLostAnchor(roundId, content.body, named, settled)
+
 	return {
 		id: crypto.randomUUID(),
 		round_id: roundId,
 		type: content.type,
-		anchor: JSON.stringify(settleAnchor(content.anchor, known)),
+		anchor: JSON.stringify(settled),
 		label: content.label ?? null,
 		body: content.body,
 		disposition: 'proposed',
 		created_at: Date.now(),
 		decided_at: null,
 	}
+}
+
+/**
+ * Says so when a Note meant for a paragraph does not reach one.
+ *
+ * The writer sees the same card either way — a Note the model addressed to the
+ * whole piece and a Note whose tags the Draft would not take both read "whole
+ * piece" — so the log is the only place the two are told apart. It is why the
+ * ids are in the message: a Review that keeps losing anchors is either a model
+ * mistyping tags or a prompt letting it off the hook, and which one decides
+ * what to fix.
+ */
+function reportLostAnchor(
+	roundId: string,
+	body: string,
+	named: NoteAnchor,
+	settled: NoteAnchor,
+): void {
+	if (named.kind !== 'blocks') return
+
+	// A run settles to every Block in its span, so what the model named and the
+	// span did not keep is exactly what the Draft did not carry.
+	const kept = settled.kind === 'blocks' ? settled.blockIds : []
+	const lost = named.blockIds.filter((id) => !kept.includes(id))
+
+	if (lost.length === 0) return
+
+	const landed = settled.kind === 'blocks' ? 'the rest of the run' : 'the whole piece'
+
+	console.warn(
+		`Round ${roundId}: no Block in the Draft answers to ${lost.join(', ')}. ` +
+			`The Note is anchored to ${landed} instead, and reads: ${body}`,
+	)
 }
 
 /** The columns that settle a Round, as one update value. */

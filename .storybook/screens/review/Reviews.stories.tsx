@@ -124,8 +124,14 @@ export const G_RunReview: Story = {
 		await waitFor(() => expect(canvas.getByText(/Reading the Draft/)).toBeVisible())
 		await expect(canvas.getByText(/you asked/)).toBeVisible()
 
-		// And the Notes arrive without the writer asking again.
-		await waitFor(() => expect(canvas.getByText(/Strongest version/)).toBeVisible(), {
+		// And the Notes arrive without the writer asking again. Read inside the
+		// Round rather than across the Panel: the ledger stays mounted when it is
+		// closed, so every Note is in the DOM twice.
+		const round = within(
+			canvasElement.querySelector('[data-panel] [data-scroller]') as HTMLElement,
+		)
+
+		await waitFor(() => expect(round.getByText(/Strongest version/)).toBeVisible(), {
 			timeout: 5_000,
 		})
 	},

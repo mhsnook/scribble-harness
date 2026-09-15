@@ -8,8 +8,8 @@ import { MockNotes } from './FullReviewScreen'
 
 /**
  * 4(b) — Back in the Draft with the Review's Notes in the Panel beside it. The
- * written response is flattened into a queue here: the reasoning has been read,
- * and what is left is the list of things the writer still owes the piece.
+ * Panel is still on the Round it ran, the way the Chat is still on its last
+ * turn; `all notes` opens the whole record over it.
  */
 export function ReviewRailScreen() {
 	return (

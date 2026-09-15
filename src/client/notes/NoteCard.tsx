@@ -4,13 +4,13 @@ import { cx } from '../lib/cx'
 import type { NoteActions } from './actions'
 import { type AnchorNaming, anchorLabel } from './anchors'
 
-/** One Note, drawn the same way in the queue and in a Review's response. */
+/** One Note, drawn the same way wherever it appears. */
 
 export interface NoteCardProps {
 	note: Note
 	naming: AnchorNaming
 	actions: NoteActions
-	/** The queue's running number: "01". A response numbers nothing. */
+	/** The queue's running number: "01". A Round's response numbers nothing. */
 	ordinal?: number
 	className?: string
 }
@@ -55,6 +55,40 @@ export function NoteCard({ note, naming, actions, ordinal, className }: NoteCard
 				<Controls actions={actions} note={note} />
 			</div>
 		</article>
+	)
+}
+
+export interface NoteLineProps {
+	note: Note
+	naming: AnchorNaming
+	/** Opens the full card in its place. */
+	onOpen: () => void
+	className?: string
+}
+
+/**
+ * A Note the writer has already ruled on, as one line: where it points, and as
+ * much of the body as the column fits.
+ *
+ * The line is the whole click target rather than carrying its own controls. A
+ * settled Note has one thing left to do to it — undo — and offering that on
+ * every line would put the rarest action in front of the writer most often.
+ */
+export function NoteLine({ note, naming, onOpen, className }: NoteLineProps) {
+	const anchor = anchorLabel(note.anchor, naming)
+
+	return (
+		<button
+			className={cx(
+				'flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-hush',
+				className,
+			)}
+			onClick={onOpen}
+			type="button"
+		>
+			<span className="label-meta shrink-0">{anchor.text}</span>
+			<span className="min-w-0 flex-1 truncate text-12 text-muted">{note.body}</span>
+		</button>
 	)
 }
 

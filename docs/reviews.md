@@ -19,8 +19,26 @@ and then the Notes that passage produced. The prose carries the argument, so a
 Note can be short — roughly 15 to 35 words, because the writer has just read the
 case for it.
 
-The Notes Panel shows the same rows flattened into a queue. Ruling in either
-place is one write, because both draw the same rows.
+## The Panel shows one Round, and the ledger shows them all
+
+The Notes Panel works the way the Chat Panel works. An ask makes a Round the way
+a message makes a turn, and the Panel shows the newest one: its prose, and the
+Notes each passage produced. Asking again moves the Panel onto the Round it
+started, running and all. A picker in the header reads an earlier Round.
+
+The other view is the **ledger** — every Note on the Article, newest Round
+first, in a drawer over the Round the Panel is showing. It is the sibling of the
+Offer ledger in `chat.md`, down to leaving the composer uncovered.
+
+The ledger grades rather than filters. Nothing is hidden, and how much room a
+Note takes says how much is left to do with it:
+
+- **proposed** — a card, with accept and decline.
+- **accepted** and **resolved** — one line, opening back into the card.
+- **declined** — a count per Round, opening into lines.
+
+Ruling in the Round, in the ledger, or beside the prose is one write, because
+all three draw the same rows.
 
 ## Depth
 

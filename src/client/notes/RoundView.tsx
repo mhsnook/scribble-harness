@@ -6,81 +6,69 @@ import { Button } from '../components/Button'
 import { TextField } from '../components/Field'
 import { MetaLabel } from '../components/MetaLabel'
 import { Notice } from '../components/Notice'
-import { Panel, type PanelProps } from '../components/Panel'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
 import { NoteCard } from './NoteCard'
 
 /**
- * One Review, read whole — the Notes Panel showing a Round's response instead
- * of the queue. Same column, same width rules; close the other Panels to give
- * it the window.
+ * One Round, read whole: what the writer asked, the Guide's prose, and the
+ * Notes each passage produced.
  *
- * Ruling here and ruling in the queue are one write, because both draw the same
- * rows.
+ * This is the Notes Panel's own view, not a place it goes — the Panel shows the
+ * newest Round the way the Chat shows the latest turn, and the picker in this
+ * header is how the writer reads an earlier one. The whole record is the
+ * ledger, which opens over this.
  */
 
-export interface ReviewPanelProps {
+export interface RoundViewProps {
 	round: Round
 	/** Every Note on the Article. A passage names its own by id. */
 	notes: readonly Note[]
-	/** For the history picker. */
+	/** Every Round, for the picker. */
 	rounds: readonly Round[]
 	naming: AnchorNaming
 	actions: NoteActions
-	onOpenRound: (round: Round) => void
-	onBack: () => void
+	/** Pins the Panel to one Round. The newest is picked by following rather
+	 * than by id, so `null` means "whichever is newest". */
+	onPick: (roundId: string | null) => void
+	/** Runs this Round's ask again, which is the way past a failure. */
+	onRunAgain: () => void
 	onSaveSkill: (name: string) => void
-	divider?: PanelProps['divider']
-	grow?: PanelProps['grow']
 	className?: string
 }
 
-export function ReviewPanel({
+export function RoundView({
 	round,
 	notes,
 	rounds,
 	naming,
 	actions,
-	onOpenRound,
-	onBack,
+	onPick,
+	onRunAgain,
 	onSaveSkill,
-	divider,
-	grow,
 	className,
-}: ReviewPanelProps) {
+}: RoundViewProps) {
 	const byId = new Map(notes.map((note) => [note.id, note]))
+	const newest = rounds[rounds.length - 1]
 
 	return (
-		<Panel className={className} divider={divider} grow={grow} variant="sunk">
-			<div className="flex items-baseline gap-2.5">
-				<h3 className="text-14 font-semibold text-ink">Round {round.ordinal}</h3>
-				<span className="label-meta">{dateAndTime(round.startedAt)}</span>
-
-				<div className="ml-auto flex items-center gap-2">
-					{rounds.length < 2 ? null : (
-						<select
-							aria-label="Earlier Rounds"
-							className="rounded-full border border-edge bg-surface px-2.5 py-1 text-12 text-ink"
-							onChange={(event) => {
-								const picked = rounds.find((one) => one.id === event.target.value)
-								if (picked !== undefined) onOpenRound(picked)
-							}}
-							value={round.id}
-						>
-							{[...rounds].reverse().map((one) => (
-								<option key={one.id} value={one.id}>
-									Round {one.ordinal} · {dateAndTime(one.startedAt)}
-								</option>
-							))}
-						</select>
-					)}
-					<Button onClick={onBack} size="sm">
-						← notes
-					</Button>
-				</div>
+		<div className={className}>
+			<div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
+				<h3 className="text-14 font-semibold text-ink">Notes</h3>
+				<RoundPicker onPick={onPick} round={round} rounds={rounds} />
 			</div>
+
+			{round.id === newest?.id ? null : (
+				<Button
+					className="self-start"
+					onClick={() => onPick(null)}
+					size="sm"
+					variant="link"
+				>
+					back to Round {newest?.ordinal}
+				</Button>
+			)}
 
 			<TheAsk onSave={onSaveSkill} round={round} />
 
@@ -93,7 +81,14 @@ export function ReviewPanel({
 
 			{round.state === 'failed' ? (
 				<Notice>
-					This Review did not finish. {round.failure ?? 'No reason was recorded.'}
+					<span className="flex flex-col items-start gap-2">
+						<span>
+							This Review did not finish. {round.failure ?? 'No reason was recorded.'}
+						</span>
+						<Button onClick={onRunAgain} size="sm">
+							run it again
+						</Button>
+					</span>
 				</Notice>
 			) : null}
 
@@ -107,12 +102,63 @@ export function ReviewPanel({
 				/>
 			))}
 
+			{round.state === 'done' && round.passages.length === 0 ? (
+				<p className="text-13 leading-relaxed text-faint">
+					This Review turned up nothing to say.
+				</p>
+			) : null}
+
 			{round.state === 'done' ? (
 				<p className="label-meta border-t border-edge pt-3">
 					bound by the Plan and the References in it — a Review proposes no new sources
 				</p>
 			) : null}
-		</Panel>
+		</div>
+	)
+}
+
+/**
+ * Which Round is on screen, and the way back to an earlier one.
+ *
+ * Picking the newest passes `null` rather than its id, so the Panel goes back
+ * to following. Pinning it by id would leave the writer behind the moment the
+ * next Review started.
+ */
+function RoundPicker({
+	round,
+	rounds,
+	onPick,
+}: {
+	round: Round
+	rounds: readonly Round[]
+	onPick: (roundId: string | null) => void
+}) {
+	const newest = rounds[rounds.length - 1]
+
+	if (rounds.length < 2) {
+		return (
+			<span className="label-meta">
+				Round {round.ordinal} · {dateAndTime(round.startedAt)}
+			</span>
+		)
+	}
+
+	return (
+		<select
+			aria-label="Which Round to read"
+			className="ml-auto min-w-0 rounded-full border border-edge bg-surface px-2.5 py-1 text-12 text-ink"
+			onChange={(event) =>
+				onPick(event.target.value === newest?.id ? null : event.target.value)
+			}
+			value={round.id}
+		>
+			{[...rounds].reverse().map((one) => (
+				<option key={one.id} value={one.id}>
+					Round {one.ordinal} · {dateAndTime(one.startedAt)}
+					{one.state === 'running' ? ' · running' : ''}
+				</option>
+			))}
+		</select>
 	)
 }
 
@@ -219,7 +265,7 @@ function Passage({
 					</div>
 
 					{notes.map((note) => (
-						<NoteCard actions={actions} key={note.id} naming={naming} note={note} />
+						<NoteCard key={note.id} actions={actions} naming={naming} note={note} />
 					))}
 				</div>
 			)}

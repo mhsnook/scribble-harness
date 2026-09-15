@@ -27,6 +27,9 @@ export interface NotesPanelProps {
 	rounds: readonly Round[]
 	/** The Round on screen, or null before any Review has run. */
 	round: Round | null
+	/** The Round on screen is the newest because the Panel follows, not because
+	 * the writer picked it. */
+	following: boolean
 	/** Every Note on the Article. A passage names its own by id. */
 	notes: readonly Note[]
 	loading: boolean
@@ -50,6 +53,7 @@ export interface NotesPanelProps {
 export function NotesPanel({
 	rounds,
 	round,
+	following,
 	notes,
 	loading,
 	failure,
@@ -90,7 +94,7 @@ export function NotesPanel({
 					) : (
 						<RoundView
 							actions={actions}
-							className="flex flex-col gap-2.5"
+							following={following}
 							naming={naming}
 							notes={notes}
 							onPick={onPick}

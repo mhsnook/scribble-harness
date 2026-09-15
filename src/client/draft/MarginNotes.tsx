@@ -1,9 +1,10 @@
+import type { Editor } from '@tiptap/react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
-import type { Note } from '../../shared/note'
-import { Button } from '../components/Button'
 import { cx } from '../lib/cx'
 import type { NoteActions } from '../notes/actions'
+import { NoteControls } from '../notes/NoteCard'
+import type { AnchoredNote } from '../notes/useMarginNotes'
 import { BLOCK_ID_ATTR } from './blocks'
 
 /**
@@ -21,12 +22,10 @@ import { BLOCK_ID_ATTR } from './blocks'
  */
 
 export interface MarginNotesProps {
-	notes: readonly Note[]
-	/** The `.ProseMirror` element. Null until the editor has mounted. */
-	surface: HTMLElement | null
-	/** Bumped by the caller on every document change, so a reflow re-measures.
-	 * The value is never read — only that it differs. */
-	revision: number
+	notes: readonly AnchoredNote[]
+	/** Null until the editor has mounted. Taken whole rather than as its element,
+	 * because the re-measure listens to it. */
+	editor: Editor | null
 	actions: NoteActions
 	className?: string
 }
@@ -34,13 +33,7 @@ export interface MarginNotesProps {
 /** Between two cards that would otherwise overlap. */
 const GAP = 8
 
-export function MarginNotes({
-	notes,
-	surface,
-	revision,
-	actions,
-	className,
-}: MarginNotesProps) {
+export function MarginNotes({ notes, editor, actions, className }: MarginNotesProps) {
 	const cards = useRef(new Map<string, HTMLElement>())
 	const [tops, setTops] = useState<ReadonlyMap<string, number>>(new Map())
 
@@ -48,28 +41,47 @@ export function MarginNotes({
 	// drawn, and an ordinary effect would let the browser paint them stacked at
 	// zero first.
 	useLayoutEffect(() => {
-		if (surface === null) return
+		const surface = editor?.view.dom
+		if (editor === undefined || editor === null || surface === undefined) return
 
-		// Held when the numbers come back the same, because `notes` is a fresh
-		// array on every render: a new Map each time would re-render, re-run this,
-		// and never settle.
-		const place = () =>
-			setTops((held) => {
-				const next = stack(notes, surface, cards.current)
+		const place = () => {
+			// Measured out here rather than inside the updater. Reading the DOM is
+			// not a pure computation, and React runs an updater twice under
+			// StrictMode — which would measure the document twice per keystroke.
+			const next = stack(notes, surface, cards.current)
 
-				return same(held, next) ? held : next
+			setTops((held) => (same(held, next) ? held : next))
+		}
+
+		// One measure per frame however many changes land in it. Each one forces
+		// the browser to lay the whole document out before it can answer, so this
+		// is the keystroke path and coalescing is the point.
+		let frame = 0
+		const schedule = () => {
+			if (frame !== 0) return
+
+			frame = requestAnimationFrame(() => {
+				frame = 0
+				place()
 			})
+		}
 
 		place()
 
-		// Typing above a Note moves it, and so does the Panel changing width.
-		const watch = new ResizeObserver(place)
+		// Typing above a Note moves it; so does the Panel changing width. The
+		// editor reports the first even when the surface's own height does not
+		// change, which it does not on a Draft short enough to be stretched by
+		// `flex-auto`.
+		editor.on('update', schedule)
+		const watch = new ResizeObserver(schedule)
 		watch.observe(surface)
 
-		return () => watch.disconnect()
-	}, [notes, surface, revision])
-
-	if (notes.length === 0) return null
+		return () => {
+			editor.off('update', schedule)
+			watch.disconnect()
+			if (frame !== 0) cancelAnimationFrame(frame)
+		}
+	}, [notes, editor])
 
 	return (
 		<div aria-label="Notes on this paragraph" className={cx('relative', className)}>
@@ -90,12 +102,7 @@ export function MarginNotes({
 				>
 					<p className="text-12 leading-relaxed text-ink">{note.body}</p>
 					<div className="flex flex-wrap gap-1.5">
-						<Button onClick={() => actions.resolve(note)} size="sm">
-							resolve
-						</Button>
-						<Button onClick={() => actions.restore(note)} size="sm" variant="link">
-							undo
-						</Button>
+						<NoteControls actions={actions} note={note} />
 					</div>
 				</article>
 			))}
@@ -123,15 +130,15 @@ function same(
  * top-to-bottom in the order they were written.
  */
 function stack(
-	notes: readonly Note[],
+	notes: readonly AnchoredNote[],
 	surface: HTMLElement,
 	cards: ReadonlyMap<string, HTMLElement>,
 ): Map<string, number> {
-	const at = blockTops(surface)
+	const at = blockTops(surface, new Set(notes.flatMap((note) => note.anchor.blockIds)))
 
 	const placed = notes
 		.map((note) => ({ note, top: wanted(note, at) }))
-		.filter((one): one is { note: Note; top: number } => one.top !== null)
+		.filter((one): one is { note: AnchoredNote; top: number } => one.top !== null)
 		.sort((a, b) => a.top - b.top)
 
 	const tops = new Map<string, number>()
@@ -148,9 +155,7 @@ function stack(
 
 /** The top of a Note's first anchored Block, or null when the Draft no longer
  * carries any of them. */
-function wanted(note: Note, at: ReadonlyMap<string, number>): number | null {
-	if (note.anchor.kind !== 'blocks') return null
-
+function wanted(note: AnchoredNote, at: ReadonlyMap<string, number>): number | null {
 	const found = note.anchor.blockIds
 		.map((id) => at.get(id))
 		.filter((top): top is number => top !== undefined)
@@ -158,29 +163,36 @@ function wanted(note: Note, at: ReadonlyMap<string, number>): number | null {
 	return found.length === 0 ? null : Math.min(...found)
 }
 
+const ID_ATTR = `data-${BLOCK_ID_ATTR}`
+
 /**
- * Every Block's top, relative to the surface.
+ * The top of each Block a Note actually names, relative to the surface.
  *
  * `:scope >` is load-bearing. `UniqueID` mints an id for every node type that
  * *can* be a top-level child, so a bare `[data-block-id]` also matches a
  * paragraph nested in a list item — and a Note measured against that one sits
  * at the wrong height inside a long list. Issues #54 and #81.
+ *
+ * Only the named Blocks are measured. Selecting them is a DOM read and costs
+ * nothing much; each `getBoundingClientRect` makes the browser lay the document
+ * out, so measuring all of them to place three cards is what would scale with
+ * the length of the piece.
  */
-function blockTops(surface: HTMLElement): Map<string, number> {
+function blockTops(
+	surface: HTMLElement,
+	named: ReadonlySet<string>,
+): Map<string, number> {
 	const tops = new Map<string, number>()
+	if (named.size === 0) return tops
+
 	const origin = surface.getBoundingClientRect().top
 
-	for (const block of surface.querySelectorAll<HTMLElement>(
-		`:scope > [data-${BLOCK_ID_ATTR}]`,
-	)) {
-		const id = block.dataset[attrKey]
-		if (id !== undefined) tops.set(id, block.getBoundingClientRect().top - origin)
+	for (const block of surface.querySelectorAll<HTMLElement>(`:scope > [${ID_ATTR}]`)) {
+		const id = block.getAttribute(ID_ATTR)
+		if (id !== null && named.has(id)) {
+			tops.set(id, block.getBoundingClientRect().top - origin)
+		}
 	}
 
 	return tops
 }
-
-/** `data-block-id` reads back off `dataset` as `blockId`. */
-const attrKey = BLOCK_ID_ATTR.replace(/-([a-z])/g, (_, letter: string) =>
-	letter.toUpperCase(),
-)

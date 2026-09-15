@@ -4,6 +4,7 @@ import type { Note } from '../../shared/note'
 import type { LedgerRound, NotesLedger } from '../../shared/notes-ledger'
 import { Button } from '../components/Button'
 import { EmptySlot } from '../components/Field'
+import { PanelHeader } from '../components/Panel'
 import { cx } from '../lib/cx'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
@@ -72,20 +73,21 @@ export function NotesLedgerDrawer({
 			role="group"
 			tabIndex={-1}
 		>
-			{/* Title and close share a row and the count takes its own, rather than
-			    three things competing for one line: this Panel is the narrowest
-			    column in the row. */}
+			{/* The count takes its own line rather than competing with the title and
+			    the close for one: this Panel is the narrowest column in the row. */}
 			<div className="shrink-0 rounded-t-frame border-b border-edge bg-sunk px-3.5 py-2.5">
-				<div className="flex items-baseline gap-2.5">
-					<h3 className="text-14 font-semibold text-ink">All Notes</h3>
-					<button
-						className="ml-auto shrink-0 text-12 text-faint hover:text-ink"
-						onClick={onClose}
-						type="button"
-					>
-						close ×
-					</button>
-				</div>
+				<PanelHeader
+					actions={
+						<button
+							className="text-12 text-faint hover:text-ink"
+							onClick={onClose}
+							type="button"
+						>
+							close ×
+						</button>
+					}
+					title="All Notes"
+				/>
 				<p className="label-meta">{summary(ledger)}</p>
 			</div>
 

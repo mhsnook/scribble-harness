@@ -6,6 +6,7 @@ import { Button } from '../components/Button'
 import { TextField } from '../components/Field'
 import { MetaLabel } from '../components/MetaLabel'
 import { Notice } from '../components/Notice'
+import { cx } from '../lib/cx'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
@@ -32,6 +33,10 @@ export interface RoundViewProps {
 	/** Pins the Panel to one Round. The newest is picked by following rather
 	 * than by id, so `null` means "whichever is newest". */
 	onPick: (roundId: string | null) => void
+	/** The Panel is showing the newest Round because it follows, rather than
+	 * because the writer picked it. Decided by the container, which owns the
+	 * pin. */
+	following: boolean
 	/** Runs this Round's ask again, which is the way past a failure. */
 	onRunAgain: () => void
 	onSaveSkill: (name: string) => void
@@ -45,6 +50,7 @@ export function RoundView({
 	naming,
 	actions,
 	onPick,
+	following,
 	onRunAgain,
 	onSaveSkill,
 	className,
@@ -53,13 +59,13 @@ export function RoundView({
 	const newest = rounds[rounds.length - 1]
 
 	return (
-		<div className={className}>
+		<div className={cx('flex flex-col gap-2.5', className)}>
 			<div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
 				<h3 className="text-14 font-semibold text-ink">Notes</h3>
 				<RoundPicker onPick={onPick} round={round} rounds={rounds} />
 			</div>
 
-			{round.id === newest?.id ? null : (
+			{following ? null : (
 				<Button
 					className="self-start"
 					onClick={() => onPick(null)}

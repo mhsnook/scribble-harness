@@ -52,7 +52,7 @@ export function NoteCard({ note, naming, actions, ordinal, className }: NoteCard
 			</p>
 
 			<div className="mt-0.5 flex flex-wrap gap-1.5">
-				<Controls actions={actions} note={note} />
+				<NoteControls actions={actions} note={note} />
 			</div>
 		</article>
 	)
@@ -63,7 +63,6 @@ export interface NoteLineProps {
 	naming: AnchorNaming
 	/** Opens the full card in its place. */
 	onOpen: () => void
-	className?: string
 }
 
 /**
@@ -74,15 +73,12 @@ export interface NoteLineProps {
  * settled Note has one thing left to do to it — undo — and offering that on
  * every line would put the rarest action in front of the writer most often.
  */
-export function NoteLine({ note, naming, onOpen, className }: NoteLineProps) {
+export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
 	const anchor = anchorLabel(note.anchor, naming)
 
 	return (
 		<button
-			className={cx(
-				'flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-hush',
-				className,
-			)}
+			className="flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-hush"
 			onClick={onOpen}
 			type="button"
 		>
@@ -92,8 +88,14 @@ export function NoteLine({ note, naming, onOpen, className }: NoteLineProps) {
 	)
 }
 
-/** Every disposition offers a way forward and a way back. */
-function Controls({ note, actions }: { note: Note; actions: NoteActions }) {
+/**
+ * Every disposition offers a way forward and a way back.
+ *
+ * Exported because the margin draws its own card — it has no `naming` for the
+ * meta line and needs to be placed absolutely — but the rulings it offers are
+ * these, and there is one right answer to what an accepted Note can do next.
+ */
+export function NoteControls({ note, actions }: { note: Note; actions: NoteActions }) {
 	if (note.disposition === 'proposed') {
 		return (
 			<>

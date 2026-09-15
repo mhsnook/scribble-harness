@@ -40,7 +40,7 @@ export function FullReviewScreen() {
 				<Panel variant="sunk">
 					<RoundView
 						actions={actions}
-						className="flex flex-col gap-2.5"
+						following
 						naming={anchorNaming(draft)}
 						notes={notes}
 						onPick={() => {}}

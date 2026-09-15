@@ -74,6 +74,7 @@ export function ArticleNotesPanel({ divider, grow, className }: ArticleNotesPane
 			onSaveSkill={(name) =>
 				round === null ? undefined : skills.save({ name, prompt: round.prompt })
 			}
+			following={pinnedId === null}
 			round={round}
 			rounds={notes.rounds}
 			skills={skills.skills}

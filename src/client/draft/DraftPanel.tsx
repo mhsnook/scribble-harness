@@ -1,11 +1,11 @@
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import type { BlockRow } from '../../shared/draft'
-import type { Note } from '../../shared/note'
 import { Notice } from '../components/Notice'
 import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
 import type { NoteActions } from '../notes/actions'
+import type { AnchoredNote } from '../notes/useMarginNotes'
 import { markAnchored } from './anchored'
 import { toDoc } from './blocks'
 import { draftExtensions } from './editor'
@@ -17,8 +17,13 @@ export interface DraftPanelProps {
 	blocks: readonly BlockRow[]
 	status: DraftStatus
 	/** Accepted Notes pointing at paragraphs — drawn in the margin, issue #81. */
-	notes: readonly Note[]
+	notes: readonly AnchoredNote[]
+	/** Every Block those Notes name, for the rule under the prose. */
+	anchored: readonly string[]
 	noteActions: NoteActions
+	/** A ruling made in the margin that the Article Agent refused. The save's own
+	 * failure is on `status`. */
+	failure?: string | null
 	onAttach: (editor: Editor) => void
 	onChange: () => void
 	divider?: PanelProps['divider']
@@ -38,18 +43,15 @@ export function DraftPanel({
 	blocks,
 	status,
 	notes,
+	anchored,
 	noteActions,
+	failure = null,
 	onAttach,
 	onChange,
 	divider,
 	grow,
 	className,
 }: DraftPanelProps) {
-	// Counts edits rather than holding the document: the margin only needs to
-	// know that the prose moved, and reading it here would re-render the Panel on
-	// every keystroke.
-	const [revision, setRevision] = useState(0)
-
 	const editor = useEditor({
 		extensions: draftExtensions,
 		content: toDoc(blocks),
@@ -58,27 +60,17 @@ export function DraftPanel({
 		// whatever survived the parse.
 		enableContentCheck: true,
 		onContentError: ({ error }) => console.error('The Draft did not parse.', error),
-		onUpdate: () => {
-			onChange()
-			setRevision((held) => held + 1)
-		},
+		onUpdate: onChange,
 	})
 
 	useEffect(() => {
 		if (editor !== null) onAttach(editor)
 	}, [editor, onAttach])
 
-	// The ids as one string, and the effect's only dependency. The list behind it
-	// is a fresh array on every render, so depending on the array would dispatch
-	// a transaction per render — and each dispatch renders again.
-	const anchored = notes
-		.flatMap((note) => (note.anchor.kind === 'blocks' ? note.anchor.blockIds : []))
-		.join(' ')
-
-	// The rule under the prose is drawn from editor state, so the Notes reach it
+	// The rule under the prose is drawn from editor state, so the Blocks reach it
 	// through a transaction rather than a prop — `anchored.ts`.
 	useEffect(() => {
-		if (editor !== null) markAnchored(editor, anchored === '' ? [] : anchored.split(' '))
+		if (editor !== null) markAnchored(editor, anchored)
 	}, [editor, anchored])
 
 	return (
@@ -90,6 +82,7 @@ export function DraftPanel({
 				<PanelHeader meta={<SaveState status={status} />} title="Draft" />
 				<Toolbar editor={editor} />
 				{status.state === 'failed' ? <Notice>{status.failure}</Notice> : null}
+				{failure === null ? null : <Notice>{failure}</Notice>}
 			</div>
 
 			{/* Heading, subheading, and section-break styling is `.prose-draft` in
@@ -117,9 +110,8 @@ export function DraftPanel({
 						<MarginNotes
 							actions={noteActions}
 							className="h-full"
+							editor={editor}
 							notes={notes}
-							revision={revision}
-							surface={editor?.view.dom ?? null}
 						/>
 					</div>
 				)}

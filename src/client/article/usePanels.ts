@@ -100,48 +100,32 @@ export function nextOpenPanels(
 	return PANELS.filter((one) => one === panel || held.includes(one))
 }
 
-/** What the Draft's neighbours are worth against each other. The Draft is the
- * writing surface and everything else supports it, so it takes twice what a
- * supporting Panel does. */
-const WEIGHTS: Record<Exclude<PanelId, 'notes'>, number> = {
+/** What the Panels are worth against each other. The Draft is the writing
+ * surface and everything else supports it, so it takes twice what a supporting
+ * Panel does. */
+const WEIGHTS: Record<PanelId, number> = {
 	chat: 1,
 	plan: 1,
 	draft: 2,
+	notes: 1,
 }
-
-/** Notes is the margin rail — screen 3(e) — so it takes a slice off the top
- * rather than a share of the split. It gets the wider slice when it is the one
- * Panel beside another, and the narrow one when it is a fourth column. */
-const NOTES_ALONE = 0.25
-const NOTES_WITH_OTHERS = 0.2
 
 /**
  * The fraction of the Panel row one open Panel takes. Flex reads these as
  * ratios against each other, so the fractions can be handed to it directly.
  *
- * Notes is fixed first, and the Draft takes twice what a supporting Panel does
- * out of what is left. That gives 33/67 for Plan + Draft, 25/25/50 for Chat +
- * Plan + Draft, 20/20/40/20 for all four, and 75/25 for Draft + Notes.
+ * That gives 33/67 for Plan + Draft, 25/25/50 for Chat + Plan + Draft,
+ * 20/20/40/20 for all four, and 33/67 for Notes + Draft.
  *
  * A hidden Panel gets 0. It is still mounted, but `Activity` has taken it out
  * of the layout, so nothing reads the number.
  */
 export function panelShare(open: readonly PanelId[], panel: PanelId): number {
 	if (!open.includes(panel)) return 0
-	if (open.length === 1) return 1
 
-	const notes = open.includes('notes')
-		? open.length === 2
-			? NOTES_ALONE
-			: NOTES_WITH_OTHERS
-		: 0
+	const total = open.reduce((sum, one) => sum + WEIGHTS[one], 0)
 
-	if (panel === 'notes') return notes
-
-	const rest = open.filter((one) => one !== 'notes') as Exclude<PanelId, 'notes'>[]
-	const total = rest.reduce((sum, one) => sum + WEIGHTS[one], 0)
-
-	return ((1 - notes) * WEIGHTS[panel]) / total
+	return WEIGHTS[panel] / total
 }
 
 function useNarrow(query: string): boolean {

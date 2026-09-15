@@ -66,10 +66,10 @@ export function ReviewComposer({ skills, running, onRun }: ReviewComposerProps) 
 				/>
 			</div>
 
-			<div className="flex items-center gap-2">
-				<span className="label-meta text-faint">each ask starts a new review</span>
+			<p className="label-meta text-faint">each ask starts a new review</p>
 
-				<ButtonGroup className="ml-auto" label="How hard the Review works">
+			<div className="flex flex-wrap items-center gap-2">
+				<ButtonGroup label="How hard the Review works">
 					{reviewDepths.map((one) => (
 						<Button
 							key={one}
@@ -83,6 +83,7 @@ export function ReviewComposer({ skills, running, onRun }: ReviewComposerProps) 
 				</ButtonGroup>
 
 				<Button
+					className="ml-auto"
 					disabled={running || prompt.trim() === ''}
 					onClick={run}
 					size="sm"

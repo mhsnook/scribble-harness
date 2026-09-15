@@ -40,6 +40,26 @@ Note takes says how much is left to do with it:
 Ruling in the Round, in the ledger, or beside the prose is one write, because
 all three draw the same rows.
 
+## Accepted Notes are drawn beside the prose
+
+An accepted Note pointing at paragraphs also appears in the Draft's margin,
+level with the first paragraph it names, with a rule down that paragraph's left
+— issue #81, screen 3(d). It is there whether the Notes Panel is open or not,
+because what the writer still owes the piece belongs next to the piece.
+
+Two cards that would overlap are pushed down rather than drawn over each other,
+so a card can sit below its own paragraph. They are placed by measuring, since
+the prose and the margin are columns of different lengths.
+
+**The rule is drawn, never stored.** It is a ProseMirror decoration, which
+`docs/adr/0003` reserves for exactly this: something drawn with the prose and
+kept out of it, so it never syncs and never reaches the Final. Reading the
+document's own children to place it also settles #54's trap, where a bare
+`[data-block-id]` matches a paragraph nested in a list item.
+
+A Note about the whole piece has no paragraph to sit beside and stays in the
+Panel.
+
 ## Depth
 
 `quick` or `thorough`, chosen beside the composer. It changes the reviewer's
@@ -120,5 +140,5 @@ lands whole. The streaming version is `streamObject` over the Agent's `onRequest
 and it costs less than it looks, because the Round is durable — the wait is a row rather than
 a call held open.
 
-Also open: scoping a Review to one Section (#78), notes drawn beside the prose (#81), the
-last-save gap (#82), and grouping the queue by Section (#83).
+Also open: scoping a Review to one Section (#78), the last-save gap (#82), and grouping
+the ledger by Section (#83).

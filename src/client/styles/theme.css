@@ -185,6 +185,25 @@
 		margin-top: 0;
 	}
 
+	/* A paragraph an accepted Note points at — `draft/anchored.ts` sets this from
+	   a decoration, so it is never in the document. */
+	.prose-draft .is-anchored {
+		position: relative;
+	}
+
+	/* Drawn in the measure's own padding rather than by indenting the paragraph,
+	   so a Note accepted while the writer is mid-sentence never reflows the line
+	   under their caret. */
+	.prose-draft .is-anchored::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: -0.75rem;
+		width: 2px;
+		background: var(--color-accent-edge);
+	}
+
 	/* The section break the writer places — docs/draft.md. */
 	.prose-draft hr {
 		margin: 1.75em 0;

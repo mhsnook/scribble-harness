@@ -8,7 +8,7 @@ import type { ReviewDepth, Round } from '../../shared/review'
 import { toNote, toRound } from '../../shared/sync'
 import { useArticle } from '../lib/article'
 import { failureText } from '../lib/failure'
-import type { NoteActions } from './actions'
+import { type NoteActions, noteActions } from './actions'
 import { type AnchorNaming, anchorNaming } from './anchors'
 
 /** The Notes Panel's half of one Article Agent: live queries over the synced
@@ -74,26 +74,7 @@ export function useNotes(): NotesHandle {
 		}
 	}, [draft, ready, lastSettled])
 
-	/** The ruled row returns through the sync; only a failure needs handling. */
-	const rule = (what: string, write: () => Promise<Note>) => {
-		setFailure(null)
-		write().catch((error: unknown) => setFailure(failureText(what, error)))
-	}
-
-	const actions: NoteActions = {
-		accept: (note) =>
-			rule('This Note was not accepted.', () =>
-				store.setNoteDisposition(note.id, 'accepted'),
-			),
-		decline: (note) =>
-			rule('This Note was not declined.', () =>
-				store.setNoteDisposition(note.id, 'declined'),
-			),
-		resolve: (note) =>
-			rule('This Note was not resolved.', () => store.resolveNote(note.id)),
-		restore: (note) =>
-			rule('This Note was not restored.', () => store.restoreNote(note.id)),
-	}
+	const actions = noteActions(store, setFailure)
 
 	const ledger = notesLedger(notes, rounds)
 	const naming = anchorNaming(blocks)

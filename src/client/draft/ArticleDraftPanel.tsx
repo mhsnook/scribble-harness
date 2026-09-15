@@ -1,6 +1,7 @@
 import { Notice } from '../components/Notice'
 import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
 import { useArticle } from '../lib/article'
+import { useMarginNotes } from '../notes/useMarginNotes'
 import { DraftPanel } from './DraftPanel'
 import { useDraft } from './useDraft'
 
@@ -15,6 +16,7 @@ export interface ArticleDraftPanelProps {
 
 export function ArticleDraftPanel({ divider, grow, className }: ArticleDraftPanelProps) {
 	const { blocks, failure, status, attachEditor, touch } = useDraft(useArticle().draft)
+	const margin = useMarginNotes()
 
 	// The editor is built from the Blocks and reads them once, so it mounts
 	// after they arrive rather than being filled in afterwards. Loading it late
@@ -39,6 +41,8 @@ export function ArticleDraftPanel({ divider, grow, className }: ArticleDraftPane
 			className={className}
 			divider={divider}
 			grow={grow}
+			noteActions={margin.actions}
+			notes={margin.notes}
 			onAttach={attachEditor}
 			onChange={touch}
 			status={status}

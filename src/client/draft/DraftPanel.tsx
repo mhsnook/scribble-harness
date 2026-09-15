@@ -1,17 +1,24 @@
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { BlockRow } from '../../shared/draft'
+import type { Note } from '../../shared/note'
 import { Notice } from '../components/Notice'
 import { Panel, PanelHeader, type PanelProps } from '../components/Panel'
+import type { NoteActions } from '../notes/actions'
+import { markAnchored } from './anchored'
 import { toDoc } from './blocks'
 import { draftExtensions } from './editor'
+import { MarginNotes } from './MarginNotes'
 import type { DraftStatus } from './writer'
 
 export interface DraftPanelProps {
 	/** What the Article Agent holds. Read once, when the editor is built. */
 	blocks: readonly BlockRow[]
 	status: DraftStatus
+	/** Accepted Notes pointing at paragraphs — drawn in the margin, issue #81. */
+	notes: readonly Note[]
+	noteActions: NoteActions
 	onAttach: (editor: Editor) => void
 	onChange: () => void
 	divider?: PanelProps['divider']
@@ -30,12 +37,19 @@ export interface DraftPanelProps {
 export function DraftPanel({
 	blocks,
 	status,
+	notes,
+	noteActions,
 	onAttach,
 	onChange,
 	divider,
 	grow,
 	className,
 }: DraftPanelProps) {
+	// Counts edits rather than holding the document: the margin only needs to
+	// know that the prose moved, and reading it here would re-render the Panel on
+	// every keystroke.
+	const [revision, setRevision] = useState(0)
+
 	const editor = useEditor({
 		extensions: draftExtensions,
 		content: toDoc(blocks),
@@ -44,12 +58,28 @@ export function DraftPanel({
 		// whatever survived the parse.
 		enableContentCheck: true,
 		onContentError: ({ error }) => console.error('The Draft did not parse.', error),
-		onUpdate: onChange,
+		onUpdate: () => {
+			onChange()
+			setRevision((held) => held + 1)
+		},
 	})
 
 	useEffect(() => {
 		if (editor !== null) onAttach(editor)
 	}, [editor, onAttach])
+
+	// The ids as one string, and the effect's only dependency. The list behind it
+	// is a fresh array on every render, so depending on the array would dispatch
+	// a transaction per render — and each dispatch renders again.
+	const anchored = notes
+		.flatMap((note) => (note.anchor.kind === 'blocks' ? note.anchor.blockIds : []))
+		.join(' ')
+
+	// The rule under the prose is drawn from editor state, so the Notes reach it
+	// through a transaction rather than a prop — `anchored.ts`.
+	useEffect(() => {
+		if (editor !== null) markAnchored(editor, anchored === '' ? [] : anchored.split(' '))
+	}, [editor, anchored])
 
 	return (
 		<Panel className={className} divider={divider} grow={grow} padded={false}>
@@ -70,10 +100,30 @@ export function DraftPanel({
 			    point below the toolbar is then inside the editable, so a click in
 			    the gutter or in the space under the last line puts the caret in
 			    the prose instead of landing on a dead wrapper. */}
-			<EditorContent
-				className="prose-draft flex min-w-0 flex-auto flex-col [&_.ProseMirror]:flex-auto [&_.ProseMirror]:px-8 [&_.ProseMirror]:py-4 [&_.ProseMirror]:outline-none"
-				editor={editor}
-			/>
+			<div className="flex min-w-0 flex-auto">
+				<EditorContent
+					className="prose-draft flex min-w-0 flex-auto flex-col [&_.ProseMirror]:flex-auto [&_.ProseMirror]:px-8 [&_.ProseMirror]:py-4 [&_.ProseMirror]:outline-none"
+					editor={editor}
+				/>
+
+				{/* Only when there is something to draw, so a Draft with no accepted
+				    Notes keeps the full measure for its prose. */}
+				{notes.length === 0 ? null : (
+					// The side padding lives out here: a card is positioned against its
+					// column's padding box, so padding on the column itself would not
+					// hold it off the Panel's edge. No padding on top — a card's
+					// measured position already carries the editor's own.
+					<div className="w-[11rem] shrink-0 pr-3.5">
+						<MarginNotes
+							actions={noteActions}
+							className="h-full"
+							notes={notes}
+							revision={revision}
+							surface={editor?.view.dom ?? null}
+						/>
+					</div>
+				)}
+			</div>
 		</Panel>
 	)
 }

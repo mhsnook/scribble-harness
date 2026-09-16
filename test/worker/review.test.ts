@@ -1,7 +1,7 @@
 import { MockLanguageModelV3 } from 'ai/test'
 import { describe, expect, it, vi } from 'vitest'
 
-import { blockTags, expandAnchor } from '../../src/server/llm/review-pack'
+import { anchorFor } from '../../src/server/llm/review-pack'
 import { makeNode, makePlan } from '../shared/plan-fixtures'
 import { openAgentSocket } from './agent-socket'
 import { answers, ask, response, settled } from './review-fixtures'
@@ -64,9 +64,9 @@ const blocks = [
 	},
 ]
 
-/** Ids the length the app really mints, so a tag is a tail rather than the
- * whole thing. */
-const tagged = [
+/** Ids the length the app really mints, so a test that says the Guide never
+ * sees one is testing something. */
+const uuids = [
 	{
 		id: '5f1c0f6a-1d3e-4a9b-9c2f-8d41b0e7c2a5',
 		ord: 1,
@@ -82,7 +82,7 @@ const tagged = [
 describe('running a Review', () => {
 	it('answers with a running Round before the model has said anything', async () => {
 		await openAgentSocket('review-starts')
-		await scriptReview('review-starts', answers(response({ kind: 'article' })))
+		await scriptReview('review-starts', answers(response([])))
 
 		const round = await inAgent('review-starts', (agent) => agent.startReview(ask))
 
@@ -93,10 +93,7 @@ describe('running a Review', () => {
 
 	it('writes the response and its Notes as rows', async () => {
 		await openAgentSocket('review-writes')
-		await scriptReview(
-			'review-writes',
-			answers(response({ kind: 'blocks', blockIds: ['b2'] })),
-		)
+		await scriptReview('review-writes', answers(response(['¶2'])))
 		await inAgent('review-writes', (agent) => {
 			agent.saveBlocks({ blocks, removed: [] })
 			agent.startReview({ ...ask, plan })
@@ -126,10 +123,7 @@ describe('running a Review', () => {
 
 	it('settles an anchor naming a paragraph the Draft does not carry', async () => {
 		await openAgentSocket('review-anchor')
-		await scriptReview(
-			'review-anchor',
-			answers(response({ kind: 'blocks', blockIds: ['never-existed'] })),
-		)
+		await scriptReview('review-anchor', answers(response(['¶9'])))
 		await inAgent('review-anchor', (agent) => {
 			agent.saveBlocks({ blocks, removed: [] })
 			agent.startReview(ask)
@@ -144,7 +138,7 @@ describe('running a Review', () => {
 	})
 
 	it('shows the model the Plan the client sent, not the stored one', async () => {
-		const model = answers(response({ kind: 'article' }))
+		const model = answers(response([]))
 
 		await openAgentSocket('review-newer-plan')
 		await scriptReview('review-newer-plan', model)
@@ -158,36 +152,31 @@ describe('running a Review', () => {
 		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).toContain('The permit queue')
 	})
 
-	it('anchors a Note to the paragraph whose tag the model copied', async () => {
-		// Read through `blockTags` rather than sliced here, so the test fails if
-		// the pack and the reader ever stop agreeing on what a tag is.
-		const tag = blockTags(tagged.map((block) => block.id)).tagOf.get(tagged[1].id)
-		const model = answers(response({ kind: 'blocks', blockIds: [tag ?? ''] }))
+	it('anchors a Note to the paragraph whose number the Guide named', async () => {
+		const model = answers(response(['¶2']))
 
-		await openAgentSocket('review-tags')
-		await scriptReview('review-tags', model)
-		await inAgent('review-tags', (agent) => {
-			agent.saveBlocks({ blocks: tagged, removed: [] })
+		await openAgentSocket('review-numbers')
+		await scriptReview('review-numbers', model)
+		await inAgent('review-numbers', (agent) => {
+			agent.saveBlocks({ blocks: uuids, removed: [] })
 			agent.startReview(ask)
 		})
 
-		await settled('review-tags')
-		const notes = await inAgent('review-tags', (agent) => agent.listNotes())
+		await settled('review-numbers')
+		const notes = await inAgent('review-numbers', (agent) => agent.listNotes())
 
-		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).not.toContain(tagged[1].id)
-		expect(notes[0].anchor).toEqual({ kind: 'blocks', blockIds: [tagged[1].id] })
+		// The Guide never sees a Block id, and never has to copy one.
+		expect(JSON.stringify(model.doGenerateCalls[0].prompt)).not.toContain(uuids[1].id)
+		expect(notes[0].anchor).toEqual({ kind: 'blocks', blockIds: [uuids[1].id] })
 	})
 
-	it('says in the log which Block a lost anchor named', async () => {
+	it('says in the log which paragraph a lost anchor named', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
 		await openAgentSocket('review-warns')
-		await scriptReview(
-			'review-warns',
-			answers(response({ kind: 'blocks', blockIds: ['no-such-tag'] })),
-		)
+		await scriptReview('review-warns', answers(response(['¶9'])))
 		await inAgent('review-warns', (agent) => {
-			agent.saveBlocks({ blocks: tagged, removed: [] })
+			agent.saveBlocks({ blocks: uuids, removed: [] })
 			agent.startReview(ask)
 		})
 		await settled('review-warns')
@@ -197,7 +186,7 @@ describe('running a Review', () => {
 		// told apart.
 		const said = warn.mock.calls.map((call) => String(call[0])).join('\n')
 
-		expect(said).toContain('no-such-tag')
+		expect(said).toContain('¶9')
 		expect(said).toContain('the whole piece')
 
 		warn.mockRestore()
@@ -216,7 +205,7 @@ describe('running a Review', () => {
 	})
 
 	it('retries a refused answer once, with the error in front of the model', async () => {
-		const model = answers('not the shape asked for', response({ kind: 'article' }))
+		const model = answers('not the shape asked for', response([]))
 		await openAgentSocket('review-retry')
 		await scriptReview('review-retry', model)
 		await inAgent('review-retry', (agent) => agent.startReview(ask))
@@ -257,7 +246,7 @@ describe('running a Review', () => {
 		expect(round.failure).toContain('cut off by a restart')
 
 		// And the one-at-a-time guard is free again.
-		await scriptReview('review-reap', answers(response({ kind: 'article' })))
+		await scriptReview('review-reap', answers(response([])))
 		const next = await inAgent('review-reap', (agent) => agent.startReview(ask))
 
 		expect(next).toMatchObject({ state: 'running', ordinal: 2 })
@@ -268,7 +257,7 @@ describe('running a Review', () => {
 
 	it('runs one Review at a time on an Article', async () => {
 		await openAgentSocket('review-one')
-		await scriptReview('review-one', answers(response({ kind: 'article' })))
+		await scriptReview('review-one', answers(response([])))
 
 		// Both in flight at once — the double-click. The pre-check misses this
 		// race because `startReview` awaits its commit; the `round_one_running`
@@ -281,11 +270,7 @@ describe('running a Review', () => {
 	})
 
 	it('carries the accepted Notes into the next Review, and nothing else', async () => {
-		const model = answers(
-			response({ kind: 'article' }),
-			response({ kind: 'article' }),
-			response({ kind: 'article' }),
-		)
+		const model = answers(response([]), response([]), response([]))
 		await openAgentSocket('review-bound')
 		await scriptReview('review-bound', model)
 
@@ -320,7 +305,7 @@ describe('ruling on a Note', () => {
 	/** One Article with one proposed Note on it. */
 	async function withNote(name: string) {
 		await openAgentSocket(name)
-		await scriptReview(name, answers(response({ kind: 'article' })))
+		await scriptReview(name, answers(response([])))
 		await inAgent(name, (agent) => agent.startReview(ask))
 		await settled(name)
 
@@ -381,44 +366,41 @@ describe('ruling on a Note', () => {
 	})
 })
 
-describe('the tag the model names a Block by', () => {
-	const ids = [
-		'5f1c0f6a-1d3e-4a9b-9c2f-aaaaaaaaaaaa',
-		'7b2d1a4c-8e6f-4b0d-9a3e-bbbbbbbbbbbb',
+describe('reading the paragraphs the Guide named', () => {
+	const blocks = [
+		{ id: 'first', ord: 1, json: { type: 'paragraph' } },
+		{ id: 'second', ord: 2, json: { type: 'paragraph' } },
+		{ id: 'third', ord: 3, json: { type: 'paragraph' } },
 	]
 
-	it('is the tail of the id, so the model copies six characters and not thirty-six', () => {
-		const tags = blockTags(ids)
-
-		expect(tags.tagOf.get(ids[0])).toBe('aaaaaa')
-		expect(tags.idOf.get('aaaaaa')).toBe(ids[0])
+	it('reads a paragraph number back into the Block it numbered', () => {
+		expect(anchorFor(['¶2'], blocks)).toEqual({ kind: 'blocks', blockIds: ['second'] })
 	})
 
-	it('grows until two Blocks cannot share one', () => {
-		const shared = ['aaa-1-tailtail', 'bbb-2-tailtail']
-		const tags = blockTags(shared)
-
-		expect(new Set(tags.tagOf.values()).size).toBe(2)
-		expect(tags.idOf.get(tags.tagOf.get(shared[0]) ?? '')).toBe(shared[0])
+	it('takes the number however the Guide wrote it', () => {
+		expect(anchorFor(['2'], blocks)).toEqual(anchorFor(['¶2'], blocks))
+		expect(anchorFor(['paragraph 2'], blocks)).toEqual(anchorFor(['¶2'], blocks))
 	})
 
-	it('names an id in full where it is shorter than a tag', () => {
-		expect(blockTags(['b1', 'b2']).tagOf.get('b1')).toBe('b1')
+	it('names both ends of a run, and a range written as one entry', () => {
+		const ends = { kind: 'blocks', blockIds: ['first', 'third'] }
+
+		expect(anchorFor(['¶1', '¶3'], blocks)).toEqual(ends)
+		expect(anchorFor(['¶1–¶3'], blocks)).toEqual(ends)
 	})
 
-	it('reads an anchor back as Block ids', () => {
-		expect(
-			expandAnchor({ kind: 'blocks', blockIds: ['bbbbbb'] }, blockTags(ids)),
-		).toEqual({
+	it('reads the whole piece from an empty list', () => {
+		expect(anchorFor([], blocks)).toEqual({ kind: 'article' })
+	})
+
+	it('drops a paragraph the Draft does not carry', () => {
+		expect(anchorFor(['¶2', '¶9'], blocks)).toEqual({
 			kind: 'blocks',
-			blockIds: [ids[1]],
+			blockIds: ['second'],
 		})
 	})
 
-	it('leaves a name that is no tag alone, for settleAnchor to refuse', () => {
-		expect(expandAnchor({ kind: 'blocks', blockIds: ['¶2'] }, blockTags(ids))).toEqual({
-			kind: 'blocks',
-			blockIds: ['¶2'],
-		})
+	it('reads the whole piece when nothing the Guide named exists', () => {
+		expect(anchorFor(['¶9'], blocks)).toEqual({ kind: 'article' })
 	})
 })

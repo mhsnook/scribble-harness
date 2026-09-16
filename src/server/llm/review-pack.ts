@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai'
 
 import { type BlockRow, blockOrdinals, blockText } from '../../shared/draft'
-import type { Note, NoteAnchor } from '../../shared/note'
+import { type Note, type NoteAnchor, wholePiece } from '../../shared/note'
 import type { Plan } from '../../shared/plan'
 import type { ReviewDepth } from '../../shared/review'
 import { judgeAgainstThePlan, planMessage } from './prompt'
@@ -33,26 +33,27 @@ const reviewerRules = [
 	'found rather than listing it: the prose is where you argue, and a Note is a short marker that',
 	'pins one point of that argument to a place in the piece.',
 	'',
-	'A Note carries the anchor, a two or three word label, and a body of one or two sentences.',
+	'A Note carries the paragraphs it is about, a two or three word label, and a body of one or',
+	'two sentences.',
 	'Keep the body short. The writer will have just read the passage above it, so the Note has to',
 	'remind them of the point rather than restate it. Give a part no Notes at all where the prose',
 	'is doing framing rather than landing on a line.',
 	'',
-	'An anchored Note points the writer at the line. A Note that names ¶5 reaches them as "¶5" and',
-	'takes them to it; the same Note naming no paragraph leaves them scanning the piece for what',
-	'you meant. That is most of what a Note is worth to them, so name the paragraphs whenever the',
-	'observation is about particular ones - a Note saying that ¶5 re-argues ¶2 belongs on ¶5.',
+	'An anchored Note points the writer at the line. A Note that names ¶5 reaches them beside',
+	'¶5 and takes them to it; the same Note naming no paragraph leaves them scanning the piece',
+	'for what you meant. That is most of what a Note is worth to them.',
 	'',
-	'{"kind":"blocks","blockIds":[...]} names one paragraph or a run of them. Use the tags',
-	'bracketed in the Draft below, copied exactly. A run means the span from its first paragraph',
-	'to its last, so name both ends rather than every paragraph between them. Where one point',
-	'covers two stretches that do not touch, write two Notes rather than one loose one.',
+	'Every Note carries "paragraphs". Name the ones it is about, by the numbers the Draft below',
+	'gives them: ["¶5"] for one, ["¶3","¶5"] for the run from ¶3 to ¶5 - name the two ends',
+	'rather than every paragraph between them. If your own sentence names a paragraph, that',
+	'paragraph goes in this array: a Note saying that ¶5 re-argues ¶2 belongs on ¶5. Where one',
+	'point covers two stretches that do not touch, write two Notes rather than one loose one.',
 	'',
-	'{"kind":"article"} is the fallback, for an observation that pertains to no particular',
-	'paragraphs: a Section the Plan asks for and the Draft never writes, a piece that reads as two',
-	'pieces, anything true of the whole. A point about a Section the Draft does write is not one',
-	"of these. It belongs on that Section's paragraphs, including where the point is that those",
-	'paragraphs and the Plan disagree.',
+	'Leave "paragraphs" empty only where the point lands nowhere in particular: a Section the',
+	'Plan asks for and the Draft never writes, a piece that reads as two pieces, anything true',
+	'of the whole. A point about a Section the Draft does write is not one of these. It belongs',
+	"on that Section's paragraphs, including where the point is that those paragraphs and the",
+	'Plan disagree.',
 	'',
 	"A Note's type is one or two words saying what sort of observation it is - structure,",
 	'tone drift, citations, repetition, budget, pacing, plan divergence, and whatever else the',
@@ -81,67 +82,42 @@ export function reviewSystemPrompt(depth: ReviewDepth): string {
 	return [reviewerRules, '', depthRules[depth]].join('\n')
 }
 
-/** Where a tag starts. `blockTags` grows it rather than trusting six to be
- * unique. */
-const TAG_LENGTH = 6
-
-export type BlockTags = {
-	/** Block id → the tag the model is shown. */
-	tagOf: ReadonlyMap<string, string>
-	/** Tag → Block id, for reading an anchor back. */
-	idOf: ReadonlyMap<string, string>
-}
-
 /**
- * The short name the model copies instead of a Block id.
+ * The paragraph numbers the Guide named, as an anchor.
  *
- * **Derived from the Block ids alone.** The pack computes these to write the
- * prompt and `writeReview` computes them again to read the answer, so the two
- * calls have to agree: nothing else may reach in here — not the ordinal, not
- * the text, not the Round.
+ * Beside `draftMessage` because the module that decides how a paragraph is
+ * named owns reading the name back. `finishReview` holds one list of Blocks for
+ * the prompt and for this, so a number always means the paragraph the Guide was
+ * shown, whatever the writer has typed since.
  *
- * A tag is unique within the one Review that uses it, which is all it has to
- * be. Nothing stores one.
+ * Digits are pulled out of whatever the Guide wrote, so "¶5", "5" and
+ * "paragraph 5" all land on ¶5, and a range written as one entry lands on both
+ * of its ends. A number the Draft does not carry drops out, and a Note left
+ * with none reads as the whole piece.
  */
-export function blockTags(blockIds: readonly string[]): BlockTags {
-	const longest = blockIds.reduce((most, id) => Math.max(most, id.length), 0)
+export function anchorFor(
+	named: readonly string[],
+	blocks: readonly BlockRow[],
+): NoteAnchor {
+	const byOrdinal = new Map(
+		[...blockOrdinals(blocks)].map(([id, ordinal]) => [ordinal, id]),
+	)
 
-	for (let length = TAG_LENGTH; length < longest; length += 1) {
-		const idOf = new Map(blockIds.map((id) => [id.slice(-length), id]))
-		if (idOf.size === blockIds.length) return withTags(idOf)
-	}
+	const blockIds = named
+		.flatMap((one) => [...one.matchAll(/\d+/g)].map((found) => Number(found[0])))
+		.map((ordinal) => byOrdinal.get(ordinal))
+		.filter((id): id is string => id !== undefined)
 
-	// Every id in full. Ids are unique, so this always is.
-	return withTags(new Map(blockIds.map((id) => [id, id])))
-}
-
-function withTags(idOf: Map<string, string>): BlockTags {
-	return { idOf, tagOf: new Map([...idOf].map(([tag, id]) => [id, tag])) }
-}
-
-/**
- * One anchor as the model wrote it, with its tags turned back into Block ids.
- *
- * A name that is not a tag is left as it is rather than dropped, so an id the
- * model invented reaches `settleAnchor` and is refused there, in the one place
- * that reports it. A full Block id survives for the same reason.
- */
-export function expandAnchor(anchor: NoteAnchor, tags: BlockTags): NoteAnchor {
-	if (anchor.kind !== 'blocks') return anchor
-
-	return {
-		kind: 'blocks',
-		blockIds: anchor.blockIds.map((named) => tags.idOf.get(named) ?? named),
-	}
+	return blockIds.length === 0 ? wholePiece : { kind: 'blocks', blockIds }
 }
 
 /**
- * The Draft, numbered for the writer and tagged for the anchors.
+ * The Draft, numbered.
  *
- * Both are needed and neither replaces the other: the writer reads "¶3", and an
- * anchor stores the Block id, which survives the paragraph moving. The ordinal
- * comes from `blockOrdinals`, the same function the client labels an anchor
- * with.
+ * One number does for the writer and for the anchor: it comes from
+ * `blockOrdinals`, the same function the client labels an anchor with, and
+ * `anchorFor` reads it back into the Block id that is stored. What is stored is
+ * still the id, which survives the paragraph moving.
  *
  * A Block with no text is named by its type rather than dropped. A section
  * break carries no words and is one of the strongest structural signals in the
@@ -149,20 +125,19 @@ export function expandAnchor(anchor: NoteAnchor, tags: BlockTags): NoteAnchor {
  */
 function draftMessage(blocks: readonly BlockRow[]): ModelMessage {
 	const ordinals = blockOrdinals(blocks)
-	const tags = blockTags(blocks.map((block) => block.id))
 
 	const lines = blocks.map((block) => {
 		const text = blockText(block.json)
 		const said = text === '' ? `(${block.json.type}, no text)` : text
 
-		return `¶${ordinals.get(block.id)} [${tags.tagOf.get(block.id)}] ${block.json.type}: ${said}`
+		return `¶${ordinals.get(block.id)} ${block.json.type}: ${said}`
 	})
 
 	return {
 		role: 'user',
 		content: [
 			'The Draft as it stands now, one line per paragraph. The number is what the writer',
-			'reads and the bracketed tag is what an anchor names.',
+			'reads and what a Note names.',
 			'',
 			...lines,
 		].join('\n'),

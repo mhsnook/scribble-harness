@@ -44,7 +44,10 @@ export function readAnchor(stored: string): NoteAnchor {
 	}
 }
 
-/** What the Guide writes, against the row fields the Article Agent adds.
+/** One Note as it is stored, against the row fields the Article Agent adds. The
+ * Guide writes a flatter shape and the Agent settles it into this one —
+ * `writtenNoteSchema` in `review.ts` says why the two differ.
+ *
  * `type` is a free string because `context.md` calls the list illustrative; the
  * suggested set is in the model's own instructions. */
 export const noteContentSchema = z.strictObject({

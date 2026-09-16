@@ -1,7 +1,6 @@
 import { MockLanguageModelV3 } from 'ai/test'
 import { expect, vi } from 'vitest'
 
-import type { NoteAnchor } from '../../src/shared/note'
 import type { ReviewOutput, Round } from '../../src/shared/review'
 import { inAgent, noUsage, stopped } from './scripted'
 
@@ -22,8 +21,9 @@ export function answers(...bodies: string[]) {
 	})
 }
 
-/** One response: prose, then the Notes it produced. */
-export function response(anchor: NoteAnchor): string {
+/** One response: prose, then the Notes it produced. `paragraphs` is what the
+ * Guide writes — the numbers the Draft was given, not Block ids. */
+export function response(paragraphs: string[]): string {
 	const output: ReviewOutput = {
 		passages: [
 			{
@@ -32,7 +32,7 @@ export function response(anchor: NoteAnchor): string {
 				notes: [
 					{
 						type: 'repetition',
-						anchor,
+						paragraphs,
 						label: 're-argued',
 						body: 'Cut to a clause.',
 					},

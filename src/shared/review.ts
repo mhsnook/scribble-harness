@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import { noteContentSchema } from './note'
 import { planSchema } from './plan'
 
 /** A Review and the Round it produces — `docs/reviews.md` for what they are,
@@ -24,6 +23,32 @@ export const reviewRequestSchema = z.strictObject({
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>
 
 /**
+ * One Note as the Guide writes it, which is not the shape a Note is stored in.
+ *
+ * A stored anchor is a union — a run of Blocks, or the whole piece — and a union
+ * reaches the model as a JSON Schema `oneOf` whose whole-piece branch needs one
+ * field where the run needs two. Under constrained decoding that is a thumb on
+ * the scale for the branch that says nothing, and the Guide took it: Reviews
+ * came back naming the paragraph in the body text and anchoring to the whole
+ * piece. Here there is one shape and one array, so naming no paragraph is as
+ * deliberate an act as naming one.
+ *
+ * The paragraphs are named by the number the Draft is given in the prompt, not
+ * by Block id. The Guide already writes "¶5" in the body of a Note it means for
+ * ¶5; asking it to also copy an opaque id for the same paragraph is a second
+ * chance to get it wrong. `anchorFor` reads them back against the very Blocks
+ * the prompt numbered.
+ */
+export const writtenNoteSchema = z.strictObject({
+	type: z.string().min(1),
+	label: z.string().min(1).optional(),
+	body: z.string().min(1),
+	/** The paragraphs the Note is about. Empty is the whole piece. */
+	paragraphs: z.array(z.string()),
+})
+export type WrittenNote = z.infer<typeof writtenNoteSchema>
+
+/**
  * One passage of the response: the Guide's prose, and the Notes it produced.
  *
  * Flat rather than a union of "some prose" and "some notes", because a model
@@ -33,7 +58,7 @@ export type ReviewRequest = z.infer<typeof reviewRequestSchema>
 export const reviewPassageSchema = z.strictObject({
 	prose: z.string().min(1),
 	label: z.string().min(1).optional(),
-	notes: z.array(noteContentSchema),
+	notes: z.array(writtenNoteSchema),
 })
 
 /** What the model answers with, whole. */

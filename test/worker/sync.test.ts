@@ -28,7 +28,7 @@ async function reviewed(name: string): Promise<Round> {
 	// A plain GET runs the cold Agent's onStart, the way the app's wake does —
 	// `runInDurableObject` alone reaches an instance whose tables don't exist.
 	await SELF.fetch(`https://harness.test/agents/article-agent/${name}`)
-	await scriptModel(name, 'reviewModel', answers(response({ kind: 'article' })))
+	await scriptModel(name, 'reviewModel', answers(response([])))
 	await inAgent(name, (agent) => agent.startReview(ask))
 
 	const round = await settled(name)
@@ -66,7 +66,7 @@ describe('the sync socket', () => {
 		expect((await reader.next('note')).ops).toEqual([])
 		expect((await reader.next('round')).ops).toEqual([])
 
-		await scriptModel('sync-live', 'reviewModel', answers(response({ kind: 'article' })))
+		await scriptModel('sync-live', 'reviewModel', answers(response([])))
 		const started = await inAgent('sync-live', (agent) => agent.startReview(ask))
 
 		// The Round starts as an insert...

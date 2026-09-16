@@ -100,7 +100,7 @@ export function MarginNotes({ notes, editor, actions, className }: MarginNotesPr
 					)}
 					style={{ top: tops.get(note.id) ?? 0 }}
 				>
-					<p className="text-12 leading-relaxed text-ink">{note.body}</p>
+					<p className="text-12 leading-tight text-ink">{note.body}</p>
 					<div className="flex flex-wrap gap-1.5">
 						<NoteControls actions={actions} note={note} />
 					</div>

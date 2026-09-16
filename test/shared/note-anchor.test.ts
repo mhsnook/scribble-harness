@@ -40,7 +40,7 @@ describe('settling a Note anchor', () => {
 	})
 })
 
-describe('what the Guide may write', () => {
+describe('what a stored Note may carry', () => {
 	it('refuses a Note with no body', () => {
 		const written = noteContentSchema.safeParse({
 			type: 'repetition',
@@ -61,7 +61,7 @@ describe('what the Guide may write', () => {
 		expect(written.success).toBe(false)
 	})
 
-	it('refuses a Section, which is no longer somewhere a Note may point', () => {
+	it('refuses a Section, which is not somewhere a Note may point', () => {
 		const written = noteContentSchema.safeParse({
 			type: 'plan divergence',
 			anchor: { kind: 'section', nodeId: 'n1' },

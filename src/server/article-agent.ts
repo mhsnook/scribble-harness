@@ -24,7 +24,6 @@ import {
 	missingNote,
 	type Note,
 	type NoteAnchor,
-	type NoteContent,
 	type NoteDisposition,
 	type NoteRuling,
 	noteRulingSchema,
@@ -59,6 +58,7 @@ import {
 	type Round,
 	type RoundPassage,
 	type RoundState,
+	type WrittenNote,
 } from '../shared/review'
 import {
 	fromOffer,
@@ -73,12 +73,7 @@ import {
 import { chatTurn } from './llm/chat-turn'
 import { model } from './llm/model'
 import { reviewTurn } from './llm/review'
-import {
-	type BlockTags,
-	blockTags,
-	expandAnchor,
-	type ReviewPack,
-} from './llm/review-pack'
+import { anchorFor, type ReviewPack } from './llm/review-pack'
 import { webSearch, type WebSearch } from './llm/search'
 
 /** One Block row as SQLite returns it. `this.sql` asserts the row type rather
@@ -729,13 +724,10 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		output: ReviewOutput,
 		pack: ReviewPack,
 	): Promise<void> {
-		const blockIds = pack.blocks.map((block) => block.id)
-		const tags = blockTags(blockIds)
-
 		const notes: NoteRow[] = []
 		const passages = output.passages.map((passage): RoundPassage => {
-			const noteIds = passage.notes.map((content) => {
-				const note = noteRow(round.id, content, tags, { blockIds })
+			const noteIds = passage.notes.map((written) => {
+				const note = noteRow(round.id, written, pack.blocks)
 				notes.push(note)
 
 				return note.id
@@ -879,22 +871,22 @@ function offerRow(content: ReferenceContent): OfferRow {
  * here, once, against what the Review was shown (`docs/reviews.md`). */
 function noteRow(
 	roundId: string,
-	content: NoteContent,
-	tags: BlockTags,
-	known: { blockIds: readonly string[] },
+	written: WrittenNote,
+	blocks: readonly BlockRow[],
 ): NoteRow {
-	const named = expandAnchor(content.anchor, tags)
-	const settled = settleAnchor(named, known)
+	const anchor = settleAnchor(anchorFor(written.paragraphs, blocks), {
+		blockIds: blocks.map((block) => block.id),
+	})
 
-	reportLostAnchor(roundId, content.body, named, settled)
+	reportLostAnchor(roundId, written, anchor, blocks.length)
 
 	return {
 		id: crypto.randomUUID(),
 		round_id: roundId,
-		type: content.type,
-		anchor: JSON.stringify(settled),
-		label: content.label ?? null,
-		body: content.body,
+		type: written.type,
+		anchor: JSON.stringify(anchor),
+		label: written.label ?? null,
+		body: written.body,
 		disposition: 'proposed',
 		created_at: Date.now(),
 		decided_at: null,
@@ -904,30 +896,22 @@ function noteRow(
 /**
  * Says so when a Note meant for a paragraph does not reach one.
  *
- * The writer sees the same card either way — a Note the model addressed to the
- * whole piece and a Note whose tags the Draft would not take both read "whole
- * piece" — so the log is the only place the two are told apart.
+ * The writer sees the same card either way — a Note the Guide addressed to the
+ * whole piece and a Note whose paragraphs the Draft does not carry both read
+ * "whole piece" — so the log is the only place the two are told apart.
  */
 function reportLostAnchor(
 	roundId: string,
-	body: string,
-	named: NoteAnchor,
-	settled: NoteAnchor,
+	written: WrittenNote,
+	anchor: NoteAnchor,
+	paragraphs: number,
 ): void {
-	if (named.kind !== 'blocks') return
-
-	// A run settles to every Block in its span, so what the model named and the
-	// span did not keep is exactly what the Draft did not carry.
-	const kept = settled.kind === 'blocks' ? settled.blockIds : []
-	const lost = named.blockIds.filter((id) => !kept.includes(id))
-
-	if (lost.length === 0) return
-
-	const landed = settled.kind === 'blocks' ? 'the rest of the run' : 'the whole piece'
+	if (written.paragraphs.length === 0 || anchor.kind === 'blocks') return
 
 	console.warn(
-		`Round ${roundId}: no Block in the Draft answers to ${lost.join(', ')}. ` +
-			`The Note is anchored to ${landed} instead, and reads: ${body}`,
+		`Round ${roundId}: the Guide named ${written.paragraphs.join(', ')} and the Draft ` +
+			`carries ${paragraphs} paragraphs, so the Note is anchored to the whole piece ` +
+			`instead. The Note reads: ${written.body}`,
 	)
 }
 

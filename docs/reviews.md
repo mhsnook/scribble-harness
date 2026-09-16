@@ -86,6 +86,37 @@ Note on ¶3–¶5 reads as ¶3–¶4 once ¶5 goes. A Note whose every Block is 
 reads as orphaned — the writer may undo the deletion, and the Note is still
 theirs to resolve.
 
+### The Guide names a paragraph by its number
+
+The Draft in the prompt is numbered — ¶1, ¶2 — and a Note names those numbers.
+`anchorFor` reads them back into Block ids against the very Blocks the prompt
+numbered, and the id is what gets stored, so the anchor still survives the
+paragraph moving.
+
+**The Guide never sees a Block id.** It already writes "¶5" in the body of a
+Note it means for ¶5, so asking it to also copy a 36-character id for that same
+paragraph was a second chance to get it wrong.
+
+### What the Guide writes is not the shape that is stored
+
+`writtenNoteSchema` in `shared/review.ts` is flat: one object, with a required
+`paragraphs` array that is empty for a Note about the whole piece.
+
+The stored anchor is a union, and a union reaches a model as a JSON Schema
+`oneOf` — here one whose whole-piece branch needs a single field where its
+run-of-Blocks branch needs two. Under the constrained decoding Workers AI runs,
+that is a thumb on the scale for the branch that says nothing, and it showed:
+Reviews came back naming the paragraph in the body text — "¶5 states 2+2=17" —
+while anchoring to the whole piece. Saying it more firmly in the prompt did not
+move it. With one shape and one array, naming no paragraph is as deliberate an
+act as naming one.
+
+A Note the Guide addressed to the whole piece and a Note whose paragraphs the
+Draft does not carry draw the same card, so a lost anchor is invisible on
+screen. The Article Agent logs one warning naming what the Guide asked for,
+which is how a Review that keeps missing is told apart from one answering
+broadly.
+
 ## Dispositions
 
 - **proposed** — what the Guide wrote.

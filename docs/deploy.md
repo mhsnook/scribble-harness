@@ -12,6 +12,10 @@ deploy gate, and the CI workflow in `.github/workflows/ci.yml` only checks; it
 does not deploy. `pnpm deploy` exists for a deploy from a machine, beside the
 automatic one.
 
+**That workflow runs on pull requests only.** It compares the PR's tree against
+`main` and reports what changed, so a push has no base to compare against.
+Nothing checks `main` after a merge; the deploy is what finds a broken merge.
+
 ## The AI Gateway
 
 **It attaches to the Workers AI calls for logging.** Inference runs on

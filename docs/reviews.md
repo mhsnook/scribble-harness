@@ -30,12 +30,22 @@ The other view is the **ledger** — every Note on the Article, newest Round
 first, in a drawer over the Round the Panel is showing. It is the sibling of the
 Offer ledger in `chat.md`, down to leaving the composer uncovered.
 
-The ledger grades rather than filters. Nothing is hidden, and how much room a
-Note takes says how much is left to do with it:
+Both views grade a Note by its disposition, and how much room it takes says how
+much is left to do with it:
 
 - **proposed** — a card, with accept and decline.
-- **accepted** and **resolved** — one line, opening back into the card.
-- **declined** — a count per Round, opening into lines.
+- **accepted**, **declined** and **resolved** — one line, which opens back into
+  the card and folds away again.
+
+A ruling shrinks a Note where it stands. In the Round the Notes keep the order
+the Guide wrote them in, so working down the list never rearranges what is under
+the writer's cursor; the ledger is the view that groups.
+
+The ledger also filters, by disposition and by Round. A filter is the only thing
+that hides a Note, and the controls say what they are hiding: each chip carries
+the whole record's count for its disposition, on and off alike, and the header
+says how many of the Notes are on screen. The filters fold away, because the
+drawer is opened to read the record rather than to narrow it.
 
 Ruling in the Round, in the ledger, or beside the prose is one write, because
 all three draw the same rows.

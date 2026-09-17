@@ -73,3 +73,54 @@ function size(one: LedgerRound): number {
 export function owed(counts: NotesLedger['counts']): number {
 	return counts.proposed + counts.accepted
 }
+
+export const DISPOSITIONS = [
+	'proposed',
+	'accepted',
+	'declined',
+	'resolved',
+] as const satisfies readonly NoteDisposition[]
+
+/** What the ledger is showing. Empty sets and a null Round all mean "no
+ * narrowing", so the unfiltered record is the one `EVERYTHING` describes. */
+export type LedgerFilter = {
+	dispositions: ReadonlySet<NoteDisposition>
+	roundId: string | null
+}
+
+export const EVERYTHING: LedgerFilter = {
+	dispositions: new Set(DISPOSITIONS),
+	roundId: null,
+}
+
+/**
+ * The Rounds the writer asked to see, with each Round's lists narrowed to the
+ * dispositions they asked for.
+ *
+ * A Round left with nothing is dropped, so the list never shows a heading over
+ * an empty space. Read the counts off the whole ledger rather than off this:
+ * the point of a filter control is to say what turning it on would bring back.
+ */
+export function filterRounds(
+	rounds: readonly LedgerRound[],
+	filter: LedgerFilter,
+): LedgerRound[] {
+	const kept = (one: LedgerRound, disposition: NoteDisposition) =>
+		filter.dispositions.has(disposition) ? one[disposition] : []
+
+	return rounds
+		.filter((one) => filter.roundId === null || one.round.id === filter.roundId)
+		.map((one) => ({
+			round: one.round,
+			proposed: kept(one, 'proposed'),
+			accepted: kept(one, 'accepted'),
+			declined: kept(one, 'declined'),
+			resolved: kept(one, 'resolved'),
+		}))
+		.filter((one) => size(one) > 0)
+}
+
+/** How many Notes a filtered list holds — the "showing 4 of 17" number. */
+export function countRounds(rounds: readonly LedgerRound[]): number {
+	return rounds.reduce((sum, one) => sum + size(one), 0)
+}

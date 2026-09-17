@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Note, NoteDisposition } from '../../src/shared/note'
-import { notesLedger, owed } from '../../src/shared/notes-ledger'
+import {
+	countRounds,
+	EVERYTHING,
+	filterRounds,
+	type LedgerFilter,
+	notesLedger,
+	owed,
+} from '../../src/shared/notes-ledger'
 import type { Round } from '../../src/shared/review'
 
 function round(id: string, ordinal: number): Round {
@@ -97,5 +104,58 @@ describe('the Notes ledger', () => {
 		const settled = notes.map((one) => ({ ...one, disposition: 'resolved' as const }))
 
 		expect(owed(notesLedger(settled, rounds).counts)).toBe(0)
+	})
+})
+
+describe('filtering the ledger', () => {
+	const ledger = notesLedger(notes, rounds)
+
+	const showingRounds = (filter: LedgerFilter) => filterRounds(ledger.rounds, filter)
+
+	const showing = (filter: LedgerFilter) =>
+		showingRounds(filter)
+			.flatMap((one) => [
+				...one.proposed,
+				...one.accepted,
+				...one.resolved,
+				...one.declined,
+			])
+			.map((one) => one.id)
+
+	it('shows every Note when nothing is narrowed', () => {
+		expect(showing(EVERYTHING).sort()).toEqual(['a', 'b', 'c', 'd', 'e'])
+	})
+
+	it('keeps only the dispositions asked for', () => {
+		expect(
+			showing({ ...EVERYTHING, dispositions: new Set(['accepted']) }).sort(),
+		).toEqual(['a', 'e'])
+	})
+
+	it('keeps only the Round asked for', () => {
+		expect(showing({ ...EVERYTHING, roundId: 'r1' }).sort()).toEqual(['a', 'b', 'c'])
+	})
+
+	it('narrows by disposition and Round together', () => {
+		const filter = { dispositions: new Set(['accepted' as const]), roundId: 'r1' }
+
+		expect(showing(filter)).toEqual(['a'])
+	})
+
+	it('drops a Round the filter has emptied rather than heading a blank space', () => {
+		const filter = { dispositions: new Set(['proposed' as const]), roundId: null }
+
+		expect(filterRounds(ledger.rounds, filter).map((one) => one.round.id)).toEqual(['r2'])
+	})
+
+	it('shows nothing when the filter matches nothing', () => {
+		const filter = { dispositions: new Set(['declined' as const]), roundId: 'r2' }
+
+		expect(filterRounds(ledger.rounds, filter)).toEqual([])
+	})
+
+	it('counts what a filtered list holds, for "showing N of M"', () => {
+		expect(countRounds(ledger.rounds)).toBe(5)
+		expect(countRounds(showingRounds({ ...EVERYTHING, roundId: 'r1' }))).toBe(3)
 	})
 })

@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 
-import type { Note } from '../../shared/note'
-import type { LedgerRound, NotesLedger } from '../../shared/notes-ledger'
-import { Button } from '../components/Button'
+import type { NoteDisposition } from '../../shared/note'
+import {
+	countRounds,
+	DISPOSITIONS,
+	EVERYTHING,
+	filterRounds,
+	type LedgerFilter,
+	type LedgerRound,
+	type NotesLedger,
+} from '../../shared/notes-ledger'
+import { Chip } from '../components/Chip'
 import { EmptySlot } from '../components/Field'
 import { PanelHeader } from '../components/Panel'
 import { cx } from '../lib/cx'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
-import { NoteCard, NoteLine } from './NoteCard'
+import { GradedNote } from './NoteCard'
 
 /**
  * Every Note on the Article, newest Round first, in a drawer over the Round the
@@ -17,10 +25,11 @@ import { NoteCard, NoteLine } from './NoteCard'
  * composer uncovered so the control that opened it is the control that closes
  * it.
  *
- * **The list is graded, not filtered.** A Note the writer has not ruled on gets
- * a card; one they have ruled on gets a line; the ones they declined get a
- * count. Nothing is hidden, and nothing they have finished with takes the room
- * of something they have not.
+ * Two things decide what a Note looks like here, and they are separate. The
+ * filter decides whether it is on screen at all, and the writer sets that. Its
+ * disposition decides how much room it takes, and the writer has already said
+ * that by ruling on it — a Note they still owe a ruling gets a card, and one
+ * they have ruled on gets a line they can open.
  *
  * Closed, it stays mounted and sits translated out of sight, so what the writer
  * had open is still open when it comes back.
@@ -45,6 +54,8 @@ export function NotesLedgerDrawer({
 	className,
 }: NotesLedgerDrawerProps) {
 	const panel = useRef<HTMLDivElement>(null)
+	const [filter, setFilter] = useState<LedgerFilter>(EVERYTHING)
+	const [showFilters, setShowFilters] = useState(false)
 
 	// Focus moves in on open, so Escape has an owner and the writer's next Tab
 	// starts inside the drawer rather than behind it. `preventScroll`, because
@@ -53,6 +64,8 @@ export function NotesLedgerDrawer({
 	useEffect(() => {
 		if (open) panel.current?.focus({ preventScroll: true })
 	}, [open])
+
+	const showing = filterRounds(ledger.rounds, filter)
 
 	return (
 		<div
@@ -73,47 +86,165 @@ export function NotesLedgerDrawer({
 			role="group"
 			tabIndex={-1}
 		>
-			{/* The count takes its own line rather than competing with the title and
-			    the close for one: this Panel is the narrowest column in the row. */}
-			<div className="shrink-0 rounded-t-frame border-b border-edge bg-sunk px-3.5 py-2.5">
+			{/* The filters fold away. Five controls at this Panel's width need four
+			    rows, and the drawer is opened to read the record rather than to
+			    narrow it — left open they would push the list off the bottom. */}
+			<div className="flex shrink-0 flex-col gap-1.5 rounded-t-frame border-b border-edge bg-sunk px-3.5 py-2.5">
 				<PanelHeader
 					actions={
-						<button
-							className="text-12 text-faint hover:text-ink"
-							onClick={onClose}
-							type="button"
-						>
-							close ×
-						</button>
+						<>
+							<button
+								aria-expanded={showFilters}
+								className="text-12 text-faint hover:text-ink"
+								onClick={() => setShowFilters((held) => !held)}
+								type="button"
+							>
+								filters
+							</button>
+							<button
+								className="text-12 text-faint hover:text-ink"
+								onClick={onClose}
+								type="button"
+							>
+								close ×
+							</button>
+						</>
 					}
 					title="All Notes"
 				/>
-				<p className="label-meta">{summary(ledger)}</p>
+
+				{/* On its own line rather than on the toggle: three labels in this
+				    Panel's header wrap, and a count the writer cannot read is worse
+				    than a row. Kept while the filters are folded, which is when they
+				    cannot say it themselves. */}
+				{narrowed(filter) ? (
+					<p className="label-meta">
+						{`showing ${countRounds(showing)} of ${countRounds(ledger.rounds)}`}
+					</p>
+				) : null}
+
+				{showFilters ? (
+					<>
+						<RoundFilter ledger={ledger} onPick={setFilter} roundId={filter.roundId} />
+
+						<div className="flex flex-wrap items-center gap-1.5">
+							<DispositionFilters
+								counts={ledger.counts}
+								onSet={setFilter}
+								showing={filter.dispositions}
+							/>
+						</div>
+					</>
+				) : null}
 			</div>
 
 			<div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-3.5">
-				{ledger.rounds.map((one) => (
+				{showing.map((one) => (
 					<RoundBlock key={one.round.id} actions={actions} naming={naming} round={one} />
 				))}
 
-				{ledger.rounds.length === 0 ? <EmptySlot>No Notes yet</EmptySlot> : null}
+				{showing.length === 0 ? (
+					<EmptySlot>
+						{ledger.counts.all === 0 ? 'No Notes yet' : 'No Notes match these filters'}
+					</EmptySlot>
+				) : null}
 			</div>
 		</div>
 	)
 }
 
-/** What is left to do, first. A writer opening this wants that number rather
- * than the total, so the total comes after it. */
-function summary(ledger: NotesLedger): string {
-	const { proposed, accepted, all } = ledger.counts
-	const left = [
-		proposed === 0 ? null : `${proposed} to rule`,
-		accepted === 0 ? null : `${accepted} to do`,
-	].filter((part) => part !== null)
+/**
+ * Whether the writer has narrowed the list.
+ *
+ * Read off the filter rather than by comparing what is on screen against the
+ * total. A Note whose Round has not synced yet is counted and not listed, and
+ * comparing the two numbers would read that as a filter the writer never set.
+ */
+function narrowed(filter: LedgerFilter): boolean {
+	return filter.roundId !== null || filter.dispositions.size < DISPOSITIONS.length
+}
 
-	return left.length === 0
-		? `${all} · all settled`
-		: `${left.join(' · ')} · ${all} in all`
+/**
+ * One chip per disposition, each saying how many Notes it would bring back.
+ *
+ * A chip turns its own disposition on and off, and the count on it is the whole
+ * ledger's rather than the filtered list's — a control that hides a thing has
+ * to keep saying what it is hiding. Turning the last one off turns them all
+ * back on, because an empty list is never what the writer meant by it.
+ */
+function DispositionFilters({
+	counts,
+	showing,
+	onSet,
+}: {
+	counts: NotesLedger['counts']
+	showing: ReadonlySet<NoteDisposition>
+	onSet: (change: (held: LedgerFilter) => LedgerFilter) => void
+}) {
+	const toggle = (disposition: NoteDisposition) =>
+		onSet((held) => {
+			const next = new Set(held.dispositions)
+			if (!next.delete(disposition)) next.add(disposition)
+
+			return {
+				...held,
+				dispositions: next.size === 0 ? new Set(DISPOSITIONS) : next,
+			}
+		})
+
+	return (
+		<>
+			{DISPOSITIONS.map((disposition) => {
+				const on = showing.has(disposition)
+
+				return (
+					<Chip
+						aria-label={`${disposition}, ${counts[disposition]} — ${on ? 'showing' : 'hidden'}`}
+						aria-pressed={on}
+						interactive
+						key={disposition}
+						onClick={() => toggle(disposition)}
+						variant={on ? 'solid' : 'outline'}
+					>
+						{disposition} · {counts[disposition]}
+					</Chip>
+				)
+			})}
+		</>
+	)
+}
+
+/** One Round, or all of them. Only the Rounds that wrote a Note are offered:
+ * `notesLedger` leaves the rest out, and picking one would show nothing. */
+function RoundFilter({
+	ledger,
+	roundId,
+	onPick,
+}: {
+	ledger: NotesLedger
+	roundId: string | null
+	onPick: (change: (held: LedgerFilter) => LedgerFilter) => void
+}) {
+	return (
+		<select
+			aria-label="Which Round to show"
+			className="w-full min-w-0 rounded-full border border-edge bg-surface px-2.5 py-1 text-12 text-ink"
+			onChange={(event) =>
+				onPick((held) => ({
+					...held,
+					roundId: event.target.value === '' ? null : event.target.value,
+				}))
+			}
+			value={roundId ?? ''}
+		>
+			<option value="">All rounds</option>
+			{ledger.rounds.map((one) => (
+				<option key={one.round.id} value={one.round.id}>
+					Round {one.round.ordinal} · {dateAndTime(one.round.startedAt)}
+				</option>
+			))}
+		</select>
+	)
 }
 
 /** One Round's Notes under its own heading. */
@@ -126,19 +257,12 @@ function RoundBlock({
 	naming: AnchorNaming
 	actions: NoteActions
 }) {
-	// Which settled Notes the writer has opened back up, and whether the declined
-	// pile is showing. Held here so it survives scrolling and resets per Round.
-	const [opened, setOpened] = useState<ReadonlySet<string>>(new Set())
-	const [showDeclined, setShowDeclined] = useState(false)
-
-	const open = (note: Note) => setOpened((held) => new Set(held).add(note.id))
-
-	const settled = (note: Note) =>
-		opened.has(note.id) ? (
-			<NoteCard key={note.id} actions={actions} naming={naming} note={note} />
-		) : (
-			<NoteLine key={note.id} naming={naming} note={note} onOpen={() => open(note)} />
-		)
+	const notes = [
+		...round.proposed,
+		...round.accepted,
+		...round.resolved,
+		...round.declined,
+	]
 
 	return (
 		<section className="flex flex-col gap-2">
@@ -146,25 +270,9 @@ function RoundBlock({
 				Round {round.round.ordinal} · {dateAndTime(round.round.startedAt)}
 			</p>
 
-			{round.proposed.map((note) => (
-				<NoteCard key={note.id} actions={actions} naming={naming} note={note} />
+			{notes.map((note) => (
+				<GradedNote key={note.id} actions={actions} naming={naming} note={note} />
 			))}
-
-			{round.accepted.map(settled)}
-			{round.resolved.map(settled)}
-
-			{round.declined.length === 0 ? null : showDeclined ? (
-				round.declined.map(settled)
-			) : (
-				<Button
-					className="self-start"
-					onClick={() => setShowDeclined(true)}
-					size="sm"
-					variant="link"
-				>
-					{round.declined.length} declined
-				</Button>
-			)}
 		</section>
 	)
 }

@@ -10,7 +10,7 @@ import { cx } from '../lib/cx'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
-import { NoteCard } from './NoteCard'
+import { GradedNote } from './NoteCard'
 
 /**
  * One Round, read whole: what the writer asked, the Guide's prose, and the
@@ -217,7 +217,14 @@ function TheAsk({ round, onSave }: { round: Round; onSave: (name: string) => voi
 	)
 }
 
-/** One passage of the Guide's reasoning, and the Notes it produced. */
+/**
+ * One passage of the Guide's reasoning, and the Notes it produced.
+ *
+ * The Notes stay in the order the Guide wrote them, and a ruling shrinks one
+ * where it stands rather than moving it. Sorting them by disposition would make
+ * the list rearrange itself under the writer working down it — the ledger is
+ * the view that groups.
+ */
 function Passage({
 	passage,
 	byId,
@@ -271,7 +278,7 @@ function Passage({
 					</div>
 
 					{notes.map((note) => (
-						<NoteCard key={note.id} actions={actions} naming={naming} note={note} />
+						<GradedNote key={note.id} actions={actions} naming={naming} note={note} />
 					))}
 				</div>
 			)}

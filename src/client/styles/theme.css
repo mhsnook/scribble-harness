@@ -61,13 +61,6 @@
 	--text-14: 0.875rem;
 	--text-15: 0.9375rem;
 
-	/* Meta label: the small mono labels used all over the design. Separate
-	   from `--text-11` because it also carries the label's line-height and
-	   tracking (`.label-meta`). */
-	--text-meta: 0.6875rem;
-	--text-meta--line-height: 1.4;
-	--text-meta--letter-spacing: 0.02em;
-
 	--radius-frame: 0.625rem;
 
 	--breakpoint-*: initial;
@@ -122,7 +115,6 @@
 		--text-13: calc(0.8125rem * var(--panel-scale, 1));
 		--text-14: calc(0.875rem * var(--panel-scale, 1));
 		--text-15: calc(0.9375rem * var(--panel-scale, 1));
-		--text-meta: calc(0.6875rem * var(--panel-scale, 1));
 	}
 
 	/* The small mono label. Used often enough to earn a class, and it labels
@@ -131,11 +123,7 @@
      It is set in sentence case. Uppercasing it reads as shouting, and the
      monospace face already separates a label from the writing around it. */
 	.label-meta {
-		font-family: var(--font-mono);
-		font-size: var(--text-meta);
-		line-height: var(--text-meta--line-height);
-		letter-spacing: var(--text-meta--letter-spacing);
-		color: var(--color-faint);
+		@apply font-mono text-11 leading-snug tracking-wide text-faint;
 	}
 
 	/* Prose in the writing surface and the draft previews. Sized in em, so it

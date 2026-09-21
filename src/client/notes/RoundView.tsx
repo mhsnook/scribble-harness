@@ -10,7 +10,7 @@ import { cx } from '../lib/cx'
 import { dateAndTime } from '../lib/when'
 import type { NoteActions } from './actions'
 import type { AnchorNaming } from './anchors'
-import { NoteCard } from './NoteCard'
+import { GradedNote } from './NoteCard'
 
 /**
  * One Round, read whole: what the writer asked, the Guide's prose, and the
@@ -217,7 +217,13 @@ function TheAsk({ round, onSave }: { round: Round; onSave: (name: string) => voi
 	)
 }
 
-/** One passage of the Guide's reasoning, and the Notes it produced. */
+/**
+ * One passage of the Guide's reasoning, and the Notes it produced.
+ *
+ * The Notes hold the order the Guide wrote them in. Grouping them by
+ * disposition, the way the ledger does, would move a Note the moment it is
+ * ruled on and shift the rest of the list under the pointer.
+ */
 function Passage({
 	passage,
 	byId,
@@ -271,7 +277,7 @@ function Passage({
 					</div>
 
 					{notes.map((note) => (
-						<NoteCard key={note.id} actions={actions} naming={naming} note={note} />
+						<GradedNote key={note.id} actions={actions} naming={naming} note={note} />
 					))}
 				</div>
 			)}

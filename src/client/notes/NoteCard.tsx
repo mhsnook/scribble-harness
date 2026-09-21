@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { Note } from '../../shared/note'
 import { Button } from '../components/Button'
 import { cx } from '../lib/cx'
@@ -12,19 +14,35 @@ export interface NoteCardProps {
 	actions: NoteActions
 	/** The queue's running number: "01". A Round's response numbers nothing. */
 	ordinal?: number
+	/** Adds a control that folds the card back to a line. */
+	onCollapse?: () => void
 	className?: string
 }
 
-export function NoteCard({ note, naming, actions, ordinal, className }: NoteCardProps) {
+export function NoteCard({
+	note,
+	naming,
+	actions,
+	ordinal,
+	onCollapse,
+	className,
+}: NoteCardProps) {
 	const anchor = anchorLabel(note.anchor, naming)
 	const settled = note.disposition === 'declined' || note.disposition === 'resolved'
 
 	const meta = [
-		ordinal === undefined ? null : String(ordinal).padStart(2, '0'),
+		ordinal === undefined ? undefined : String(ordinal).padStart(2, '0'),
 		anchor.text,
 		note.label,
-		settled ? note.disposition : null,
-	].filter((part) => part !== undefined && part !== null)
+		settled ? note.disposition : undefined,
+	].filter((part) => part !== undefined)
+
+	const label = (
+		<>
+			{meta.join(' · ')}
+			{anchor.orphaned ? <span className="text-accent-ink"> · orphaned</span> : null}
+		</>
+	)
 
 	return (
 		<article
@@ -37,10 +55,19 @@ export function NoteCard({ note, naming, actions, ordinal, className }: NoteCard
 				className,
 			)}
 		>
-			<p className="label-meta">
-				{meta.join(' · ')}
-				{anchor.orphaned ? <span className="text-accent-ink"> · orphaned</span> : null}
-			</p>
+			{onCollapse === undefined ? (
+				<p className="label-meta">{label}</p>
+			) : (
+				<button
+					aria-expanded
+					className="label-meta -m-1 flex items-baseline gap-1.5 rounded-md p-1 text-left hover:text-ink"
+					onClick={onCollapse}
+					type="button"
+				>
+					<span aria-hidden>▾</span>
+					<span>{label}</span>
+				</button>
+			)}
 
 			<p
 				className={cx(
@@ -78,6 +105,7 @@ export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
 
 	return (
 		<button
+			aria-expanded={false}
 			className="flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left hover:bg-hush"
 			onClick={onOpen}
 			type="button"
@@ -85,6 +113,37 @@ export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
 			<span className="label-meta shrink-0">{anchor.text}</span>
 			<span className="min-w-0 flex-1 truncate text-12 text-muted">{note.body}</span>
 		</button>
+	)
+}
+
+export interface GradedNoteProps {
+	note: Note
+	naming: AnchorNaming
+	actions: NoteActions
+	className?: string
+}
+
+/** A Note as a card while it is proposed, and as a line once it is ruled on,
+ * which the writer can open and close. */
+export function GradedNote({ note, naming, actions, className }: GradedNoteProps) {
+	const [open, setOpen] = useState(false)
+
+	if (note.disposition === 'proposed') {
+		return (
+			<NoteCard actions={actions} className={className} naming={naming} note={note} />
+		)
+	}
+
+	return open ? (
+		<NoteCard
+			actions={actions}
+			className={className}
+			naming={naming}
+			note={note}
+			onCollapse={() => setOpen(false)}
+		/>
+	) : (
+		<NoteLine naming={naming} note={note} onOpen={() => setOpen(true)} />
 	)
 }
 

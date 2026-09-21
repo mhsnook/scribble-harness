@@ -46,9 +46,19 @@ export const A_FullReview: Story = {
 		const note = canvas.getByText(/Strongest version/).closest('article') as HTMLElement
 		await userEvent.click(within(note).getByRole('button', { name: 'accept' }))
 
+		// A ruled Note folds to one line where it stands.
 		await waitFor(() =>
-			expect(within(note).getByRole('button', { name: 'resolve' })).toBeVisible(),
+			expect(canvas.getByText(/Strongest version/).closest('article')).toBeNull(),
 		)
+
+		// Clicking the line opens the card again, with its controls.
+		await userEvent.click(canvas.getByText(/Strongest version/))
+		await waitFor(() => {
+			const open = canvas.getByText(/Strongest version/).closest('article')
+			expect(
+				within(open as HTMLElement).getByRole('button', { name: 'resolve' }),
+			).toBeVisible()
+		})
 	},
 }
 
@@ -80,12 +90,6 @@ export const B_ReviewRail: Story = {
 		const ledger = within(canvas.getByRole('group', { name: 'All Notes' }))
 		await waitFor(() => expect(ledger.getByText('All Notes')).toBeVisible())
 
-		// A Note the writer declined is counted rather than listed, because they
-		// have already said no to it.
-		await expect(ledger.queryByText(/Always the plan/)).toBeNull()
-		await userEvent.click(ledger.getByRole('button', { name: /1 declined/ }))
-		await waitFor(() => expect(ledger.getByText(/Always the plan/)).toBeVisible())
-
 		// A settled Note is a line until it is asked for, and then it is a card
 		// with its way back.
 		await expect(ledger.queryByRole('button', { name: 'undo' })).toBeNull()
@@ -93,6 +97,20 @@ export const B_ReviewRail: Story = {
 		await waitFor(() =>
 			expect(ledger.getByRole('button', { name: 'undo' })).toBeVisible(),
 		)
+
+		// Nothing hides a Note but a filter, and the filters start folded away.
+		await expect(ledger.getByText(/Always the plan/)).toBeVisible()
+		await userEvent.click(ledger.getByRole('button', { name: 'filters' }))
+
+		// A chip keeps its count when it is off.
+		await userEvent.click(ledger.getByRole('button', { name: /^declined, 1/ }))
+		await waitFor(() => expect(ledger.queryByText(/Always the plan/)).toBeNull())
+		await expect(ledger.getByRole('button', { name: /^declined, 1/ })).toBeVisible()
+
+		// The header still says how many Notes show once the filters fold away.
+		await userEvent.click(ledger.getByRole('button', { name: 'filters' }))
+		await waitFor(() => expect(ledger.queryByRole('combobox')).toBeNull())
+		await expect(ledger.getByText('showing 5 of 6')).toBeVisible()
 	},
 }
 

@@ -73,3 +73,49 @@ function size(one: LedgerRound): number {
 export function owed(counts: NotesLedger['counts']): number {
 	return counts.proposed + counts.accepted
 }
+
+export const DISPOSITIONS = [
+	'proposed',
+	'accepted',
+	'declined',
+	'resolved',
+] as const satisfies readonly NoteDisposition[]
+
+/** What the ledger is showing. A null `roundId` means every Round, but an empty
+ * `dispositions` means no Notes at all — `EVERYTHING` is the unfiltered one. */
+export type LedgerFilter = {
+	dispositions: ReadonlySet<NoteDisposition>
+	roundId: string | null
+}
+
+export const EVERYTHING: LedgerFilter = {
+	dispositions: new Set(DISPOSITIONS),
+	roundId: null,
+}
+
+/**
+ * The Rounds and Notes the filter keeps. A Round the filter empties is dropped
+ * rather than left as a heading over nothing.
+ */
+export function filterRounds(
+	rounds: readonly LedgerRound[],
+	filter: LedgerFilter,
+): LedgerRound[] {
+	const kept = (one: LedgerRound, disposition: NoteDisposition) =>
+		filter.dispositions.has(disposition) ? one[disposition] : []
+
+	return rounds
+		.filter((one) => filter.roundId === null || one.round.id === filter.roundId)
+		.map((one) => ({
+			round: one.round,
+			proposed: kept(one, 'proposed'),
+			accepted: kept(one, 'accepted'),
+			declined: kept(one, 'declined'),
+			resolved: kept(one, 'resolved'),
+		}))
+		.filter((one) => size(one) > 0)
+}
+
+export function countRounds(rounds: readonly LedgerRound[]): number {
+	return rounds.reduce((sum, one) => sum + size(one), 0)
+}

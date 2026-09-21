@@ -14,8 +14,7 @@ export interface NoteCardProps {
 	actions: NoteActions
 	/** The queue's running number: "01". A Round's response numbers nothing. */
 	ordinal?: number
-	/** Folds the card back to its line. Given only by a caller that opened it
-	 * from one, which is why the card has no such control by default. */
+	/** Adds a control that folds the card back to a line. */
 	onCollapse?: () => void
 	className?: string
 }
@@ -124,14 +123,8 @@ export interface GradedNoteProps {
 	className?: string
 }
 
-/**
- * One Note at the size its disposition has earned: a card while the writer
- * still owes it a ruling, one line once they have given one.
- *
- * The writer opens a line back into a card and folds it away again, and this
- * holds that. Held per Note rather than per list, so the two lists that grade
- * — the Round on screen and the ledger — do not have to agree on anything.
- */
+/** A Note as a card while it is proposed, and as a line once it is ruled on,
+ * which the writer can open and close. */
 export function GradedNote({ note, naming, actions, className }: GradedNoteProps) {
 	const [open, setOpen] = useState(false)
 

@@ -25,11 +25,8 @@ import { GradedNote } from './NoteCard'
  * composer uncovered so the control that opened it is the control that closes
  * it.
  *
- * Two things decide what a Note looks like here, and they are separate. The
- * filter decides whether it is on screen at all, and the writer sets that. Its
- * disposition decides how much room it takes, and the writer has already said
- * that by ruling on it — a Note they still owe a ruling gets a card, and one
- * they have ruled on gets a line they can open.
+ * The filter decides which Notes are on screen; each Note's disposition decides
+ * whether it draws as a card or a line.
  *
  * Closed, it stays mounted and sits translated out of sight, so what the writer
  * had open is still open when it comes back.
@@ -86,9 +83,8 @@ export function NotesLedgerDrawer({
 			role="group"
 			tabIndex={-1}
 		>
-			{/* The filters fold away. Five controls at this Panel's width need four
-			    rows, and the drawer is opened to read the record rather than to
-			    narrow it — left open they would push the list off the bottom. */}
+			{/* The filters fold away: five controls at this Panel's width take four
+			    rows, which measured 219px of header over a 191px drawer. */}
 			<div className="flex shrink-0 flex-col gap-1.5 rounded-t-frame border-b border-edge bg-sunk px-3.5 py-2.5">
 				<PanelHeader
 					actions={
@@ -113,10 +109,8 @@ export function NotesLedgerDrawer({
 					title="All Notes"
 				/>
 
-				{/* On its own line rather than on the toggle: three labels in this
-				    Panel's header wrap, and a count the writer cannot read is worse
-				    than a row. Kept while the filters are folded, which is when they
-				    cannot say it themselves. */}
+				{/* Its own line rather than text on the toggle: three labels in this
+				    Panel's header wrap. */}
 				{narrowed(filter) ? (
 					<p className="label-meta">
 						{`showing ${countRounds(showing)} of ${countRounds(ledger.rounds)}`}
@@ -156,21 +150,20 @@ export function NotesLedgerDrawer({
 /**
  * Whether the writer has narrowed the list.
  *
- * Read off the filter rather than by comparing what is on screen against the
- * total. A Note whose Round has not synced yet is counted and not listed, and
- * comparing the two numbers would read that as a filter the writer never set.
+ * Read off the filter, not by comparing what is on screen against the total.
+ * A Note whose Round has not synced yet is counted and not listed, so those two
+ * numbers differ with no filter set.
  */
 function narrowed(filter: LedgerFilter): boolean {
 	return filter.roundId !== null || filter.dispositions.size < DISPOSITIONS.length
 }
 
 /**
- * One chip per disposition, each saying how many Notes it would bring back.
+ * One chip per disposition, which turns that disposition on and off.
  *
- * A chip turns its own disposition on and off, and the count on it is the whole
- * ledger's rather than the filtered list's — a control that hides a thing has
- * to keep saying what it is hiding. Turning the last one off turns them all
- * back on, because an empty list is never what the writer meant by it.
+ * The count on a chip is the whole ledger's, not the filtered list's, so it
+ * still reads when the chip is off. Turning the last chip off turns them all
+ * back on: an empty `dispositions` set shows nothing at all.
  */
 function DispositionFilters({
 	counts,

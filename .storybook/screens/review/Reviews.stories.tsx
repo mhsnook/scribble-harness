@@ -46,13 +46,12 @@ export const A_FullReview: Story = {
 		const note = canvas.getByText(/Strongest version/).closest('article') as HTMLElement
 		await userEvent.click(within(note).getByRole('button', { name: 'accept' }))
 
-		// A Note the writer has ruled on folds to one line where it stands, so the
-		// Round reads as what is left to do.
+		// A ruled Note folds to one line where it stands.
 		await waitFor(() =>
 			expect(canvas.getByText(/Strongest version/).closest('article')).toBeNull(),
 		)
 
-		// And opens back into its card, controls and all, when they ask for it.
+		// Clicking the line opens the card again, with its controls.
 		await userEvent.click(canvas.getByText(/Strongest version/))
 		await waitFor(() => {
 			const open = canvas.getByText(/Strongest version/).closest('article')
@@ -99,17 +98,16 @@ export const B_ReviewRail: Story = {
 			expect(ledger.getByRole('button', { name: 'undo' })).toBeVisible(),
 		)
 
-		// Every Note is listed, and a filter is the only thing that hides one. The
-		// filters fold away, because the drawer is opened to read the record.
+		// Nothing hides a Note but a filter, and the filters start folded away.
 		await expect(ledger.getByText(/Always the plan/)).toBeVisible()
 		await userEvent.click(ledger.getByRole('button', { name: 'filters' }))
 
-		// The chip says which disposition it hides and how many, on and off alike.
+		// A chip keeps its count when it is off.
 		await userEvent.click(ledger.getByRole('button', { name: /^declined, 1/ }))
 		await waitFor(() => expect(ledger.queryByText(/Always the plan/)).toBeNull())
 		await expect(ledger.getByRole('button', { name: /^declined, 1/ })).toBeVisible()
 
-		// The header keeps saying what is hidden once the filters fold away again.
+		// The header still says how many Notes show once the filters fold away.
 		await userEvent.click(ledger.getByRole('button', { name: 'filters' }))
 		await waitFor(() => expect(ledger.queryByRole('combobox')).toBeNull())
 		await expect(ledger.getByText('showing 5 of 6')).toBeVisible()

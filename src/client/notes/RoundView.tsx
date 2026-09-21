@@ -220,10 +220,9 @@ function TheAsk({ round, onSave }: { round: Round; onSave: (name: string) => voi
 /**
  * One passage of the Guide's reasoning, and the Notes it produced.
  *
- * The Notes stay in the order the Guide wrote them, and a ruling shrinks one
- * where it stands rather than moving it. Sorting them by disposition would make
- * the list rearrange itself under the writer working down it — the ledger is
- * the view that groups.
+ * The Notes hold the order the Guide wrote them in. Grouping them by
+ * disposition, the way the ledger does, would move a Note the moment it is
+ * ruled on and shift the rest of the list under the pointer.
  */
 function Passage({
 	passage,

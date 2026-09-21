@@ -81,8 +81,8 @@ export const DISPOSITIONS = [
 	'resolved',
 ] as const satisfies readonly NoteDisposition[]
 
-/** What the ledger is showing. Empty sets and a null Round all mean "no
- * narrowing", so the unfiltered record is the one `EVERYTHING` describes. */
+/** What the ledger is showing. A null `roundId` means every Round, but an empty
+ * `dispositions` means no Notes at all — `EVERYTHING` is the unfiltered one. */
 export type LedgerFilter = {
 	dispositions: ReadonlySet<NoteDisposition>
 	roundId: string | null
@@ -94,12 +94,8 @@ export const EVERYTHING: LedgerFilter = {
 }
 
 /**
- * The Rounds the writer asked to see, with each Round's lists narrowed to the
- * dispositions they asked for.
- *
- * A Round left with nothing is dropped, so the list never shows a heading over
- * an empty space. Read the counts off the whole ledger rather than off this:
- * the point of a filter control is to say what turning it on would bring back.
+ * The Rounds and Notes the filter keeps. A Round the filter empties is dropped
+ * rather than left as a heading over nothing.
  */
 export function filterRounds(
 	rounds: readonly LedgerRound[],
@@ -120,7 +116,6 @@ export function filterRounds(
 		.filter((one) => size(one) > 0)
 }
 
-/** How many Notes a filtered list holds — the "showing 4 of 17" number. */
 export function countRounds(rounds: readonly LedgerRound[]): number {
 	return rounds.reduce((sum, one) => sum + size(one), 0)
 }

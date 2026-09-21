@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
-import type { Note } from '../../shared/note'
+import type { Note, NoteDisposition } from '../../shared/note'
 import { Button } from '../components/Button'
 import { cx } from '../lib/cx'
 import type { NoteActions } from './actions'
@@ -28,17 +28,16 @@ export function NoteCard({
 	className,
 }: NoteCardProps) {
 	const anchor = anchorLabel(note.anchor, naming)
-	const settled = note.disposition === 'declined' || note.disposition === 'resolved'
 
 	const meta = [
 		ordinal === undefined ? undefined : String(ordinal).padStart(2, '0'),
 		anchor.text,
 		note.label,
-		settled ? note.disposition : undefined,
 	].filter((part) => part !== undefined)
 
 	const label = (
 		<>
+			<DispositionMark disposition={note.disposition} />
 			{meta.join(' · ')}
 			{anchor.orphaned ? <span className="text-accent-ink"> · orphaned</span> : null}
 		</>
@@ -51,12 +50,11 @@ export function NoteCard({
 				note.disposition === 'accepted'
 					? 'border-accent-edge bg-accent-soft'
 					: 'border-edge bg-surface',
-				settled && 'opacity-55',
 				className,
 			)}
 		>
 			{onCollapse === undefined ? (
-				<p className="label-meta">{label}</p>
+				<p className="label-meta flex items-baseline gap-1.5">{label}</p>
 			) : (
 				<button
 					aria-expanded
@@ -65,14 +63,14 @@ export function NoteCard({
 					type="button"
 				>
 					<span aria-hidden>▾</span>
-					<span>{label}</span>
+					{label}
 				</button>
 			)}
 
 			<p
 				className={cx(
 					'text-13 leading-tight text-ink',
-					note.disposition === 'declined' && 'line-through',
+					note.disposition === 'resolved' && 'line-through',
 				)}
 			>
 				{note.body}
@@ -82,6 +80,41 @@ export function NoteCard({
 				<NoteControls actions={actions} note={note} />
 			</div>
 		</article>
+	)
+}
+
+/** ✓ accepted, ✕ declined, ✓ resolved. The strikethrough on a resolved Note's
+ * body is what tells the two checks apart. */
+const marks: Record<NoteDisposition, string | null> = {
+	proposed: null,
+	accepted: '✓',
+	declined: '✕',
+	resolved: '✓',
+}
+
+/**
+ * What the writer ruled, as a mark rather than as dimmed type.
+ *
+ * Only `accepted` takes the accent: it is the one disposition that is still
+ * owed, and the Draft's margin already draws those in the accent.
+ */
+function DispositionMark({ disposition }: { disposition: NoteDisposition }) {
+	const mark = marks[disposition]
+	if (mark === null) return null
+
+	return (
+		<>
+			<span
+				aria-hidden
+				className={cx(
+					'shrink-0',
+					disposition === 'accepted' ? 'text-accent-edge' : 'text-faint',
+				)}
+			>
+				{mark}
+			</span>
+			<span className="sr-only">{disposition}</span>
+		</>
 	)
 }
 
@@ -110,8 +143,18 @@ export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
 			onClick={onOpen}
 			type="button"
 		>
-			<span className="label-meta shrink-0">{anchor.text}</span>
-			<span className="min-w-0 flex-1 truncate text-12 text-muted">{note.body}</span>
+			<span className="label-meta flex shrink-0 items-baseline gap-1.5">
+				<DispositionMark disposition={note.disposition} />
+				{anchor.text}
+			</span>
+			<span
+				className={cx(
+					'min-w-0 flex-1 truncate text-12 text-muted',
+					note.disposition === 'resolved' && 'line-through',
+				)}
+			>
+				{note.body}
+			</span>
 		</button>
 	)
 }
@@ -127,23 +170,61 @@ export interface GradedNoteProps {
  * which the writer can open and close. */
 export function GradedNote({ note, naming, actions, className }: GradedNoteProps) {
 	const [open, setOpen] = useState(false)
+	const [moving, setMoving] = useState(false)
+	const inner = useRef<HTMLDivElement>(null)
+	const [height, setHeight] = useState<number | null>(null)
 
-	if (note.disposition === 'proposed') {
-		return (
-			<NoteCard actions={actions} className={className} naming={naming} note={note} />
-		)
+	// The wrapper carries a measured height rather than `auto`, because `auto`
+	// does not animate: the line and the card are different elements, so there is
+	// nothing for the browser to interpolate between.
+	useLayoutEffect(() => {
+		const box = inner.current
+		if (box === null) return
+
+		const measure = () => setHeight(box.offsetHeight)
+		measure()
+
+		// Catches the swap between line and card, and the body reflowing when the
+		// Panel changes width.
+		const watch = new ResizeObserver(measure)
+		watch.observe(box)
+
+		return () => watch.disconnect()
+	}, [])
+
+	const settled = note.disposition !== 'proposed'
+
+	const show = (next: boolean) => {
+		setMoving(true)
+		setOpen(next)
 	}
 
-	return open ? (
-		<NoteCard
-			actions={actions}
-			className={className}
-			naming={naming}
-			note={note}
-			onCollapse={() => setOpen(false)}
-		/>
-	) : (
-		<NoteLine naming={naming} note={note} onOpen={() => setOpen(true)} />
+	return (
+		<div
+			className={cx(
+				'transition-[height] duration-200 ease-out motion-reduce:transition-none',
+				// Only while the height is between the two: the inner box is already
+				// at its new height and would spill. Left on, it would clip the focus
+				// outline, which sits outside the button it belongs to.
+				moving && 'overflow-hidden',
+				className,
+			)}
+			onTransitionEnd={() => setMoving(false)}
+			style={height === null ? undefined : { height }}
+		>
+			<div ref={inner}>
+				{settled && !open ? (
+					<NoteLine naming={naming} note={note} onOpen={() => show(true)} />
+				) : (
+					<NoteCard
+						actions={actions}
+						naming={naming}
+						note={note}
+						{...(settled ? { onCollapse: () => show(false) } : {})}
+					/>
+				)}
+			</div>
+		</div>
 	)
 }
 

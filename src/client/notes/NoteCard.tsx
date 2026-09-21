@@ -84,8 +84,8 @@ export function NoteCard({
 	)
 }
 
-/** A check for both accepted and resolved. The strikethrough on a resolved
- * Note's body is what tells the two apart. */
+/** Accepted and resolved share the check; the strikethrough on a resolved
+ * Note's body tells them apart. */
 const marks: Record<NoteDisposition, LucideIcon | null> = {
 	proposed: null,
 	accepted: Check,
@@ -93,12 +93,7 @@ const marks: Record<NoteDisposition, LucideIcon | null> = {
 	resolved: Check,
 }
 
-/**
- * What the writer ruled, as a mark rather than as dimmed type.
- *
- * Only `accepted` takes the accent: it is the one disposition that is still
- * owed, and the Draft's margin already draws those in the accent.
- */
+/** Marks a Note with the writer's ruling. Accepted Notes take the accent. */
 function DispositionMark({ disposition }: { disposition: NoteDisposition }) {
 	const Mark = marks[disposition]
 	if (Mark === null) return null
@@ -173,9 +168,8 @@ export function GradedNote({ note, naming, actions, className }: GradedNoteProps
 	const inner = useRef<HTMLDivElement>(null)
 	const [height, setHeight] = useState<number | null>(null)
 
-	// The wrapper carries a measured height rather than `auto`, because `auto`
-	// does not animate: the line and the card are different elements, so there is
-	// nothing for the browser to interpolate between.
+	// Measures the inner box and puts that height on the wrapper, so the fold
+	// animates: a height of `auto` does not transition.
 	useLayoutEffect(() => {
 		const box = inner.current
 		if (box === null) return
@@ -202,9 +196,9 @@ export function GradedNote({ note, naming, actions, className }: GradedNoteProps
 		<div
 			className={cx(
 				'transition-[height] duration-200 ease-out motion-reduce:transition-none',
-				// Only while the height is between the two: the inner box is already
-				// at its new height and would spill. Left on, it would clip the focus
-				// outline, which sits outside the button it belongs to.
+				// Clips only while the height moves: the inner box is already at its
+				// new height and would spill. Clipping always would cut the focus
+				// outline, which sits outside the button.
 				moving && 'overflow-hidden',
 				className,
 			)}

@@ -1,3 +1,4 @@
+import { Check, ChevronDown, type LucideIcon, X } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
 import type { Note, NoteDisposition } from '../../shared/note'
@@ -54,15 +55,15 @@ export function NoteCard({
 			)}
 		>
 			{onCollapse === undefined ? (
-				<p className="label-meta flex items-baseline gap-1.5">{label}</p>
+				<p className="label-meta flex items-center gap-1.5">{label}</p>
 			) : (
 				<button
 					aria-expanded
-					className="label-meta -m-1 flex items-baseline gap-1.5 rounded-md p-1 text-left hover:text-ink"
+					className="label-meta -m-1 flex items-center gap-1.5 rounded-md p-1 text-left hover:text-ink"
 					onClick={onCollapse}
 					type="button"
 				>
-					<span aria-hidden>▾</span>
+					<ChevronDown aria-hidden className="size-3.5 shrink-0" />
 					{label}
 				</button>
 			)}
@@ -83,13 +84,13 @@ export function NoteCard({
 	)
 }
 
-/** ✓ accepted, ✕ declined, ✓ resolved. The strikethrough on a resolved Note's
- * body is what tells the two checks apart. */
-const marks: Record<NoteDisposition, string | null> = {
+/** A check for both accepted and resolved. The strikethrough on a resolved
+ * Note's body is what tells the two apart. */
+const marks: Record<NoteDisposition, LucideIcon | null> = {
 	proposed: null,
-	accepted: '✓',
-	declined: '✕',
-	resolved: '✓',
+	accepted: Check,
+	declined: X,
+	resolved: Check,
 }
 
 /**
@@ -99,20 +100,18 @@ const marks: Record<NoteDisposition, string | null> = {
  * owed, and the Draft's margin already draws those in the accent.
  */
 function DispositionMark({ disposition }: { disposition: NoteDisposition }) {
-	const mark = marks[disposition]
-	if (mark === null) return null
+	const Mark = marks[disposition]
+	if (Mark === null) return null
 
 	return (
 		<>
-			<span
+			<Mark
 				aria-hidden
 				className={cx(
-					'shrink-0',
+					'size-3.5 shrink-0',
 					disposition === 'accepted' ? 'text-accent-edge' : 'text-faint',
 				)}
-			>
-				{mark}
-			</span>
+			/>
 			<span className="sr-only">{disposition}</span>
 		</>
 	)
@@ -143,7 +142,7 @@ export function NoteLine({ note, naming, onOpen }: NoteLineProps) {
 			onClick={onOpen}
 			type="button"
 		>
-			<span className="label-meta flex shrink-0 items-baseline gap-1.5">
+			<span className="label-meta flex shrink-0 items-center gap-1.5">
 				<DispositionMark disposition={note.disposition} />
 				{anchor.text}
 			</span>

@@ -36,8 +36,8 @@ A Note's disposition sets how it draws, in the Round and in the ledger alike:
 - **accepted**, **declined** and **resolved** — one line, which opens back into
   the card and folds away again.
 
-A mark carries the ruling: ✓ accepted, ✕ declined, ✓ with the body struck
-through for resolved. A ruled Note keeps the type and the contrast of an unruled
+A mark carries the ruling: a check for accepted, an X for declined, a check with
+the body struck through for resolved. A ruled Note keeps the type and the contrast of an unruled
 one, so a Note the writer agreed to reads as easily as one they have not reached
 yet.
 

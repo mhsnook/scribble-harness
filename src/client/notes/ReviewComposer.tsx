@@ -10,7 +10,8 @@ import type { Skill } from './skills'
 
 export interface ReviewComposerProps {
 	skills: readonly Skill[]
-	/** A Review is in flight, so a second ask would be refused. */
+	/** A Review is in flight, so `run review` is disabled and a second ask does
+	 * nothing. */
 	running: boolean
 	onRun: (prompt: string, depth: ReviewDepth) => void
 	/** Controls left of `run review` — the ledger toggle. */

@@ -120,8 +120,8 @@ export function DraftPanel({
 	)
 }
 
-/** Only a save in flight or one that failed is worth a writer's attention
- * mid-sentence. */
+/** Renders nothing until the first save lands, because an untouched Draft has
+ * no status to report. */
 function SaveState({ status }: { status: DraftStatus }) {
 	if (status.state === 'failed') return <span className="text-accent-ink">not saved</span>
 	if (status.state === 'saving') return <>saving…</>

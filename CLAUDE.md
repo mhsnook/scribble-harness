@@ -13,14 +13,26 @@ The subject of a code comment is the code. Open on what the code does.
 
 A fact about the world outside this code — another module's behaviour, a browser
 quirk, the shape an API returns — earns a place only when a conjunction joins it
-to the code: **because**, **so that**, **as long as**, **in order to**. The
-conjunction is the point. It tells the next reader when this code stops being
-needed, or stops being correct.
+to the code: **because**, **so**, **so that**, **when**, **unless**, **since**,
+**as long as**, **in order to**. The conjunction is the point. It tells the next
+reader when this code stops being needed, or stops being correct.
 
 A bare outside fact sitting next to a bare action cannot go stale visibly.
 Change the fact and the comment is quietly wrong, and whoever trusts it writes
-the bug. A colon is not a conjunction: it asserts adjacency where the reader
-needs dependency.
+the bug. A colon standing in for "because" reads as adjacency where the reader
+needs dependency, so rewrite it. A colon that introduces a definition or a list
+is doing a different job and stays — `Null means an end rather than a neighbour:
+afterId first child, beforeId last.`
+
+The worst comment states the fact and no action at all. Find the missing subject
+before reaching for a conjunction, because there is nothing to attach the fact
+to until the code's own action is in the sentence:
+
+```
+❌ // Awaiting this deadlocks.
+
+✅ // Not awaited on purpose, because awaiting `addToolOutput` deadlocks.
+```
 
 ```
 ❌ Accepted and resolved share the check; the strikethrough tells them apart.

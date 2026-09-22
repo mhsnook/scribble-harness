@@ -139,6 +139,13 @@
 		margin-top: 1.1em;
 	}
 
+	/* A paragraph after a list gets the same gap as p + p — otherwise it sits
+	   flush against the last item, since the list's own margin-top doesn't
+	   apply on this side. */
+	.prose-draft :is(ul, ol) + p {
+		margin-top: 1.1em;
+	}
+
 	/* A heading is a different voice from the prose: the sans face and the
 	   green say "structure" before the reader reads the words, so a heading
 	   never scans as a stressed sentence. Size carries the rank — each level a
@@ -237,6 +244,13 @@
 	}
 
 	.prose-chat p + p {
+		margin-top: 0.75em;
+	}
+
+	/* A paragraph after a list gets the same gap as p + p — otherwise it sits
+	   flush against the last item, since the list's own margin-top doesn't
+	   apply on this side. */
+	.prose-chat :is(ul, ol) + p {
 		margin-top: 0.75em;
 	}
 

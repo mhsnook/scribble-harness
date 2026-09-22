@@ -84,8 +84,9 @@ export function NoteCard({
 	)
 }
 
-/** Accepted and resolved share the check; the strikethrough on a resolved
- * Note's body tells them apart. */
+/** Maps a disposition to its icon. `accepted` and `resolved` share `Check`, so
+ * they are only told apart as long as `NoteCard` strikes a resolved body
+ * through. */
 const marks: Record<NoteDisposition, LucideIcon | null> = {
 	proposed: null,
 	accepted: Check,
@@ -93,7 +94,7 @@ const marks: Record<NoteDisposition, LucideIcon | null> = {
 	resolved: Check,
 }
 
-/** Marks a Note with the writer's ruling. Accepted Notes take the accent. */
+/** Marks a Note with the writer's ruling. */
 function DispositionMark({ disposition }: { disposition: NoteDisposition }) {
 	const Mark = marks[disposition]
 	if (Mark === null) return null
@@ -168,8 +169,8 @@ export function GradedNote({ note, naming, actions, className }: GradedNoteProps
 	const inner = useRef<HTMLDivElement>(null)
 	const [height, setHeight] = useState<number | null>(null)
 
-	// Measures the inner box and puts that height on the wrapper, so the fold
-	// animates: a height of `auto` does not transition.
+	// Sets the wrapper's height from the measured inner box, because CSS cannot
+	// transition to or from a height of `auto`.
 	useLayoutEffect(() => {
 		const box = inner.current
 		if (box === null) return
@@ -177,8 +178,9 @@ export function GradedNote({ note, naming, actions, className }: GradedNoteProps
 		const measure = () => setHeight(box.offsetHeight)
 		measure()
 
-		// Catches the swap between line and card, and the body reflowing when the
-		// Panel changes width.
+		// Re-measures whenever the inner box changes size, which it does on the
+		// swap between line and card, and when the Panel's width reflows the
+		// body.
 		const watch = new ResizeObserver(measure)
 		watch.observe(box)
 
@@ -196,9 +198,9 @@ export function GradedNote({ note, naming, actions, className }: GradedNoteProps
 		<div
 			className={cx(
 				'transition-[height] duration-200 ease-out motion-reduce:transition-none',
-				// Clips only while the height moves: the inner box is already at its
-				// new height and would spill. Clipping always would cut the focus
-				// outline, which sits outside the button.
+				// Clips while the height moves, because the inner box is already at
+				// its new height and would spill. Stops clipping after that, because
+				// the focus outline sits outside the button and would be cut.
 				moving && 'overflow-hidden',
 				className,
 			)}

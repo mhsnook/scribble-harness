@@ -204,8 +204,9 @@ function useFootOfTranscript(): [
 		const scroller = panel.current
 		if (scroller === null) return
 
-		// The children grow as turns arrive; the scroller itself changes height
-		// when the window does, or when the composer grows under it.
+		// Watches every child as well as the scroller, because a turn arriving can
+		// grow a child without changing the scroller's own height — that only
+		// changes when the window resizes or the composer grows under it.
 		const watch = new ResizeObserver(foot)
 		watch.observe(scroller)
 		for (const child of scroller.children) watch.observe(child)

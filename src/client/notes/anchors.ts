@@ -27,7 +27,8 @@ export type AnchorLabel = {
 export function anchorLabel(anchor: NoteAnchor, naming: AnchorNaming): AnchorLabel {
 	if (anchor.kind === 'article') return { text: 'whole piece', orphaned: false }
 
-	// A run is read as the span from its first paragraph to its last.
+	// Read as the span from its first paragraph to its last, because a run's
+	// `blockIds` are contiguous paragraphs.
 	const numbers = anchor.blockIds
 		.map((id) => naming.paragraphOrdinals.get(id))
 		.filter((one): one is number => one !== undefined)

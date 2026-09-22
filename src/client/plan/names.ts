@@ -5,8 +5,8 @@ import { referenceEntries, referenceMark, referenceName } from './references'
 /**
  * Names one record in the Plan the way the writer would say it, for the places
  * that put a record in a sentence — a Proposal card, a refusal. Sections come
- * out of the same walk the Outline numbers by (`docs/plan.md`), and nothing here reads an id
- * aloud: the writer never saw one.
+ * out of the same walk the Outline numbers by (`docs/plan.md`), and nothing
+ * here reads an id aloud, because the writer never saw one.
  */
 
 export type PlanNames = {

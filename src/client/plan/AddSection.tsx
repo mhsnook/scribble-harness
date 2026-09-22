@@ -13,7 +13,6 @@ import type { SectionAnchor } from './edits'
  */
 
 export interface AddSectionProps {
-
 	outline: readonly OutlineNode[]
 	onAdd: (anchor: SectionAnchor) => void
 }
@@ -61,8 +60,8 @@ export function AddSection({ outline, onAdd }: AddSectionProps) {
 				</Button>
 			</ButtonGroup>
 
-			{/* The last Section is left out: "after" it and "bottom" are the same
-			    place, and one of them is the shorter thing to read. */}
+			{/* The last Section is left out, because "after" it and "bottom" are
+			    the same place, and skipping it is the shorter thing to read. */}
 			{outline.slice(0, -1).map((node, index) => (
 				<button
 					key={node.id}

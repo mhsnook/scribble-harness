@@ -46,8 +46,8 @@ export type DraftWriter = {
 	touch: () => void
 	/** Send what is waiting, now. */
 	flush: () => void
-	/** Flush and stop. Re-usable: hiding the Draft Panel runs this, and showing
-	 * it again has to carry on from the same baseline. */
+	/** Flush and stop. Re-usable, because hiding the Draft Panel runs this and
+	 * showing it again has to carry on from the same baseline. */
 	dispose: () => void
 }
 

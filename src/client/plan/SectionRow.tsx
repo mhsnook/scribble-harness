@@ -53,7 +53,7 @@ export interface SectionRowProps {
 	/** Take the caret, because the writer just made this Section. */
 	takeCaret?: boolean
 	/** Scrolls to a placed Reference. Can be absent when the caller draws no
-	 * References list; the name then reads as text. */
+	 * References list, so the name then reads as text. */
 	onShowReference?: (referenceId: string) => void
 	className?: string
 }
@@ -143,8 +143,8 @@ export function SectionRow({
 				<button
 					className="-mx-1.5 rounded-md border border-transparent px-1.5 py-1 text-left hover:border-edge hover:bg-surface"
 					onClick={() => onOpen(node.id)}
-					// On mousedown: the open Section closes on blur, which relays the
-					// list and moves this row before a click would land.
+					// Fires on mousedown, because the open Section closes on blur, which
+					// relays the list and moves this row before a click would land.
 					onMouseDown={(event) => {
 						event.preventDefault()
 						onOpen(node.id)
@@ -280,8 +280,7 @@ export function SectionRow({
 					<Button
 						onBlur={() => setArmed(false)}
 						onClick={() => {
-							// Two clicks, because there is no undo. Leaving the button disarms
-							// it.
+							// Two clicks, because there is no undo.
 							if (armed) edit(deleteSection(node.id))
 							else setArmed(true)
 						}}

@@ -16,7 +16,7 @@ import { type AnchorNaming, anchorNaming } from './anchors'
 
 export type NotesHandle = {
 	ledger: NotesLedger
-	/** Every Note, in the order the Guide wrote them. A passage names its own
+	/** Every Note, in the order the Guide wrote them — a passage names its own
 	 * by id, so it reads this rather than the ledger's grouping. */
 	notes: readonly Note[]
 	rounds: readonly Round[]
@@ -48,8 +48,9 @@ export function useNotes(): NotesHandle {
 	const notes = noteRows.data.map(toNote)
 	const rounds = roundRows.data.map(toRound)
 
-	// A Note's anchor is read against the Draft the Review itself read — "¶3"
-	// on a card is the paragraph the model saw, even after the writer types.
+	// A Note's anchor is read against the Draft the Review itself read, so that
+	// "¶3" on a card stays the paragraph the model saw, even after the writer
+	// types.
 	// The Blocks reload when a Round settles. The `ready` gate matters: keyed
 	// on the empty pre-snapshot list, the load would run twice per open.
 	const ready = noteRows.isReady && roundRows.isReady
@@ -95,7 +96,8 @@ export function useNotes(): NotesHandle {
 			const asked = prompt.trim()
 			if (asked === '') return
 
-			// The Round arrives through the sync; only a refusal needs handling.
+			// The Round arrives through the sync, so only a refusal needs handling
+			// here.
 			store
 				.startReview({
 					prompt: asked,

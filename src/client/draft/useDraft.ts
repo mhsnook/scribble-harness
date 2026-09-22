@@ -10,8 +10,9 @@ import { createDraftWriter, type DraftStatus } from './writer'
 export type DraftConnection = {
 	/** The Blocks the Article Agent holds, and null until they arrive. */
 	blocks: BlockRow[] | null
-	/** Why the Draft could not be read. Nothing is rendered to write in when
-	 * this is set: an empty surface would say the Draft is empty when it is not. */
+	/** Why the Draft could not be read. Nothing is rendered to write in when this
+	 * is set, because an empty surface would say the Draft is empty when it is
+	 * not. */
 	failure: string | null
 	status: DraftStatus
 	/** Call once it has mounted, so a save has something to read. */
@@ -71,8 +72,8 @@ export function useDraft(store: DraftStore): DraftConnection {
 	useEffect(() => () => writer.dispose(), [writer])
 
 	// The last save is the one most likely to be lost, so leaving with one owed
-	// asks first. Nothing can be sent from here: an RPC frame queued during
-	// unload may never leave the browser.
+	// asks first. Nothing can be sent from here, because an RPC frame queued
+	// during unload may never leave the browser.
 	useEffect(() => {
 		if (status.state === 'clean') return
 

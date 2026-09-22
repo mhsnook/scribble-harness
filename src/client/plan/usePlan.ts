@@ -14,12 +14,13 @@ export type PlanConnection = {
 	/** The Plan the writer sees, and null until the first state update arrives. */
 	plan: Plan | null
 	/** Takes what the builders in edits.ts return, null included, and hands back
-	 * why the edit did not land — a Proposal ruling needs that in the same turn. */
+	 * why the edit did not land, because a Proposal ruling needs that in the
+	 * same turn. */
 	edit: (edit: PlanEdit) => Refusal | null
 	/** Cleared by the next edit. */
 	refusal: Refusal | null
 	/** What the Article Agent said when a write did not parse. Reaching this is
-	 * a bug in the applier, and it is shown rather than swallowed. */
+	 * a bug in the applier, so it is shown rather than swallowed. */
 	rejected: string | null
 }
 

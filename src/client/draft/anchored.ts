@@ -9,10 +9,10 @@ import { BLOCK_ID_ATTR } from './blocks'
  * Marks the Blocks an accepted Note points at, so the prose shows where a Note
  * in the margin is about — issue #81.
  *
- * **A decoration, not a mark.** `docs/adr/0003` draws the line: a Proposal is
- * drawn from state and never enters the document, and this is the same. The
- * Note lives in its own row, the writer never typed this rule, and it must not
- * reach the Final or the next save.
+ * **A decoration, not a mark**, because the Note lives in its own row, the
+ * writer never typed this rule, and it must not reach the Final or the next
+ * save — the same principle `docs/adr/0003` draws for a Proposal, which is
+ * also drawn from state and never enters the document.
  *
  * Reading `doc.forEach` rather than the DOM also settles #54's trap for free:
  * it walks the document's direct children, so a paragraph nested in a list item

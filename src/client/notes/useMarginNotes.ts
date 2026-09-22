@@ -22,7 +22,8 @@ export type AnchoredNote = Note & {
 }
 
 export type MarginNotesHandle = {
-	/** In the order the Guide wrote them. The margin re-sorts by position. */
+	/** Kept in the order the Guide wrote them, because the margin, not this
+	 * array, re-sorts by position. */
 	notes: readonly AnchoredNote[]
 	/** Every Block any of them names, for the rule under the prose. */
 	blockIds: readonly string[]

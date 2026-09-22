@@ -20,9 +20,10 @@ import {
  * architecture.md §4.4. A ruling applies
  * the ops through `edit` and then answers the tool call.
  *
- * Three SDK traps sit under this. `addToolResult` is deprecated in favour of
- * `addToolOutput`, and awaiting either deadlocks. A rejection is
- * `state: 'output-error'` with the reason in `errorText`. And
+ * Three SDK traps sit under this. It calls `addToolOutput`, not the deprecated
+ * `addToolResult`, and never awaits it, because awaiting either deadlocks. A
+ * rejection goes out as `state: 'output-error'` with the reason in
+ * `errorText`, because that is the shape the SDK expects for one. And
  * `addToolApprovalResponse` and `needsApproval` gate a server-side `execute`
  * this product does not have, so both rulings go out as tool output.
  */
@@ -75,7 +76,7 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 		setRefusals((was) => afterRuling(was, call.toolCallId, ruling.refusal))
 		if (ruling.answer === null) return
 
-		// Awaiting this deadlocks.
+		// Not awaited on purpose, because awaiting `addToolOutput` deadlocks.
 		addToolOutput({
 			toolCallId: call.toolCallId,
 			toolName: proposePlanChangeTool,
@@ -90,7 +91,8 @@ export function useArticleChat(agent: ArticleSocket): ChatHandle {
 
 	return {
 		messages,
-		// A turn sent over an unanswered call is refused server-side — `docs/carries.md`.
+		// Sends only when nothing is waiting, because the server refuses a turn
+		// sent over an unanswered call — `docs/carries.md`.
 		send: (text: string) => {
 			const said = text.trim()
 			if (said !== '' && waiting === 0) chat.sendMessage({ text: said })

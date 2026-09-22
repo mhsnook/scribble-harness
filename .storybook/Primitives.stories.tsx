@@ -6,7 +6,6 @@ import { Button } from '../src/client/components/Button'
 import { ChatComposer, ChatMessage } from '../src/client/components/Chat'
 import { Check } from '../src/client/components/Check'
 import { Chip } from '../src/client/components/Chip'
-import { Divider } from '../src/client/components/Divider'
 import { ExampleBlock, PolarityHeading } from '../src/client/components/ExampleBlock'
 import { EmptySlot, Field } from '../src/client/components/Field'
 import { GuidanceNote, NoteDot } from '../src/client/components/GuidanceNote'
@@ -14,7 +13,6 @@ import { LengthBar } from '../src/client/components/LengthBar'
 import { OutlineRow } from '../src/client/components/OutlineRow'
 import { PanelRail, type PanelId } from '../src/client/components/PanelRail'
 import { ProgressBar } from '../src/client/components/ProgressBar'
-import { QuoteRow } from '../src/client/components/QuoteRow'
 import { ReferenceCard } from '../src/client/components/ReferenceCard'
 import { offers, plan, sectionState } from './mock/content'
 
@@ -213,14 +211,6 @@ export const Research: Story = {
 			<ReferenceCard offer={offers[2]} variant="ledger" />
 			<ReferenceCard offer={offers[4]} variant="ledger" compact />
 			<ReferenceCard offer={offers[6]} variant="ledger" compact />
-			<Divider />
-			<p className="max-w-[28rem] text-12 leading-relaxed text-muted">
-				<strong>The QuoteRow component (2 examples below) is unused.</strong> It was added
-				to show a read-only summary of the Plan Panel, which we stopped using, but may go
-				back to in Phase 2.
-			</p>
-			<QuoteRow reference={plan.references[2]} section="§2" showUsage />
-			<QuoteRow reference={plan.references[3]} showUsage />
 		</div>
 	),
 }

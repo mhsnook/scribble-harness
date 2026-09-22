@@ -32,6 +32,21 @@ needs dependency.
 Both carry the same information. Only the second stops someone deleting the
 strikethrough.
 
+Adding the conjunction is the floor, not the finish. Restructure the sentence
+around the code's action once the link is there:
+
+```
+weak    the apple falls; its underside impacts the ground; we protect it
+better  because the apple falls, its underside impacts the ground, so we shield it
+best    when the apple falls, we protect its underside from hitting the ground
+best    we protect the apple's underside, because it falls and may be damaged by
+        impact with the ground
+```
+
+Short signposting is welcome and needs none of this. A one-liner marking a
+transitional state — `// unused until phase 2` — says what it says and goes when
+the state does.
+
 ## The screen we design for
 
 We design for a laptop with a 1298px wide screen.

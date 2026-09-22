@@ -72,7 +72,8 @@ function entry(articleId: string): Held {
 		idle: undefined,
 	}
 	held.set(articleId, article)
-	// nothing has retained it yet: a render that never mounts closes on this timer.
+	// Starts the idle timer now, since nothing has retained it yet, so a render
+	// that never mounts still closes this connection.
 	closeWhenIdle(articleId, article)
 
 	return article

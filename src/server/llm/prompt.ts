@@ -92,9 +92,9 @@ export function chatSystemPrompt(canSearch: boolean): string {
  *
  * JSON rather than prose, because a Proposal anchors on the ids in it and an op
  * naming an id the model paraphrased is refused by the applier. Compact rather
- * than indented: indenting a Plan of a few hundred Sections buys the model
- * nothing and costs the whitespace in tokens on every turn, and twice on a turn
- * that retries.
+ * than indented, because indenting a Plan of a few hundred Sections buys the
+ * model nothing and costs the whitespace in tokens on every turn, twice over on
+ * a turn that retries.
  *
  * The `user` role rather than `system`, because a system message after the
  * first is not portable across providers.

@@ -14,8 +14,9 @@ import { articleSync, retainArticleSync } from './sync'
 /**
  * Opens one Article Agent and hands out the three things that ride its one
  * multiplexed socket: the Plan channel, an Offer store over `@callable` RPC, and
- * the client itself for `useAgentChat` — architecture.md §4.4. A second socket would mean a second
- * Plan writer, which architecture.md §3 rule 1 rules out.
+ * the client itself for `useAgentChat` — architecture.md §4.4. It rides one
+ * socket because a second one would mean a second Plan writer, which
+ * architecture.md §3 rule 1 forbids.
  */
 
 export type ArticleSocket = ReturnType<typeof useAgent<Plan>>

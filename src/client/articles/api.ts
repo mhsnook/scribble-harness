@@ -51,14 +51,16 @@ async function send(url: string, method = 'GET', body?: unknown): Promise<unknow
 
 	if (!response.ok) throw new Error(await reasonFor(response))
 
-	// A discard answers 204, and `json()` throws on an empty body.
+	// Returns null early for a 204, because a discard answers empty and `json()`
+	// throws trying to parse an empty body.
 	if (response.status === 204) return null
 
 	return response.json()
 }
 
-/** The route's own sentence, or the status where there is none — an Access
- * redirect answers HTML, and `json()` throws on it. */
+/** Reads the route's own sentence, or falls back to the status when there is
+ * none, because an Access redirect answers HTML and `json()` throws parsing
+ * it. */
 async function reasonFor(response: Response): Promise<string> {
 	try {
 		const body: unknown = await response.json()

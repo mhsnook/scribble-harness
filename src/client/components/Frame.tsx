@@ -71,8 +71,9 @@ export function FrameBody({ children, row = false, className, style }: FrameBody
 	return (
 		<div
 			data-frame-body=""
-			// `flex-auto` rather than `flex-1`: a basis of 0 would override the height
-			// a screen sets here, and that height is what the Panels scroll within.
+			// `flex-auto` rather than `flex-1`, because a basis of 0 would override
+			// the height a screen sets here, and that height is what the Panels
+			// scroll within.
 			className={cx('flex min-h-0 flex-auto', row ? 'flex-row' : 'flex-col', className)}
 			style={style}
 		>

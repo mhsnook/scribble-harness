@@ -17,7 +17,7 @@ export type ResolvedScope = {
 }
 
 /** Resolve a chain of Scopes given widest first. An Adjective stated at two
- * Scopes appears once, in the nearest position: restating a term is emphasis,
+ * Scopes appears once, in the nearest position, because restating a term is emphasis,
  * and order is the only locality the Guide reads from the list. */
 export function resolveScope(chain: readonly ScopeTerms[]): ResolvedScope {
 	let voice: string | null = null

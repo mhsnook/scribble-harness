@@ -288,7 +288,7 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 			const site = locate(plan.outline, op.nodeId)
 			if (site === null) return absent('noSection', sectionSubject(op.nodeId))
 
-			// The unplacing lands in this op or nowhere: the Plan is written whole,
+			// The unplacing lands in this op or nowhere, because the Plan is written whole,
 			// and a Reference naming a node that is gone does not parse — `docs/plan.md`.
 			const gone = new Set(subtreeIds(site.siblings[site.index]))
 			site.siblings.splice(site.index, 1)
@@ -324,9 +324,9 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 		}
 
 		case 'setTarget': {
-			// This op and setAdjectives cannot reach both Scopes through scopeOf the
-			// way setTitle and setVoice do: the Article spells its target
-			// `totalTarget`, and its Adjectives are required where a node's are not.
+			// This op and setAdjectives cannot reach both Scopes through scopeOf the way
+			// setTitle and setVoice do, because the Article spells its target `totalTarget`,
+			// and its Adjectives are required where a node's are not.
 			if (op.nodeId === null) {
 				if (!matches(op.expected, plan.totalTarget)) {
 					return stale(articleSubject, op.expected, plan.totalTarget)
@@ -397,8 +397,9 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 		}
 
 		case 'createReference': {
-			// checkIds catches a repeated id at the final parse, the same way it
-			// catches a repeated Section id, and cannot say which op carried it.
+			// Claimed here so the refusal can name the op, because checkIds catches a
+			// repeated id only at the final parse, the same way it catches a repeated
+			// Section id, and cannot say which op carried it.
 			if (plan.references.some((held) => held.id === op.reference.id)) {
 				return refuse(
 					'duplicateId',
@@ -442,8 +443,8 @@ function applyOp(plan: Plan, op: ProposalOp, index: number): Refusal | null {
 	}
 }
 
-/** Splicing needs the array holding a node, which `findNodePath` in scope.ts
- * does not return. */
+/** Splicing needs the array holding a node, because `findNodePath` in scope.ts
+ * does not return it. */
 type Site = { siblings: OutlineNode[]; index: number }
 
 function locate(nodes: OutlineNode[], id: string): Site | null {

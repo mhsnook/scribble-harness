@@ -15,20 +15,20 @@ import { createWorkersAI } from 'workers-ai-provider'
 const modelId = '@cf/zai-org/glm-5.2'
 
 /**
- * AI Gateway attaches for logging, and response caching stays off: two guide
- * passes over different Drafts look near-identical to a cache and would come
- * back with each other's Notes.
+ * AI Gateway attaches for logging, and response caching stays off, because two
+ * guide passes over different Drafts look near-identical to a cache and would
+ * come back with each other's Notes.
  *
  * `AI_GATEWAY_ID` names the Gateway. It is set from the CLI rather than checked
  * in — `wrangler.jsonc` says why — so an unset value is ordinary and attaches
- * no Gateway. Leave the Gateway itself unauthenticated: a binding call is
+ * no Gateway. Leave the Gateway itself unauthenticated, because a binding call is
  * same-account and `GatewayOptions` carries nowhere to put a token.
  */
 function gatewayFor(env: Env) {
 	return env.AI_GATEWAY_ID ? { id: env.AI_GATEWAY_ID, skipCache: true } : undefined
 }
 
-// The return type is stated rather than inferred: the provider's model class
-// carries private fields, which a project building declarations cannot name.
+// States the return type rather than inferring it, because the provider's model
+// class carries private fields that a project building declarations cannot name.
 export const model = (env: Env): LanguageModel =>
 	createWorkersAI({ binding: env.AI, gateway: gatewayFor(env) })(modelId)

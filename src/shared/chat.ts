@@ -23,7 +23,7 @@ export const proposePlanChangeTool = 'proposePlanChange'
  * adds a field fails the whole call and retries with the validation error
  * rather than having the field silently stripped — `docs/plan.md`.
  *
- * `chatProposalSchema` rather than `proposalSchema`: the applier understands
+ * `chatProposalSchema` rather than `proposalSchema`, because the applier understands
  * three more ops, and they are the writer's own References. Research reaches
  * the Plan through the Ledger (`docs/chat.md`), so the model is not offered a way round
  * it.
@@ -58,7 +58,7 @@ export type RecordedOffers = z.infer<typeof recordedOffersOutput>
  * `body` is request-only, where `metadata` persists on the `UIMessage` and
  * re-rides every turn (`docs/chat.md`).
  *
- * Not strict: the Agents SDK hands the turn every body key it did not consume
+ * Not strict, because the Agents SDK hands the turn every body key it did not consume
  * itself, and this schema speaks for one of them.
  */
 export const chatRequestBody = z.object({ plan: planSchema.optional() })

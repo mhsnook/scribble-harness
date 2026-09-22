@@ -23,7 +23,7 @@ export interface LengthBarProps {
 /**
  * The plan's shape, as a proportional vertical bar: each section's height is
  * its share of the target word count. It sits alongside the outline rather
- * than aligning to it — it reads the whole piece at a glance.
+ * than aligning to it, so it reads the whole piece at a glance.
  */
 export function LengthBar({
 	segments,

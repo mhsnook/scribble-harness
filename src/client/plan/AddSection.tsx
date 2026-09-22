@@ -13,6 +13,7 @@ import type { SectionAnchor } from './edits'
  */
 
 export interface AddSectionProps {
+
 	outline: readonly OutlineNode[]
 	onAdd: (anchor: SectionAnchor) => void
 }

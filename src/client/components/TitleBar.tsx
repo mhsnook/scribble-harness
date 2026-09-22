@@ -17,7 +17,7 @@ export interface TitleBarProps {
 /**
  * The window's title bar. Back on the left, then the title, with actions
  * pushed right. The rule underneath is the heavier of the two hairline
- * weights — it separates chrome from content.
+ * weights, because it separates chrome from content.
  */
 export function TitleBar({ back, title, subtitle, actions, className }: TitleBarProps) {
 	return (

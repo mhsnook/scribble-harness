@@ -40,10 +40,11 @@ export interface ChatComposerProps {
 	placeholder?: string
 	/** Extra controls to the left of send — the ledger toggle, attachments. */
 	leading?: ReactNode
-	/** Absent on the wireframe screens, which render a still frame. */
+	/** Absent on the wireframe screens, because those render a still frame. */
 	onSend?: (text: string) => void
 	/** Why the composer will not send, and null when it will. A Proposal nobody
-	 * ruled on is the case worth wording — nothing expires it (`docs/carries.md`). */
+	 * ruled on is the case worth wording, because nothing expires it
+	 * (`docs/carries.md`). */
 	blocked?: string | null
 	/** A turn is in flight. The field stays open; send becomes stop. */
 	busy?: boolean

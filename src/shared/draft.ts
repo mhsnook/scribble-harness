@@ -29,7 +29,7 @@ export type DraftChange = {
 	removed: string[]
 }
 
-/** What the Article Agent answers a save with. The rows are not echoed: the
+/** What the Article Agent answers a save with. The rows are not echoed, because the
  * client already holds them, and the editor owns the text either way. */
 export type DraftSaved = {
 	savedAt: number
@@ -55,10 +55,10 @@ export const draftChangeSchema = z.strictObject({
 /**
  * What one Block reads as, with the formatting dropped.
  *
- * The content is the editor's own JSON and stays opaque everywhere else, but a
- * Review has to put the prose in a prompt and the Worker has no editor to ask.
- * This walks what every ProseMirror-shaped document guarantees — a node holds
- * `content`, and a leaf holds `text` — so it does not need to know which node
+ * The content is the editor's own JSON and stays opaque everywhere else. This reads it
+ * out as text, because a Review has to put the prose in a prompt and the Worker has no
+ * editor to ask. This walks what every ProseMirror-shaped document guarantees — a node
+ * holds `content`, and a leaf holds `text` — so it does not need to know which node
  * types exist. A Block with no text, a section break for instance, reads as an
  * empty string, and the caller decides what to do with that.
  */
@@ -75,7 +75,7 @@ export function blockText(json: BlockJson): string {
  * Where each Block sits, numbered from 1. Takes the Blocks already in reading
  * order, which is what `listBlocks` answers with.
  *
- * This is what "¶3" means, and it is derived rather than stored: `ord` is a
+ * This is what "¶3" means, and it is derived rather than stored, because `ord` is a
  * fractional index that says what follows what and nothing about position. The
  * server numbers the prose it sends the model here, and the client numbers a
  * Note's anchor here, so the two cannot disagree about which paragraph ¶3 is.
@@ -84,8 +84,9 @@ export function blockOrdinals(blocks: readonly BlockRow[]): Map<string, number> 
 	return new Map(blocks.map((block, index) => [block.id, index + 1]))
 }
 
-/** A Durable Object caps a row at 2 MB, and one pasted data-url reaches it. The
- * client cannot see this failure, so the Article Agent is where it is caught. */
+/** Kept well under the row cap, because a Durable Object caps a row at 2 MB and one
+ * pasted data-url can reach it. The client cannot see this failure, so the Article
+ * Agent is where it is caught. */
 export const MAX_BLOCK_BYTES = 64 * 1024
 export const MAX_CHANGE_BYTES = 1024 * 1024
 

@@ -21,8 +21,8 @@ export interface PanelProps {
  *
  * **Each Panel scrolls its own Y.** Reading down the Plan does not move the Chat
  * beside it, which is what lets two Panels of different lengths sit side by
- * side. It needs a height to bite on: the Frame body gives it one, and a Panel
- * inside a body with no height simply grows as it always did.
+ * side. It needs a height to bite on, and the Frame body is what supplies it,
+ * because a Panel inside a body with no height simply grows as it always did.
  *
  * A Panel that keeps something fixed at its foot scrolls an inner element
  * instead, marked `data-scroller`. One Panel, one scroller, either way.

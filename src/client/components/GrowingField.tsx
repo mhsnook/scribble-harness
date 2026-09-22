@@ -52,8 +52,8 @@ export function GrowingField({
 		if (field.current !== null) grow(field.current)
 	}, [value])
 
-	// Eight lines, picked against `MidChatScreen`'s 26rem Chat Panel, where a
-	// full-height field takes under half.
+	// Caps growth at eight lines, because in `MidChatScreen`'s 26rem Chat Panel
+	// a full-height field takes under half of it.
 	return (
 		<textarea
 			ref={field}

@@ -195,7 +195,7 @@ export const proposalSchema = z.array(proposalOpSchema).min(1)
 
 /**
  * What the Chat may propose, against `proposalSchema`, which is everything the
- * applier understands. The Reference ops are left out: research reaches the
+ * applier understands. The Reference ops are left out, because research reaches the
  * Plan by being Accepted from an Offer, and the Ledger is that bridge —
  * `docs/chat.md`. A model handed `createReference` could put a
  * source in the Plan that the writer never ruled on.

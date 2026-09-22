@@ -113,9 +113,9 @@ export function ReferenceCard({
 					</Button>
 				</div>
 			) : null}
-			{/* A card in the Chat reports a ruling rather than offering it again.
-			    Declining one already Accepted would leave its copy in the Plan, and
-			    the Ledger is where a ruling is changed. */}
+			{/* A card in the Chat reports a ruling rather than offering it again,
+			    because declining one already Accepted would leave its copy in the
+			    Plan. The Ledger is where a ruling gets changed instead. */}
 			{variant === 'offer' && ruled ? (
 				<span className="label-meta mt-0.5 shrink-0">{offer.disposition}</span>
 			) : null}

@@ -99,7 +99,8 @@ export function PlanMap({
 		close()
 		edit(addSection({ parentId, beforeId: null }, id))
 
-		// A child of a folded Section would land undrawn.
+		// Unfolds `parentId`, because otherwise a child added here would land
+		// undrawn.
 		if (parentId !== null) {
 			setCollapsed((held) => {
 				const next = new Set(held)
@@ -112,8 +113,8 @@ export function PlanMap({
 		setMadeId(id)
 	}
 
-	// Looked up in what was drawn, not in the Plan: folding or deleting can leave
-	// `openId` naming a box the map is not showing.
+	// Looked up in what was drawn, not in the Plan, because folding or deleting
+	// can leave `openId` naming a box the map is not showing.
 	const opened =
 		nodes.find(
 			(node) => node.subject.kind === 'section' && node.subject.node.id === openId,
@@ -139,7 +140,8 @@ export function PlanMap({
 
 	return (
 		<div
-			// The browser test finds this box by the attribute rather than by a class.
+			// Kept so the browser test can find this box by the attribute rather than
+			// by a class.
 			data-plan-map=""
 			// `shrink-0`: `overflow-x-auto` zeroes this box's min-height, and the
 			// Panel around it is a flex column that overflows.
@@ -237,7 +239,7 @@ export function PlanMap({
 							width: DETAIL_WIDTH,
 						}}
 					>
-						{/* No `onShowReference`: the map draws no References list. */}
+						{/* No `onShowReference`, because the map draws no References list. */}
 						<SectionRow
 							className="gap-3 p-3.5"
 							edit={edit}

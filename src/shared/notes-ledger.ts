@@ -23,7 +23,7 @@ export type LedgerRound = {
 }
 
 export type NotesLedger = {
-	/** Newest Round first. A Round that wrote no Notes is left out: the Panel's
+	/** Newest Round first. A Round that wrote no Notes is left out, because the Panel's
 	 * other view is where an empty Round explains itself. */
 	rounds: LedgerRound[]
 	counts: Record<'all' | NoteDisposition, number>
@@ -53,7 +53,7 @@ export function notesLedger(
 		})
 	}
 
-	// A Note whose Round is not in the list is dropped rather than floated: the
+	// A Note whose Round is not in the list is dropped rather than floated, because the
 	// two collections sync separately, so one can arrive a beat before the other.
 	for (const note of notes) byRound.get(note.roundId)?.[note.disposition].push(note)
 

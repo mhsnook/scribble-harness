@@ -16,8 +16,8 @@ export type OfferLedger = {
 	counts: Record<'all' | Disposition, number>
 }
 
-/** Found on Provenance, not on content: the writer edits their copy. It guards
- * the send, so Accepting twice copies once. */
+/** Found on Provenance, not on content, because the writer edits their copy. It
+ * guards the send, so Accepting twice copies once. */
 export function referenceForOffer(plan: Plan, offerId: string): Reference | undefined {
 	return plan.references.find((reference) => reference.provenance.offerId === offerId)
 }

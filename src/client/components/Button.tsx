@@ -10,8 +10,8 @@ export interface ButtonProps extends Omit<
 	'children'
 > {
 	/**
-	 * `accent` is the rose one. A screen should have at most one — it marks
-	 * the single thing the app wants you to do next.
+	 * `accent` is the rose one. A screen should have at most one, because it
+	 * marks the single thing the app wants you to do next.
 	 */
 	variant?: ButtonVariant
 	size?: ButtonSize

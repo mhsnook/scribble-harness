@@ -7,8 +7,8 @@ import { z } from 'zod'
  */
 
 // `.min(1)` throughout, so that a field carries one spelling of "nothing here"
-// rather than two — `docs/plan.md`. A title is the exception below and carries no floor: it
-// is empty from the moment a node is made until the writer types into it.
+// rather than two — `docs/plan.md`. A title is the exception below and carries no floor,
+// because it is empty from the moment a node is made until the writer types into it.
 export const idSchema = z.string().min(1)
 export const voiceSchema = z.string().min(1)
 export const adjectiveSchema = z.string().min(1)
@@ -22,7 +22,7 @@ export const targetSchema = z.number().int().positive()
 export const referenceTypeSchema = z.enum(['link', 'quote'])
 export type ReferenceType = z.infer<typeof referenceTypeSchema>
 
-// strictObject throughout: the Plan has one writer, so an unknown key is a bug
+// strictObject throughout, because the Plan has one writer, so an unknown key is a bug
 // rather than a forward-compatible extension — §3, rule 1.
 
 /** The attribution inside a Reference. */

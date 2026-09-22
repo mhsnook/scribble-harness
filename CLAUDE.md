@@ -55,9 +55,10 @@ best    we protect the apple's underside, because it falls and may be damaged by
         impact with the ground
 ```
 
-Short signposting is welcome and needs none of this. A one-liner marking a
-transitional state — `// unused until phase 2` — says what it says and goes when
-the state does.
+Short signposting is welcome and needs none of this. A one-liner saying why a
+function is here, or when it might be used, orients someone who has just opened
+the file. A one-liner marking a transitional state — `// unused until phase 2` —
+says what it says and goes when the state does.
 
 ## The screen we design for
 

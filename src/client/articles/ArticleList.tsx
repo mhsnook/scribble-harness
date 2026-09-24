@@ -25,7 +25,8 @@ import { archivedArticles, recentArticles, unarchivedArticles } from './grouping
 
 export interface ArticleListProps {
 	articles: readonly ArticleEntry[]
-	/** Why a write did not land. The read's own failure replaces the screen. */
+	/** Why a write did not land. A read failure skips this prop, because it
+	 * replaces the whole screen instead. */
 	failure?: string | null
 	onNew?: () => void
 	onRestore?: (id: string) => void
@@ -144,8 +145,8 @@ function ArticleRow({
 				dimmed && 'opacity-70',
 			)}
 		>
-			{/* The clip goes on the text: an overlay inside an `overflow-hidden` box
-			    is clipped to it, and would cover the title alone. */}
+			{/* The clip sits on the text, because an overlay inside an `overflow-hidden`
+			    box would be clipped to it too and cover the title alone. */}
 			<Link
 				className="min-w-0 flex-1 text-left after:absolute after:inset-0"
 				params={{ articleId: article.id }}

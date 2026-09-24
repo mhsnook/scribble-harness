@@ -10,10 +10,9 @@ export const reviewDepths = ['quick', 'thorough'] as const
 export type ReviewDepth = (typeof reviewDepths)[number]
 
 /**
- * What the writer asks for. The Plan rides here for the same reason it rides in
- * a Chat turn's `body` (`docs/chat.md`): the client may hold a newer one than the Article
- * Agent has stored. Absent is ordinary, and state is then the only Plan there
- * is.
+ * What the writer asks for. The Plan rides here, as it does in a Chat turn's `body`
+ * (`docs/chat.md`), because the client may hold a newer one than the Article Agent has
+ * stored. Absent is ordinary, and state is then the only Plan there is.
  */
 export const reviewRequestSchema = z.strictObject({
 	prompt: z.string().min(1),
@@ -28,16 +27,16 @@ export type ReviewRequest = z.infer<typeof reviewRequestSchema>
  * A stored anchor is a union — a run of Blocks, or the whole piece — and a union
  * reaches the model as a JSON Schema `oneOf` whose whole-piece branch needs one
  * field where the run needs two. Under constrained decoding that is a thumb on
- * the scale for the branch that says nothing, and the Guide took it: Reviews
+ * the scale for the branch that says nothing, and the Guide took it, so Reviews
  * came back naming the paragraph in the body text and anchoring to the whole
  * piece. Here there is one shape and one array, so naming no paragraph is as
  * deliberate an act as naming one.
  *
  * The paragraphs are named by the number the Draft is given in the prompt, not
- * by Block id. The Guide already writes "¶5" in the body of a Note it means for
- * ¶5; asking it to also copy an opaque id for the same paragraph is a second
- * chance to get it wrong. `anchorFor` reads them back against the very Blocks
- * the prompt numbered.
+ * by Block id. Asking it to also copy an opaque id for the same paragraph is a second
+ * chance to get it wrong, because the Guide already writes "¶5" in the body of a Note
+ * it means for ¶5. `anchorFor` reads them back against the very Blocks the prompt
+ * numbered.
  */
 export const writtenNoteSchema = z.strictObject({
 	type: z.string().min(1),

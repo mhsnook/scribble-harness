@@ -14,13 +14,13 @@ import { placementOf } from './outline'
  * The writer's edits, written in the op vocabulary the Chat proposes in and
  * applied by the same applier — `docs/plan.md`. One path into the Plan
  * means the Panel cannot make a change the applier would refuse, and a
- * structural edit carries the consequences the ops already state: deleting a
- * Section unplaces the References placed at it.
+ * structural edit carries the consequences the ops already state, because
+ * deleting a Section unplaces the References placed at it.
  *
  * Every builder reads `expected` out of the Plan it is handed, so the writer's
- * own edits never go Stale. Staleness is the Chat's problem — it comes from the
- * gap between generating a Proposal and applying it, and there is no such gap
- * here.
+ * own edits never go Stale. Staleness is the Chat's problem, because it comes
+ * from the gap between generating a Proposal and applying it, and there is no
+ * such gap here.
  *
  * A builder returns null where the edit has nowhere to go: the first Section
  * cannot move up, and a Subsection cannot nest again. The Panel disables the
@@ -113,9 +113,9 @@ export function moveSection(
  * the Panel calls this yet** — Subsections are TBD, and SectionRow says why.
  * The Chat can still propose one, so the applier and this builder stay.
  *
- * Null where the move would go a level too deep: the interface offers two levels, and anything
- * deeper wants a word the writer already holds rather than a more recursive
- * one — context.md, **Subsection**.
+ * Null where the move would go a level too deep, because the interface offers
+ * two levels, and anything deeper wants a word the writer already holds
+ * rather than a more recursive one — context.md, **Subsection**.
  */
 export function nestSection(plan: Plan, nodeId: string): ProposalInput | null {
 	const at = placementOf(plan, nodeId)

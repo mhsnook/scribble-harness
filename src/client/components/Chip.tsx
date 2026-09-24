@@ -6,7 +6,7 @@ export type ChipVariant = 'default' | 'accent' | 'outline' | 'muted' | 'solid'
 
 export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLElement>, 'children'> {
 	variant?: ChipVariant
-	/** Renders as a button. Off by default — most chips are labels. */
+	/** Renders as a button. Off by default, because most chips are labels. */
 	interactive?: boolean
 	/** Dims the chip without changing its variant (unresolved, declined, not-yet). */
 	dimmed?: boolean

@@ -34,7 +34,7 @@ export interface DraftPanelProps {
 
 /**
  * The writing surface. It renders the Blocks it is handed and reports every
- * change; loading and saving are `ArticleDraftPanel`'s.
+ * change, because loading and saving belong to `ArticleDraftPanel`.
  *
  * Who may write here, and why the writer places their own headings and section
  * breaks, is architecture.md §3 and `docs/draft.md`.
@@ -104,7 +104,7 @@ export function DraftPanel({
 				{notes.length === 0 ? null : (
 					// The side padding lives out here: a card is positioned against its
 					// column's padding box, so padding on the column itself would not
-					// hold it off the Panel's edge. No padding on top — a card's
+					// hold it off the Panel's edge. No padding on top, because a card's
 					// measured position already carries the editor's own.
 					<div className="w-[11rem] shrink-0 pr-3.5">
 						<MarginNotes
@@ -120,8 +120,8 @@ export function DraftPanel({
 	)
 }
 
-/** Only a save in flight or one that failed is worth a writer's attention
- * mid-sentence. */
+/** Renders nothing until the first save lands, because an untouched Draft has
+ * no status to report. */
 function SaveState({ status }: { status: DraftStatus }) {
 	if (status.state === 'failed') return <span className="text-accent-ink">not saved</span>
 	if (status.state === 'saving') return <>saving…</>

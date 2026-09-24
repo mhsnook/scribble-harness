@@ -30,7 +30,7 @@ export type NoteAnchor = z.infer<typeof noteAnchorSchema>
 export const wholePiece: NoteAnchor = { kind: 'article' }
 
 /**
- * A stored anchor, as the app reads it back. Validated rather than cast: the
+ * A stored anchor, as the app reads it back. Validated rather than cast, because the
  * column holds text written by an older build, and a Note anchored to a Section
  * before that kind was dropped still has to open.
  */

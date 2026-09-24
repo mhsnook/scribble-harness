@@ -1,6 +1,6 @@
 /**
- * One frame on the Article Agent's multiplexed socket is ours: a refused Plan
- * write. Everything else is the Agents SDK's own control traffic.
+ * This module owns one frame on the Article Agent's multiplexed socket, a refused
+ * Plan write, since everything else on it is the Agents SDK's own control traffic.
  */
 
 /** Narrows an unknown frame to the one named. The caller states the frame type,

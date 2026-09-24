@@ -220,9 +220,9 @@ function TheAsk({ round, onSave }: { round: Round; onSave: (name: string) => voi
 /**
  * One passage of the Guide's reasoning, and the Notes it produced.
  *
- * The Notes hold the order the Guide wrote them in. Grouping them by
- * disposition, the way the ledger does, would move a Note the moment it is
- * ruled on and shift the rest of the list under the pointer.
+ * Keeps the Notes in the order the Guide wrote them, rather than grouping them
+ * by disposition the way the ledger does, because that would move a Note the
+ * moment it is ruled on and shift the rest of the list under the pointer.
  */
 function Passage({
 	passage,
@@ -236,7 +236,7 @@ function Passage({
 	actions: NoteActions
 }) {
 	// A row the response names and the store has not got means a read raced a
-	// write; the next read fixes it.
+	// write, so the next read fixes it.
 	const notes = passage.noteIds
 		.map((id) => byId.get(id))
 		.filter((one): one is Note => one !== undefined)

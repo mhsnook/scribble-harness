@@ -44,8 +44,8 @@ export function OutlineRow({
 						{node.title}
 					</span>
 					{current ? <span className="shrink-0 text-11 text-faint">now</span> : null}
-					{/* The count sits on the title line, where the eye can run down a
-					    column of them rather than hunting each row for it. */}
+					{/* The count sits on the title line, so the eye can run down a column
+					    of them rather than hunting each row for it. */}
 					{target !== null ? (
 						<Chip variant={changed ? 'accent' : 'default'}>{target}</Chip>
 					) : null}

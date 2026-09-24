@@ -29,7 +29,8 @@ export function useOfferLedger(): OfferLedgerHandle {
 	const { edit, plan } = connection
 	const [failure, setFailure] = useState<string | null>(null)
 
-	// Ordered by `seq` in the query, the way the server orders the table.
+	// Orders by `seq` in the query, because that is the order the server keeps
+	// the table in.
 	const rows = useLiveQuery(
 		(q) => q.from({ offer: sync.offer }).orderBy(({ offer }) => offer.seq),
 		[sync.offer],
@@ -37,7 +38,8 @@ export function useOfferLedger(): OfferLedgerHandle {
 
 	const offers = rows.data.map(toOffer)
 
-	/** The ruled row returns through the sync; only a failure needs handling. */
+	/** The ruled row returns through the sync, so only a failure needs handling
+	 * here. */
 	function run(what: string, write: () => Promise<Offer>) {
 		setFailure(null)
 		write().catch((error: unknown) => setFailure(failureText(what, error)))

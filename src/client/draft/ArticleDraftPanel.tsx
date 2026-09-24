@@ -19,8 +19,8 @@ export interface ArticleDraftPanelProps {
 export function ArticleDraftPanel({ divider, grow, className }: ArticleDraftPanelProps) {
 	const { blocks, failure, status, attachEditor, touch } = useDraft(useArticle().draft)
 
-	// A ruling made in the margin fails the way one made in the Notes Panel does,
-	// and the Draft's own Notice is where this Panel already says so.
+	// Reuses the Draft's own Notice to show a margin ruling's failure, because it
+	// fails the same way one made in the Notes Panel does.
 	const [refused, setRefused] = useState<string | null>(null)
 	const margin = useMarginNotes(setRefused)
 

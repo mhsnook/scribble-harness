@@ -55,7 +55,7 @@ export function PlanPanel({
 	const [openId, setOpenId] = useState<string | null>(null)
 	const [made, setMade] = useState<string | null>(null)
 	const [accented, setAccented] = useState<string | null>(null)
-	// Not in the Plan: the Article carries no memory of which View was up.
+	// Not in the Plan, because the Article carries no memory of which View was up.
 	const [view, setView] = useState<OutlineView>('list')
 
 	/** Shows a View, closing whatever Section the last one had open. */
@@ -65,8 +65,9 @@ export function PlanPanel({
 		setMade(null)
 	}
 
-	// Held: the accented row's effect lists it, and a new function each render
-	// would restart that row's scroll on every keystroke elsewhere in the Panel.
+	// Held, because the accented row's effect lists it, and a new function each
+	// render would restart that row's scroll on every keystroke elsewhere in
+	// the Panel.
 	const clearAccent = useCallback(() => setAccented(null), [])
 
 	const entries = outlineEntries(plan.outline)
@@ -75,7 +76,7 @@ export function PlanPanel({
 
 	// The bar is the shape of the piece, drawn from the Sections that carry a
 	// share of it. A Section with no target is left out rather than taking the
-	// bar away: what is placed is still worth seeing.
+	// bar away, because what is placed is still worth seeing.
 	const segments = plan.outline
 		.filter((node) => node.target !== undefined)
 		.map((node) => ({ label: node.title, words: node.target ?? 0 }))
@@ -129,7 +130,8 @@ export function PlanPanel({
 			</GroupHeading>
 
 			{view === 'map' ? (
-				// The map carries its own `+` and draws the References itself.
+				// Needs neither an add control nor a reference list here, because the
+				// map carries its own `+` and draws the References itself.
 				<PlanMap edit={edit} plan={plan} />
 			) : entries.length === 0 ? (
 				<EmptySlot className="min-h-[3.5rem]">

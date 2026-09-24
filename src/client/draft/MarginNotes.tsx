@@ -37,17 +37,18 @@ export function MarginNotes({ notes, editor, actions, className }: MarginNotesPr
 	const cards = useRef(new Map<string, HTMLElement>())
 	const [tops, setTops] = useState<ReadonlyMap<string, number>>(new Map())
 
-	// Layout rather than effect: the cards are positioned from what was just
-	// drawn, and an ordinary effect would let the browser paint them stacked at
-	// zero first.
+	// Uses `useLayoutEffect`, because the cards are positioned from what was
+	// just drawn and an ordinary effect would let the browser paint them
+	// stacked at zero first.
 	useLayoutEffect(() => {
 		const surface = editor?.view.dom
 		if (editor === undefined || editor === null || surface === undefined) return
 
 		const place = () => {
-			// Measured out here rather than inside the updater. Reading the DOM is
-			// not a pure computation, and React runs an updater twice under
-			// StrictMode — which would measure the document twice per keystroke.
+			// Measured out here rather than inside the updater, because reading the
+			// DOM is not a pure computation and React runs an updater twice under
+			// StrictMode — doing it inside would measure the document twice per
+			// keystroke.
 			const next = stack(notes, surface, cards.current)
 
 			setTops((held) => (same(held, next) ? held : next))
@@ -70,7 +71,7 @@ export function MarginNotes({ notes, editor, actions, className }: MarginNotesPr
 
 		// Typing above a Note moves it; so does the Panel changing width. The
 		// editor reports the first even when the surface's own height does not
-		// change, which it does not on a Draft short enough to be stretched by
+		// change — that happens when the Draft is short enough to be stretched by
 		// `flex-auto`.
 		editor.on('update', schedule)
 		const watch = new ResizeObserver(schedule)

@@ -114,8 +114,8 @@ export function anchorFor(
 /**
  * The Draft, numbered.
  *
- * One number does for the writer and for the anchor: it comes from
- * `blockOrdinals`, the same function the client labels an anchor with, and
+ * One number does for the writer and for the anchor, because it comes from
+ * `blockOrdinals` — the same function the client labels an anchor with — and
  * `anchorFor` reads it back into the Block id that is stored. What is stored is
  * still the id, which survives the paragraph moving.
  *
@@ -155,8 +155,8 @@ const noDraft: ModelMessage = {
  * The Notes still in play — accepted and unresolved.
  *
  * The Review reads them so it does not hand back an observation the writer is
- * already working on. A declined Note is left out on purpose: the writer said
- * no to it, and sending it back would invite the model to argue.
+ * already working on. Leaves a declined Note out on purpose, because the writer
+ * said no to it and sending it back would invite the model to argue.
  */
 function notesMessage(notes: readonly Note[]): ModelMessage {
 	const lines = notes.map(

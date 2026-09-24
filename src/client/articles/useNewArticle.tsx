@@ -21,7 +21,7 @@ import { dropArticle, keepArticle } from './useArticles'
 declare module '@tanstack/react-router' {
 	interface HistoryState {
 		/** The title the new-Article dialog collected. Lost on a reload, which is
-		 * right: by then it has landed in the Plan. */
+		 * right, because by then it has landed in the Plan. */
 		newTitle?: string
 	}
 }
@@ -51,8 +51,8 @@ export function useNewArticle(
 	const [opening, setOpening] = useState(false)
 	const [failure, setFailure] = useState<string | null>(null)
 
-	// The request rather than its result: the writer may confirm before it
-	// answers, and awaiting this promise is the whole coordination.
+	// Holds the request rather than its result, because the writer may confirm
+	// before it answers. Awaiting this promise is the whole coordination.
 	const made = useRef<Promise<ArticleEntry> | null>(null)
 
 	/** The `catch` is not the handler — it keeps a failure while the writer is
@@ -66,7 +66,8 @@ export function useNewArticle(
 	}
 
 	const start = () => {
-		// A second click on the button behind the dialog would strand the first row.
+		// Returns early, because a second click on the button behind the dialog
+		// would otherwise strand the first row.
 		if (naming) return
 
 		setFailure(null)
@@ -136,9 +137,10 @@ export function useNewArticle(
  * The Area's layout route mounts one dialog above both Views and passes `start`
  * down here, so a View only needs the control that opens it.
  *
- * This lives beside the flow rather than in the route file: `autoCodeSplitting`
- * splits a route file into two chunks, and a context declared in one of them is
- * a different object from the one the other chunk reads.
+ * This lives beside the flow rather than in the route file, because
+ * `autoCodeSplitting` splits a route file into two chunks, and a context
+ * declared in one of them would be a different object from the one the other
+ * chunk reads.
  */
 const StartArticleContext = createContext<(() => void) | null>(null)
 

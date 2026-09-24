@@ -42,7 +42,7 @@ export function PlanMap({
 	branches = 'references',
 	className,
 }: PlanMapProps) {
-	// None of this is in the Plan: the map opens unfolded and shut every time.
+	// None of this is in the Plan, so the map opens unfolded and shut every time.
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
 	const [lit, setLit] = useState<string | null>(null)
 	const [openId, setOpenId] = useState<string | null>(null)
@@ -50,7 +50,7 @@ export function PlanMap({
 	const [detailHeight, setDetailHeight] = useState(0)
 
 	// Measures the open fields, so the scroll area reaches their foot, and keeps
-	// measuring: how tall they run changes as the writer types.
+	// measuring, because how tall they run changes as the writer types.
 	const measure = useCallback((element: HTMLDivElement | null) => {
 		if (element === null) return
 
@@ -63,8 +63,8 @@ export function PlanMap({
 		return () => observer.disconnect()
 	}, [])
 
-	// Held: a pointer sweeping the map fires `setLit` once per box, and the
-	// layout is the same on every one of those renders.
+	// Held, because a pointer sweeping the map fires `setLit` once per box, and
+	// the layout is the same on every one of those renders.
 	const { nodes, links, width, height } = useMemo(
 		() => planMap(plan, { branches, collapsed }),
 		[plan, branches, collapsed],
@@ -99,7 +99,8 @@ export function PlanMap({
 		close()
 		edit(addSection({ parentId, beforeId: null }, id))
 
-		// A child of a folded Section would land undrawn.
+		// Unfolds `parentId`, because otherwise a child added here would land
+		// undrawn.
 		if (parentId !== null) {
 			setCollapsed((held) => {
 				const next = new Set(held)
@@ -112,8 +113,8 @@ export function PlanMap({
 		setMadeId(id)
 	}
 
-	// Looked up in what was drawn, not in the Plan: folding or deleting can leave
-	// `openId` naming a box the map is not showing.
+	// Looked up in what was drawn, not in the Plan, because folding or deleting
+	// can leave `openId` naming a box the map is not showing.
 	const opened =
 		nodes.find(
 			(node) => node.subject.kind === 'section' && node.subject.node.id === openId,
@@ -139,10 +140,11 @@ export function PlanMap({
 
 	return (
 		<div
-			// The browser test finds this box by the attribute rather than by a class.
+			// Kept so the browser test can find this box by the attribute rather than
+			// by a class.
 			data-plan-map=""
-			// `shrink-0`: `overflow-x-auto` zeroes this box's min-height, and the
-			// Panel around it is a flex column that overflows.
+			// `shrink-0`, because `overflow-x-auto` zeroes this box's min-height, and
+			// the Panel around it is a flex column that overflows.
 			className={cx('relative shrink-0 overflow-x-auto', className)}
 			onKeyDown={(event) => {
 				// `SectionRow` stops its own Escape, so this one only reaches a box
@@ -237,7 +239,7 @@ export function PlanMap({
 							width: DETAIL_WIDTH,
 						}}
 					>
-						{/* No `onShowReference`: the map draws no References list. */}
+						{/* No `onShowReference`, because the map draws no References list. */}
 						<SectionRow
 							className="gap-3 p-3.5"
 							edit={edit}

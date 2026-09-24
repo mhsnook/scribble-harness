@@ -3,8 +3,6 @@ import { cx } from '../lib/cx'
 /**
  * A row of pills, one or more of them on. Used for the Panel rail in the
  * Article bar and the View rail on the Plan Panel's Outline heading.
- *
- * Renders spans instead of buttons when `onPick` is absent.
  */
 
 export interface RailProps<Item extends string> {

@@ -48,7 +48,8 @@ export function Dialog({
 			// drift from what is on screen.
 			onClose={onClose}
 			onClick={(event) => {
-				// The dialog element itself is the backdrop; its content is inside.
+				// Closes only when the click lands on the dialog element itself,
+				// because that element is the backdrop and its content sits inside it.
 				if (event.target === held.current) onClose()
 			}}
 			ref={held}

@@ -40,7 +40,8 @@ const wording: Record<RefusalReason, Wording> = {
 	stale: (refusal, name) =>
 		`${capitalise(name.label(refusal.subject))} has changed since the Chat proposed this. It now reads ${quote(refusal.found)}, where the change expected ${quote(refusal.expected)}.`,
 
-	// Sections and References share a code: the subject already says which.
+	// Sections and References share this wording, because the subject already
+	// says which.
 	duplicateId: (refusal, name) =>
 		`That change adds ${name.subject(refusal.subject)}, which the Plan already carries.`,
 

@@ -83,8 +83,8 @@ export function NotesLedgerDrawer({
 			role="group"
 			tabIndex={-1}
 		>
-			{/* The filters fold away: five controls at this Panel's width take four
-			    rows, which measured 219px of header over a 191px drawer. */}
+			{/* The filters fold away, because five controls at this Panel's width take
+			    four rows — that measured 219px of header over a 191px drawer. */}
 			<div className="flex shrink-0 flex-col gap-1.5 rounded-t-frame border-b border-edge bg-sunk px-3.5 py-2.5">
 				<PanelHeader
 					actions={
@@ -109,8 +109,8 @@ export function NotesLedgerDrawer({
 					title="All Notes"
 				/>
 
-				{/* Its own line rather than text on the toggle: three labels in this
-				    Panel's header wrap. */}
+				{/* Its own line rather than text on the toggle, because three labels in
+				    this Panel's header wrap. */}
 				{narrowed(filter) ? (
 					<p className="label-meta">
 						{`showing ${countRounds(showing)} of ${countRounds(ledger.rounds)}`}
@@ -163,7 +163,7 @@ function narrowed(filter: LedgerFilter): boolean {
  *
  * The count on a chip is the whole ledger's, not the filtered list's, so it
  * still reads when the chip is off. Turning the last chip off turns them all
- * back on: an empty `dispositions` set shows nothing at all.
+ * back on, because an empty `dispositions` set shows nothing at all.
  */
 function DispositionFilters({
 	counts,
@@ -207,8 +207,9 @@ function DispositionFilters({
 	)
 }
 
-/** One Round, or all of them. Only the Rounds that wrote a Note are offered:
- * `notesLedger` leaves the rest out, and picking one would show nothing. */
+/** One Round, or all of them. Only the Rounds that wrote a Note are offered,
+ * because `notesLedger` leaves the rest out and picking one would show
+ * nothing. */
 function RoundFilter({
 	ledger,
 	roundId,

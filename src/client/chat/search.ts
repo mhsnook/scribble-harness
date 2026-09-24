@@ -14,9 +14,9 @@ export type SearchCall = {
 }
 
 /** A search that worked. The Panel needs the status and a count, so results are
- * counted rather than validated — the tool's own schema is
- * `src/server/llm/search.ts`, and re-checking every url on every render buys
- * the Panel nothing. An unavailable search fails this parse, which is the
+ * counted rather than validated, because the tool's own schema already lives in
+ * `src/server/llm/search.ts` and re-checking every url on every render would
+ * buy the Panel nothing. An unavailable search fails this parse, which is the
  * answer the Panel wants for it anyway. */
 const answered = z.object({
 	status: z.literal('ok'),
@@ -26,8 +26,8 @@ const answered = z.object({
 /**
  * The caller matches the tool name, so this takes any part it hands over.
  *
- * The input is read field by field rather than through `webSearchInput`, which
- * would refuse the half-object a streaming call carries.
+ * The input is read field by field rather than through `webSearchInput`,
+ * because it would refuse the half-object a streaming call carries.
  */
 export function readWebSearch(part: ToolUIPart | DynamicToolUIPart): SearchCall {
 	const asked = (part.input as { query?: unknown } | undefined)?.query
@@ -43,8 +43,8 @@ export function readWebSearch(part: ToolUIPart | DynamicToolUIPart): SearchCall 
 	return { query, outcome: answer.success ? answer.data.results.length : 'failed' }
 }
 
-/** A failure stays short here: the guide relays the provider's own reason in
- * its reply. */
+/** A failure stays short here, because the guide relays the provider's own
+ * reason in its reply. */
 export function searchNote({ query, outcome }: SearchCall): string {
 	const asked = query === null ? 'the web' : `“${query}”`
 

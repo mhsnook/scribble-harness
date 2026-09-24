@@ -13,8 +13,8 @@ import {
  * The article index, over D1 — `docs/articles.md`. Nothing here reaches
  * into an Article Agent, so removing a row leaves one exactly as it was.
  *
- * Nothing parses a token either: Access gates the Worker at the edge, and 1a may
- * not require the Cf-Access-Jwt-Assertion header (architecture.md §4.8).
+ * Nothing parses a token either, because Access gates the Worker at the edge, and
+ * 1a may not require the Cf-Access-Jwt-Assertion header (architecture.md §4.8).
  */
 
 /** `status` is stated as what the write routes parsed rather than checked again
@@ -43,8 +43,8 @@ function toEntry(row: ArticleRow): ArticleEntry {
 
 export const articleIndex = new Hono<{ Bindings: Env }>()
 
-	/** Every Article, Archived included: one Team's index sends whole, and the
-	 * Views filter. Paginate here if the table outgrows one response. */
+	/** Answers with every Article, Archived included, because one Team's index sends
+	 * whole and the Views filter. Paginate here if the table outgrows one response. */
 	.get('/', async (c) => {
 		const rows = await c.env.DB.prepare(
 			`SELECT ${columns} FROM article ORDER BY updated_at DESC`,
@@ -53,7 +53,7 @@ export const articleIndex = new Hono<{ Bindings: Env }>()
 		return c.json({ articles: rows.results.map(toEntry) })
 	})
 
-	/** The Article Agent is not woken here: it builds itself on the first
+	/** Does not wake the Article Agent here, because it builds itself on the first
 	 * connect, with the empty Plan its `initialState` carries. */
 	.post('/', async (c) => {
 		const sent = newArticleSchema.safeParse(await body(c.req.raw))
@@ -119,8 +119,8 @@ export const articleIndex = new Hono<{ Bindings: Env }>()
 		return c.body(null, 204)
 	})
 
-/** A POST with no body is the ordinary way to open an Article, and `json()`
- * throws on one. */
+/** Falls back to `{}`, because a POST with no body is the ordinary way to open an
+ * Article and `json()` throws on one. */
 async function body(request: Request): Promise<unknown> {
 	try {
 		return await request.json()

@@ -5,10 +5,10 @@ import { cx } from '../lib/cx'
 /** The frame both the read-only Field and the editable TextField sit in, so a
  * field the writer types in looks like the one they cannot.
  *
- * `min-w-0` is load-bearing: an input carries an intrinsic width of about 20
- * characters, and a flex item's automatic minimum size takes it: the frame
- * would refuse to shrink inside a narrow field and spill over whatever sits
- * beside it. */
+ * `min-w-0` is load-bearing, because an input carries an intrinsic width of
+ * about 20 characters and a flex item's automatic minimum size takes it, so
+ * the frame would refuse to shrink inside a narrow field and spill over
+ * whatever sits beside it. */
 const frameClass =
 	'flex min-w-0 flex-1 items-center gap-2 rounded-md border border-edge bg-surface px-2.5'
 
@@ -70,7 +70,8 @@ export interface TextFieldProps {
 	placeholder?: string
 	suffix?: ReactNode
 	size?: 'sm' | 'md'
-	/** More than one row renders a textarea, which is what an intent note wants. */
+	/** More than one row renders a textarea, because that is what an intent note
+	 * wants. */
 	rows?: number
 	className?: string
 }

@@ -14,8 +14,9 @@ import { articleSync, retainArticleSync } from './sync'
 /**
  * Opens one Article Agent and hands out the three things that ride its one
  * multiplexed socket: the Plan channel, an Offer store over `@callable` RPC, and
- * the client itself for `useAgentChat` — architecture.md §4.4. A second socket would mean a second
- * Plan writer, which architecture.md §3 rule 1 rules out.
+ * the client itself for `useAgentChat` — architecture.md §4.4. It rides one
+ * socket because a second one would mean a second Plan writer, which
+ * architecture.md §3 rule 1 forbids.
  */
 
 export type ArticleSocket = ReturnType<typeof useAgent<Plan>>
@@ -32,14 +33,15 @@ export type ArticleConnection = {
  * away, and a failure here only means the screen waits as it would have.
  */
 export function wakeArticleAgent(articleId: string): void {
-	// Same path routeAgentRequest maps onto the binding — see server/index.ts.
+	// Matches the path routeAgentRequest maps onto the binding, so this reaches
+	// the same Durable Object that server/index.ts wires up.
 	void fetch(`/agents/article-agent/${encodeURIComponent(articleId)}`).catch(() => {})
 }
 
 export function useArticleAgent(articleId: string): ArticleConnection {
 	// The Plan writer is built once, so it reaches the client through this rather
-	// than closing over one. Filled in an effect, which is late enough: nothing
-	// sends a Plan until the writer has typed.
+	// than closing over one. Filled in an effect, which is late enough, because
+	// nothing sends a Plan until the writer has typed.
 	const socket = useRef<ArticleSocket | null>(null)
 	const send = useEffectEvent((next: Plan) => socket.current?.setState(next))
 	const channel = usePlanChannel(send)
@@ -75,9 +77,9 @@ export function useArticleAgent(articleId: string): ArticleConnection {
 
 	const [draft] = useState<DraftStore>(() => ({
 		listBlocks: () => call<BlockRow[]>('listBlocks'),
-		// Shorter than the SDK's 30-second default: a save that has not
-		// landed leaves "Saving…" on screen, and half a minute of that says
-		// something is fine when it is not.
+		// Uses a shorter timeout than the SDK's 30-second default, because a save
+		// that has not landed leaves "Saving…" on screen, and half a minute of
+		// that says something is fine when it is not.
 		saveBlocks: (change: DraftChange) =>
 			call<DraftSaved>('saveBlocks', [change], SAVE_TIMEOUT),
 	}))

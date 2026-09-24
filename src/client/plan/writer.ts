@@ -34,7 +34,8 @@ export type PlanWriterOptions = {
 
 /**
  * An edit, or a builder handed the Plan the writer holds now. A caller building
- * one after a round trip wants the builder, having closed over an older render.
+ * one after a round trip wants the builder, because it may have closed over
+ * an older render.
  */
 export type PlanEdit = ProposalInput | null | ((plan: Plan) => ProposalInput | null)
 

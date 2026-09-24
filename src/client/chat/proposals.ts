@@ -34,8 +34,9 @@ type AnyToolPart = ToolUIPart | DynamicToolUIPart
  * parks a turn — `docs/carries.md`.
  *
  * **Only the Proposal tool counts.** It is the one with no `execute`, so it
- * suspends for the writer and nothing expires it; the research tool resolves
- * inside the turn (`docs/chat.md`) and its call sits at `input-available` meanwhile.
+ * suspends for the writer and nothing expires it. The research tool is left
+ * out because it resolves inside the turn (`docs/chat.md`), even though its
+ * call also sits at `input-available` while that happens.
  */
 export function waitingCount(messages: readonly UIMessage[]): number {
 	let waiting = 0
@@ -79,8 +80,8 @@ export function declineReason(call: ProposalCall, refusal: Refusal | null): stri
 	return 'The writer Declined this Proposal.'
 }
 
-/** What an Accept sends back. Just the ruling: the next turn carries the whole
- * Plan in `body` anyway. */
+/** What an Accept sends back: just the ruling, because the next turn carries
+ * the whole Plan in `body` anyway. */
 export function acceptReason(ops: Proposal): string {
 	const count = ops.length === 1 ? 'change' : `${ops.length} changes`
 
@@ -144,8 +145,9 @@ export function ruleProposal({ call, accepted, edit, refusal }: RulingOptions): 
 export function describeProposal(plan: Plan, ops: Proposal): string[] {
 	const { section, reference, scope } = planNames(plan)
 
-	// A structural op states exactly one of the two — ops.ts. Null means an end
-	// rather than a neighbour: `afterId` first child, `beforeId` last.
+	// Checks `beforeId` before `afterId`, because ops.ts guarantees a structural
+	// op states exactly one of the two. Null means an end rather than a
+	// neighbour: `afterId` first child, `beforeId` last.
 	const anchored = (parentId: string | null, op: Anchor) => {
 		if (op.beforeId !== undefined) {
 			return op.beforeId === null ? lastIn(parentId) : `before ${section(op.beforeId)}`

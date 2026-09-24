@@ -10,7 +10,8 @@ import { z } from 'zod'
 export const articleStatusSchema = z.enum(['planning', 'drafting', 'self-edit', 'done'])
 export type ArticleStatus = z.infer<typeof articleStatusSchema>
 
-/** Load-bearing order: the Board View's columns, and a new Article's first. */
+/** This order is load-bearing, because the Board View reads its columns from it, and
+ * a new Article opens into the first one. */
 export const ARTICLE_STATUSES = articleStatusSchema.options
 
 export const statusLabel: Record<ArticleStatus, string> = {
@@ -22,11 +23,11 @@ export const statusLabel: Record<ArticleStatus, string> = {
 
 export const articleEntrySchema = z.strictObject({
 	id: z.string().min(1),
-	/** A copy. The Plan holds the real title. */
+	/** A copy, because the Plan holds the real title. */
 	title: z.string(),
 	status: articleStatusSchema,
 	createdAt: z.number().int(),
-	/** When the row changed, which is not when the Article was worked on: a Plan
+	/** When the row changed, which is not when the Article was worked on, because a Plan
 	 * edit goes to the Article Agent and never touches this table. */
 	updatedAt: z.number().int(),
 	archivedAt: z.number().int().nullable(),

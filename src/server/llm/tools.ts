@@ -20,17 +20,18 @@ import { type WebSearch, webSearchInput, webSearchOutput } from './search'
  * the Proposal's input and the Offer tool's output. The search tool's are in
  * `llm/search.ts`, because nothing on the client reads them.
  *
- * The Proposal tool is **`execute`-less**: a tool with no `execute` suspends
- * for the client, and that suspension is the Proposal the writer rules on —
- * `docs/chat.md`. It writes nothing, because the Chat proposes and
+ * The Proposal tool is **`execute`-less**, because a tool with no `execute`
+ * suspends for the client, and that suspension is the Proposal the writer rules
+ * on — `docs/chat.md`. It writes nothing, because the Chat proposes and
  * the client applies (architecture.md §4.1).
  *
  * Do not reach for `needsApproval` or `toolApproval`. Both gate a server-side
  * `execute` this product does not have.
  *
  * The Offer tool below carries an `execute` instead, because an Offer is a row
- * the writer rules on later rather than mid-turn — `docs/chat.md`. So does the search
- * tool: a search result is not something the writer rules on at all.
+ * the writer rules on later rather than mid-turn — `docs/chat.md`. The search
+ * tool carries one too, because a search result is not something the writer
+ * rules on at all.
  */
 
 const proposePlanChange = tool({
@@ -85,7 +86,8 @@ const recordOffers = tool({
 	// fails soft when it cannot — so bind both ends to the one schema.
 	outputSchema: recordedOffersOutput,
 	execute: async ({ offers }) => {
-		// The module is imported once; the instance is per turn.
+		// Reads the current Agent fresh here rather than caching it at module scope,
+		// because the module is imported once but the instance differs per turn.
 		const { agent } = getCurrentAgent<ArticleAgent>()
 		if (agent === undefined)
 			throw new Error('The Offer tool ran outside an Article Agent.')

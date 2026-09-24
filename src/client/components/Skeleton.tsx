@@ -11,8 +11,9 @@ export interface SkeletonProps {
  * count are real-looking answers, so a screen that has not got its value draws
  * this instead of drawing one.
  *
- * Height comes from the text around it. Give it a width: a bar the width of the
- * value it waits for keeps the layout from jumping when the value lands.
+ * Height comes from the text around it. Give it a width, because a bar the
+ * width of the value it waits for keeps the layout from jumping when the
+ * value lands.
  */
 export function Skeleton({ label, className }: SkeletonProps) {
 	return (

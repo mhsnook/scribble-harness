@@ -19,7 +19,7 @@ import { attribution, referenceEntries, referenceMark, referenceName } from './r
  * writer. Follows `docs/plan.md`.
  *
  * The type is read off the record, never derived from whether a text is
- * present: a Reference may carry a passage without being a Quote.
+ * present, because a Reference may carry a passage without being a Quote.
  */
 
 export interface ReferenceListProps {

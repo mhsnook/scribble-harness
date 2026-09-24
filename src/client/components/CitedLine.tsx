@@ -11,7 +11,6 @@ export interface CitedLineProps {
 /**
  * Citation formats are the writer's and vary by Article, so this renders the
  * parts as given, in a wrapper, separated in a way that copy-pastes well.
- * Draws nothing when there are no parts.
  */
 export function CitedLine({ parts, className }: CitedLineProps) {
 	if (parts.length === 0) return null

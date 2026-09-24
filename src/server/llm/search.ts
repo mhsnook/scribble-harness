@@ -98,8 +98,8 @@ function unavailable(reason: string): WebSearchOutput {
 	return { status: 'unavailable', reason }
 }
 
-/** Highlights and not `text`: a highlight is the passage that answers the
- * query, where the text is the whole page. */
+/** Requests highlights and not `text`, because a highlight is the passage that
+ * answers the query, where the text is the whole page. */
 function searchRequest(input: WebSearchInput): Record<string, unknown> {
 	return {
 		query: input.query,
@@ -112,9 +112,9 @@ function searchRequest(input: WebSearchInput): Record<string, unknown> {
 	}
 }
 
-/** Loose rather than strict, unlike everything the Plan parses: a field the
- * provider adds should not fail a search that otherwise worked. Every field but
- * the url is optional at the source — a page with no byline has no author. */
+/** Loose rather than strict, unlike everything the Plan parses, because a field
+ * the provider adds should not fail a search that otherwise worked. Every field
+ * but the url is optional at the source — a page with no byline has no author. */
 const providerResult = z.object({
 	url: z.url(),
 	title: z.string().nullish(),
@@ -138,7 +138,8 @@ function readResults(body: unknown): WebSearchResult[] {
 type ProviderResult = z.infer<typeof providerResult>
 
 function toResult(found: ProviderResult): WebSearchResult {
-	// The provider sends either YYYY-MM-DD or a full timestamp.
+	// Slices to the first 10 characters to keep just the date, because the
+	// provider sends either YYYY-MM-DD or a full timestamp.
 	const published = found.publishedDate?.slice(0, 10)
 	const excerpt = (found.highlights ?? [])
 		.map((highlight) => highlight.trim())

@@ -73,8 +73,8 @@ function statusFor(
 	if (gap === 0) return 'balanced'
 	if (gap < 0) return 'over'
 
-	// Nothing below yet is the same reading as some node carrying no target:
-	// the words are not placed, rather than deliberately short of the total.
+	// Nothing below yet reads the same as some node carrying no target, because the
+	// words are not placed, rather than deliberately short of the total.
 	return untargeted > 0 || nodes.length === 0 ? 'unallocated' : 'under'
 }
 

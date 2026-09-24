@@ -99,9 +99,9 @@ export type RecordedOffer = { offer: Offer; duplicate: boolean }
 
 /**
  * One Article Agent per Article — docs/architecture.md §2, and §3 for what goes
- * in the state blob against what goes in its SQLite. `AIChatAgent` adds the
- * Chat: it keeps the transcript in its own SQLite tables, which nothing
- * mirrors, and routes a turn to `onChatMessage` below (`docs/chat.md`).
+ * in the state blob against what goes in its SQLite. `AIChatAgent` adds the Chat
+ * and routes a turn to `onChatMessage` below (`docs/chat.md`), because it keeps
+ * the transcript in its own SQLite tables that nothing else mirrors.
  */
 export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	initialState = emptyPlan()
@@ -291,8 +291,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		}
 	}
 
-	/** party-db marks its own traffic with `?proto=party-db`; the tag carries
-	 * that answer past hibernation, where the request is gone. */
+	/** Marks a connection as party-db's when its request carries `?proto=party-db`,
+	 * so the tag survives hibernation after the request itself is gone. */
 	getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
 		return isPartyDbRequest(ctx.request) ? [PARTY_DB_TAG] : []
 	}
@@ -326,7 +326,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	}
 
 	/**
-	 * Refuses party-db write POSTs: no collection takes client writes, and
+	 * Refuses party-db write POSTs, because no collection takes client writes and
 	 * the ruling guards live on the `@callable` methods — `docs/sync.md`. Opening the
 	 * client write path means forwarding these to `this.db.handleWrite`.
 	 */
@@ -395,9 +395,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * shown a Plan this Agent never stored — which is correct here and is a fact
 	 * #26 has to build for.
 	 *
-	 * An absent Plan is ordinary: a turn the client did not originate carries no
-	 * body, and state is the only Plan there is. One that is present and does
-	 * not parse is a bug, and refusing the turn is what says so.
+	 * An absent Plan is ordinary, because a turn the client did not originate
+	 * carries no body, and state is the only Plan there is. One that is present and
+	 * does not parse is a bug, and refusing the turn is what says so.
 	 */
 	private planForTurn(body: Record<string, unknown> | undefined): Plan {
 		const sent = chatRequestBody.safeParse(body ?? {})
@@ -439,8 +439,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * across local writes, so a research turn that records four Offers stamps
 	 * them with one or two milliseconds between them.
 	 *
-	 * Not `@callable` — a client reads its synced collection (`docs/sync.md`); this reader
-	 * serves this class and its tests. */
+	 * Not `@callable`, because a client reads its synced collection (`docs/sync.md`);
+	 * this reader serves this class and its tests. */
 	listOffers(): Offer[] {
 		return this.offerRows().map(toOffer)
 	}
@@ -461,8 +461,8 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * loop is the recovery a whole-call transaction forces — `docs/chat.md` and
 	 * `docs/sync.md` for both.
 	 *
-	 * Not `@callable`: the research tool is the only caller and it runs inside
-	 * this Agent (`docs/chat.md`).
+	 * Not `@callable`, because the research tool is the only caller and it runs
+	 * inside this Agent (`docs/chat.md`).
 	 */
 	async recordOffers(batch: unknown): Promise<RecordedOffer[]> {
 		const found = offerBatchSchema.parse(batch)
@@ -571,10 +571,10 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 	 * Block it has already seen, so a second tab's paragraph is not something
 	 * this one can delete.
 	 *
-	 * The content is stored, not inspected — `docs/draft.md` leaves the client as the Draft's
-	 * only writer, and reading the document here would put the editor's schema in
-	 * the Worker. Size is checked, because that is the failure the writer cannot
-	 * see coming.
+	 * The content is stored, not inspected, because `docs/draft.md` leaves the client
+	 * as the Draft's only writer, and reading the document here would put the
+	 * editor's schema in the Worker. Size is checked, because that is the failure
+	 * the writer cannot see coming.
 	 */
 	@callable()
 	saveBlocks(change: unknown): DraftSaved {
@@ -584,9 +584,9 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		const savedAt = Date.now()
 
 		// Removals first, so a Block taken out and put back under the same id
-		// ends up present. Nothing checks a row count, unlike the Offer methods:
-		// removing a Block that has already gone is the retry path — the save
-		// failed, the writer kept typing — and it has to land rather than throw.
+		// ends up present. Nothing checks a row count, unlike the Offer methods,
+		// because removing a Block that has already gone is the retry path — the save
+		// failed, the writer kept typing — so it has to land rather than throw.
 		for (const id of removed) {
 			this.sql`DELETE FROM block WHERE id = ${id}`
 		}
@@ -607,7 +607,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 
 	/** Every Round on this Article, oldest first. `seq` orders it and numbers it,
 	 * for the reason `listOffers` gives: a Worker's clock barely moves across
-	 * local writes. Not `@callable` — a client reads its synced collection
+	 * local writes. Not `@callable`, because a client reads its synced collection
 	 * (`docs/sync.md`); this reader serves this class and its tests. */
 	listRounds(): Round[] {
 		return this.sql<RoundRow>`SELECT * FROM round ORDER BY seq`.map(toRound)

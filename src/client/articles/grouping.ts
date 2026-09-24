@@ -32,9 +32,9 @@ export function recentArticles(
 }
 
 /**
- * Every column, empty ones included — a board missing one reads as though that
- * stage does not exist. Done is a column rather than a filter, because a Done
- * Article stays on the Board until it is Archived (context.md).
+ * Every column, empty ones included, because a board missing one reads as
+ * though that stage does not exist. Done is a column rather than a filter,
+ * because a Done Article stays on the Board until it is Archived (context.md).
  */
 export function boardColumns(articles: readonly ArticleEntry[]): BoardColumn[] {
 	const shown = unarchivedArticles(articles)

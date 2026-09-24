@@ -16,10 +16,10 @@ export interface ArticleBarProps {
 	status?: ReactNode
 	open: readonly PanelId[]
 	onToggle?: (Panel: PanelId) => void
-	/** Put the rail on a row of its own — beside the title and the status there
-	 * is nowhere near the width for four pills. */
+	/** Put the rail on a row of its own, because beside the title and the status
+	 * there is nowhere near the width for four pills. */
 	stacked?: boolean
-	/** Draw the rule underneath. Off when the Panel below carries its own edge. */
+	/** Draw the rule underneath, unless the Panel below carries its own edge. */
 	divided?: boolean
 	className?: string
 }

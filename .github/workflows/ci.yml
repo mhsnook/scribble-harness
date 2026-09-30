@@ -1,47 +1,68 @@
+# Delta-reporting PR checks.
+#
+# Shape: one job per TREE, not one per check. `head` and `base` each install
+# once and build once, then run every check that tree can answer. They run in
+# parallel with each other. `report` fans in, diffs the two, posts a single
+# comment that updates in place, and owns the pass/fail decision.
+#
+# Total cost: two installs and two builds, whatever the number of checks.
+#
+# The file keeps its old name so the branch protection rule that names this
+# workflow keeps matching.
+
 name: CI
 
-# Pull requests, and main itself, so a merge that breaks something is caught
-# even when nothing else runs against it that day.
+# Pull requests only. This workflow compares two trees, and a push has no base
+# to compare against — it would run both jobs and report nothing. A post-merge
+# build belongs in its own workflow.
 on:
   pull_request:
-  push:
     branches: [main]
 
-# A newer push to the same branch makes the run in flight pointless.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  # The old job cancelled a run in flight. This one does not: it posts a comment,
+  # and a run cancelled between the comment and the gate leaves the PR describing
+  # an older commit with no red X to explain why. Let a PR run finish.
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 env:
-  # Wrangler runs twice here — `wrangler types` on install, and `--check` in the
-  # typecheck — and neither needs to phone home.
+  # Wrangler runs twice per tree — `wrangler types` on install, and `--check` in
+  # the typecheck — and neither needs to phone home.
   WRANGLER_SEND_METRICS: false
 
 jobs:
-  checks:
-    name: Lint, typecheck, and test
+  # ── The PR's tree ─────────────────────────────────────────────────────
+  # Install once, build once, then run everything off that one tree: the static
+  # checks, the bundle measurement, the content scan, the tests.
+  head:
+    name: Measure the PR
     runs-on: ubuntu-latest
-    # One job rather than four: installing takes longer than all four checks
-    # together, and four jobs would install four times.
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Reads the pnpm version from packageManager in package.json. It must come
-      # before setup-node, which needs the pnpm binary to find the store to cache.
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
+      # before setup-node, which needs the pnpm binary to find the store to
+      # cache. No `version:` here: pinning it in two places is the single most
+      # common way this workflow breaks.
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       # postinstall runs `wrangler types`, which writes the gitignored
       # worker-configuration.d.ts that the typecheck and the Worker tests read.
       # Nothing here logs in to Cloudflare: `wrangler types` reads wrangler.jsonc
       # and nothing else.
+      #
+      # `id` and the guard on every later step: when the install fails, every
+      # check below is measuring nothing. Skip them rather than filling the
+      # report with the consequences of one failure.
       - name: Install
         id: install
         run: pnpm install --frozen-lockfile
@@ -49,6 +70,9 @@ jobs:
       # Playwright pins one browser build per release, so the version is the
       # cache key: a Playwright bump misses the cache and downloads the build it
       # now wants, rather than running against the build it no longer supports.
+      #
+      # Only this job needs it. The base tree runs no tests, so it pays nothing
+      # for the stories project.
       - name: Read the Playwright version
         id: playwright
         if: ${{ steps.install.outcome == 'success' }}
@@ -68,31 +92,236 @@ jobs:
         if: ${{ steps.browser-cache.outcome == 'success' && steps.browser-cache.outputs.cache-hit != 'true' }}
         run: pnpm exec playwright install --with-deps chromium
 
-      # The apt packages Chromium links against live outside ~/.cache/ms-playwright,
-      # so a cache hit restores the browser without them.
+      # The apt packages Chromium links against live outside
+      # ~/.cache/ms-playwright, so a cache hit restores the browser without them.
       - name: Install the browser's system libraries
         if: ${{ steps.browser-cache.outputs.cache-hit == 'true' }}
         run: pnpm exec playwright install-deps chromium
 
-      # Each check runs even after an earlier one failed, so one run reports
-      # everything that is wrong rather than the first thing. They stay skipped
-      # when the install fails, because then all four fail for that one reason.
-      - name: Lint
+      # The formatter gate is scoped to the files this PR touches, so the head
+      # tree has to say which those are. Two-dot diff, because the default
+      # checkout for `pull_request` is the MERGE ref — base already merged in —
+      # so base.sha..HEAD is exactly this PR's own changes.
+      - name: List files this PR touches
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm lint
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mkdir -p /tmp/out/static
+          git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null ||
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --name-only --diff-filter=d "$BASE_SHA" HEAD |
+            sort >/tmp/out/static/touched.txt
+          wc -l /tmp/out/static/touched.txt
 
-      - name: Check formatting
+      # Checks 1–3. The typecheck and the lint run concurrently inside the
+      # script; the formatter runs last because it rewrites files.
+      #
+      # These run BEFORE the build and never depend on it. A branch that fails
+      # to build is the branch that most needs to hear about its type errors.
+      - name: Static checks
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm format:check
+        run: bash .github/ci/collect-static.sh /tmp/out/static
 
-      - name: Typecheck
+      # `continue-on-error` and `tee`: a failed build is a finding to report,
+      # not a reason to lose the comment. The log feeds the Build section, which
+      # says whether this PR broke the build or inherited a broken base.
+      #
+      # `shell: bash` is load-bearing. The default shell for `run:` is `bash -e`
+      # with NO pipefail, so a piped step reports the exit status of the LAST
+      # command -- tee -- and a failed build would record as a success.
+      # `shell: bash` is `bash -eo pipefail`, which reports the build's own status.
+      #
+      # Nothing in this build reads a secret. The AI binding is the only remote
+      # one, and `vite build` never calls it.
+      - name: Build
+        id: build
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p /tmp/out
+          pnpm build 2>&1 | tee /tmp/out/build.log
 
-      # `pnpm test` builds the client first, because the Worker serves it through
-      # the ASSETS binding and the smoke tests fetch it. The AI binding is the
-      # only remote one and no test calls a model, so this needs no API token.
-      # It also runs every story in the Chromium installed above.
-      - name: Test
+      - name: Record the build outcome
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p /tmp/out
+          echo "${{ steps.build.outcome }}" >/tmp/out/build.outcome
+
+      # Check 4, head half. Measures only — the diff happens in `report`.
+      - name: Measure bundle
+        if: ${{ steps.build.outcome == 'success' }}
+        run: node .github/ci/measure-bundle.cjs dist /tmp/out/bundle.json
+
+      # Check 6, over the SAME dist/ the measurement just read. No second build.
+      # Pointed at `dist` rather than `dist/client`, so the Worker bundle is
+      # scanned too. The guard is the install, not the build: the script writes a
+      # `missing: true` sidecar when there is nothing to scan, and the gate needs
+      # to see that rather than an absent file.
+      - name: Scan build output
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: pnpm test
+        continue-on-error: true
+        run: bash .github/ci/scan-build.sh dist /tmp/out/fragments
+
+      # Check 5. `vitest run` rather than `pnpm test`, because `pnpm test` is
+      # `vite build && vitest run` and the build above already ran — the Worker
+      # smoke tests fetch the client through the ASSETS binding, so they need
+      # dist/client to exist, and it does. A third build would cost a minute and
+      # measure nothing new.
+      #
+      # continue-on-error so a failure still reaches the comment.
+      - name: Tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        run: pnpm exec vitest run --reporter=default --reporter=json --outputFile.json=/tmp/test-results.json
+
+      - name: Render test fragment
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          node -e "require('./.github/ci/render-tests.cjs')({
+            results: '/tmp/test-results.json', out: '/tmp/out/fragments'
+          })"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: tree-head
+          path: /tmp/out/
+          retention-days: 1
+
+  # ── The base branch's tree ────────────────────────────────────────────
+  # Same install and build, but only the checks that need a comparison point.
+  # No tests, no browser and no content scan here — those are head-only
+  # questions, and skipping them is what keeps this job the shorter of the two.
+  base:
+    name: Measure the base branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.base_ref }}
+
+      # Everything that DEFINES the measurement comes from head, not from base.
+      # The scripts, so a change to a script does not read as a change in the
+      # codebase. The linter, formatter and TypeScript configs, so a PR that
+      # changes a rule has both trees judged by the new rule rather than leaving
+      # every file that rule touches reading as newly broken. And `.nvmrc`, so
+      # both trees run the same Node.
+      #
+      # This step must come BEFORE `setup-node`, because `node-version-file`
+      # reads `.nvmrc` off the base checkout — and a PR that ADDS `.nvmrc` has
+      # not got one there yet, so setup-node dies before any later step could
+      # fetch it.
+      #
+      # One `git checkout` per file: a single call listing all of them fails as a
+      # whole when any one path is missing, which would silently leave the base
+      # tree measured by its own older configs.
+      - name: Fetch the measurement from head
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.head.sha }}"
+          git checkout "${{ github.event.pull_request.head.sha }}" -- .github/ci/
+          for f in .nvmrc .oxlintrc.json .oxfmtrc.json \
+            tsconfig.json tsconfig.client.json tsconfig.worker.json tsconfig.node.json; do
+            git checkout "${{ github.event.pull_request.head.sha }}" -- "$f" ||
+              echo "no $f on head, leaving the base copy in place"
+          done
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Static checks
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: bash .github/ci/collect-static.sh /tmp/out/static
+
+      - name: Build
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p /tmp/out
+          pnpm build 2>&1 | tee /tmp/out/build.log
+
+      - name: Record the build outcome
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p /tmp/out
+          echo "${{ steps.build.outcome }}" >/tmp/out/build.outcome
+
+      - name: Measure bundle
+        if: ${{ steps.build.outcome == 'success' }}
+        run: node .github/ci/measure-bundle.cjs dist /tmp/out/bundle.json
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: tree-base
+          path: /tmp/out/
+          retention-days: 1
+
+  # ── Fan-in: diff, one comment, one verdict ────────────────────────────
+  report:
+    name: Report the delta
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [head, base]
+    # `always()`, or a failing check job cancels the report and the contributor
+    # sees a red X with no explanation.
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with: { name: tree-head, path: /tmp/head }
+        continue-on-error: true
+      - uses: actions/download-artifact@v8
+        with: { name: tree-base, path: /tmp/base }
+        continue-on-error: true
+
+      # The diff happens here, once, over artifacts. Neither tree is present.
+      - name: Render fragments
+        run: |
+          mkdir -p /tmp/fragments
+          cp -r /tmp/head/fragments/. /tmp/fragments/ 2>/dev/null || true
+          node -e "require('./.github/ci/render-build.cjs')({
+            head: '/tmp/head', base: '/tmp/base', out: '/tmp/fragments'
+          })"
+          node -e "require('./.github/ci/render-static.cjs')({
+            head: '/tmp/head/static', base: '/tmp/base/static', out: '/tmp/fragments'
+          })"
+          node -e "require('./.github/ci/render-bundle.cjs')({
+            head: '/tmp/head/bundle.json', base: '/tmp/base/bundle.json', out: '/tmp/fragments'
+          })"
+
+      - name: Post comment
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { assemble, upsertComment } = require('./.github/ci/comment.cjs')
+            const body = assemble('/tmp/fragments', {
+              id: 'pr-checks',
+              title: '### PR checks',
+              header: `_Compared against \`${context.payload.pull_request.base.ref}\`._`,
+            })
+            core.info(JSON.stringify(await upsertComment(github, context, 'pr-checks', body)))
+
+      # `tee` puts the verdict on the run's summary page, so the reason a
+      # required check went red is visible without opening the log.
+      #
+      # `shell: bash` for pipefail. Without it the gate prints its failures and
+      # then exits 0 through `tee`, which disables the gate entirely.
+      - name: Gate
+        shell: bash
+        run: node .github/ci/gate.cjs /tmp/fragments | tee -a "$GITHUB_STEP_SUMMARY"

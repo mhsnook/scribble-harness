@@ -26,7 +26,15 @@
   ],
   "overrides": [
     {
-      "files": ["src/server/**", "test/**", "*.config.ts", ".storybook/**"],
+      // `.github/ci/**` is CommonJS run by `node` on the runner, so it reads
+      // `require`, `module` and `process` and never touches a DOM.
+      "files": [
+        "src/server/**",
+        "test/**",
+        "*.config.ts",
+        ".storybook/**",
+        ".github/ci/**"
+      ],
       "env": { "browser": false, "node": true }
     },
     {

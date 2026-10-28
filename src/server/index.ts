@@ -7,9 +7,10 @@ import { routePartykitRequest } from 'partyserver'
 
 import { ArticleAgent } from './article-agent'
 import { articleIndex } from './article-index'
+import { House } from './house'
 
-// Re-exported so the Durable Object class ships with the Worker bundle.
-export { ArticleAgent }
+// Re-exported so the Durable Object classes ship with the Worker bundle.
+export { ArticleAgent, House }
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -26,9 +27,9 @@ app.all('/agents/*', async (c) => {
 	return response ?? c.text('No such Agent route', 404)
 })
 
-// The party-db sync socket — `docs/sync.md`. routePartykitRequest maps
+// The party-db sync sockets — `docs/sync.md`. routePartykitRequest maps
 // /parties/article-agent/:name onto the same ArticleAgent binding the route
-// above serves.
+// above serves, and /parties/house/house onto the House.
 app.all('/parties/*', async (c) => {
 	const response = await routePartykitRequest(c.req.raw, c.env)
 	return response ?? c.text('No such party route', 404)

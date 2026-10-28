@@ -15,9 +15,18 @@ workspace, account
 
 **House** (or house style):
 The writer's own material, held across every Article — the Lexicon, the standing rules,
-the Skills, and the writing samples. Named for house style, and reached from its own
-top-level entry point rather than from inside an Article.
+the Skills, and the House Voice and Adjectives. Named for house style, and reached from
+its own top-level entry point rather than from inside an Article. What it holds and how
+it reaches the Guide is [`house.md`](./house.md).
 _Avoid_: layer 4, global settings, user settings, workspace
+
+**Standing rule**:
+One thing the writer holds every piece to, in their own words — "never open on a
+rhetorical question". Held in the House and read by the guide on every turn, on top of
+whatever the Article's own Plan says. Always the two words: a bare "rule" is anything the
+app enforces.
+_Avoid_: guideline, preference, principle, house rule (the House holds it; the rule is
+not named for it)
 
 ## The Article and its Panels
 

@@ -5,6 +5,7 @@ import { AdjectivesScreen } from './AdjectivesScreen'
 import { ArticlesScreen } from './ArticlesScreen'
 import { BoardScreen } from './BoardScreen'
 import { FavouriteSourcesScreen } from './FavouriteSourcesScreen'
+import { HouseScreen } from './HouseScreen'
 import { TableScreen } from './TableScreen'
 import { VoicesScreen } from './VoicesScreen'
 
@@ -94,6 +95,23 @@ export const F_FavouriteSources: Story = {
 			<Annotation>
 				Ranking, not filtering — a non-favourite still shows up when it is the best
 				evidence available.
+			</Annotation>
+		</div>
+	),
+}
+
+export const G_House: Story = {
+	name: '1(g) House',
+	render: () => (
+		<div className="flex flex-col">
+			<HouseScreen />
+			<Annotation>
+				The live screen — `/house` renders this same component against the room's own
+				rows. It is what shipped of the three settings mockups above: a Voice is a string
+				the writer types rather than a record with its own prompt and examples, so the
+				Tone here is two fields rather than a library. The Lexicon and the standing rules
+				are the material the guide reads on every turn, which is why they lead; the Skills
+				are saved from a Review and only dropped here.
 			</Annotation>
 		</div>
 	),

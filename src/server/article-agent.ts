@@ -70,6 +70,7 @@ import {
 	toOffer,
 	toRound,
 } from '../shared/sync'
+import { readHouse } from './house'
 import { chatTurn } from './llm/chat-turn'
 import { model } from './llm/model'
 import { reviewTurn } from './llm/review'
@@ -378,6 +379,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			search: this.chatSearch(),
 			plan: this.planForTurn(options?.body),
 			messages: this.messages,
+			house: await readHouse(this.env.DB),
 			abortSignal: options?.abortSignal,
 			onFinish,
 		})
@@ -699,6 +701,7 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 			blocks: this.listBlocks(),
 			notes: this.openNotes(),
 			prompt: asked.prompt,
+			house: await readHouse(this.env.DB),
 		}
 
 		try {

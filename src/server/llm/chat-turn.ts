@@ -9,6 +9,7 @@ import {
 } from 'ai'
 
 import { reasonFor } from '../../shared/failure'
+import { emptyHouse, type HouseContext } from '../../shared/house'
 import type { Plan } from '../../shared/plan'
 import { chatPackMessages, chatSystemPrompt } from './prompt'
 import { repairToolCall } from './repair'
@@ -33,6 +34,9 @@ export type ChatTurn = {
 	search?: WebSearch
 	plan: Plan
 	messages: UIMessage[]
+	/** The writer's standing material, which the pack puts in front of the
+	 * conversation. */
+	house?: HouseContext
 	onFinish: GenerateTextOnFinishCallback<ToolSet>
 	abortSignal?: AbortSignal
 }
@@ -42,14 +46,15 @@ export async function chatTurn({
 	search,
 	plan,
 	messages,
+	house = emptyHouse,
 	onFinish,
 	abortSignal,
 }: ChatTurn): Promise<Response> {
 	const result = streamText({
 		model,
-		// Rules, then conversation and Plan, per `docs/llm.md`
+		// Rules, then the House, then conversation and Plan, per `docs/llm.md`
 		system: chatSystemPrompt(search !== undefined),
-		messages: chatPackMessages(await convertToModelMessages(messages), plan),
+		messages: chatPackMessages(await convertToModelMessages(messages), plan, house),
 		tools: chatTools(search),
 		// A turn runs until it answers, rather than stopping at its first tool
 		// call. The AI SDK stops after one step by default, which throws away

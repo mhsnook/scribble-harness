@@ -2,18 +2,26 @@ import { SELF } from 'cloudflare:test'
 import { PROTO_PARAM, PROTO_VALUE, type SequencedBatch } from 'party-db'
 
 /**
- * A test client on the Article Agent's party-db socket — the second socket of
- * `docs/sync.md`. The real client is `partyTransport`, which the browser
- * runs; a workerd test connects the same way it does: the partyserver route,
- * `?proto=party-db`, and `?since` for a reconnect.
+ * A test client on a party-db socket — the Article Agent's second socket of
+ * `docs/sync.md`, and the House's own room. The real client is
+ * `partyTransport`, which the browser runs; a workerd test connects the same
+ * way it does: the partyserver route, `?proto=party-db`, and `?since` for a
+ * reconnect.
  */
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-export async function openSyncSocket(name: string, since?: number) {
+/** The party route's first segment: the Durable Object binding in kebab-case. */
+const ARTICLE_PARTY = 'article-agent'
+
+export async function openSyncSocket(
+	name: string,
+	since?: number,
+	party = ARTICLE_PARTY,
+) {
 	const query = since === undefined ? '' : `&since=${since}`
 	const response = await SELF.fetch(
-		`https://harness.test/parties/article-agent/${name}?${PROTO_PARAM}=${PROTO_VALUE}${query}`,
+		`https://harness.test/parties/${party}/${name}?${PROTO_PARAM}=${PROTO_VALUE}${query}`,
 		{ headers: { Upgrade: 'websocket' } },
 	)
 
@@ -68,8 +76,12 @@ export function isBatch(frame: unknown): frame is SequencedBatch {
 }
 
 /** One client collection write, POSTed the way `partyTransport.send` does. */
-export function postWrite(name: string, body: unknown): Promise<Response> {
-	return SELF.fetch(`https://harness.test/parties/article-agent/${name}?proto=party-db`, {
+export function postWrite(
+	name: string,
+	body: unknown,
+	party = ARTICLE_PARTY,
+): Promise<Response> {
+	return SELF.fetch(`https://harness.test/parties/${party}/${name}?proto=party-db`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(body),

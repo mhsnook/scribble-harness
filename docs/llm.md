@@ -1,7 +1,7 @@
 # Inference
 
-The model, the search provider, and the prompt packs, in `src/server/llm/`. Keys and the
-Gateway are [`deploy.md`](./deploy.md).
+The model, the search provider, the research ranking, and the prompt packs, in
+`src/server/llm/`. Keys and the Gateway are [`deploy.md`](./deploy.md).
 
 ## The model
 
@@ -9,8 +9,9 @@ We currently run `@cf/zai-org/glm-5.2` on Workers AI over the `env.AI` binding: 
 tool calling and streaming supported, Workers Paid plan required. Swapping it changes one
 string. Issue #16 names the fallback and why it is a swap rather than a spike.
 
-One model serves every call today — the Chat, the ambient Guidance notes, and the Review. We
-have no routing machinery and no per-call-type selection.
+One language model serves every call that writes text — the Chat, the ambient Guidance
+notes, and the Review. We have no routing machinery and no per-call-type selection. The
+research ranking runs on a decision model instead, which writes no text (see below).
 
 The AI SDK follows from "Cloudflare throughout" rather than from a comparison.
 `@cloudflare/ai-chat` declares `ai` and `@ai-sdk/react` as peer dependencies, and
@@ -41,6 +42,42 @@ reach: without a key there is no search tool, and the guide is told to answer fr
 
 A failed search returns an answer rather than throwing, because a rejected `execute` ends a
 turn that still owes the writer a reply.
+
+## Research ranking
+
+The Chat's search tool takes one to four queries in one call. `src/server/llm/research.ts`
+runs them against Exa in parallel at six results each, pools them, and drops duplicate
+pages: a leading `www.`, a trailing slash, the fragment, and `utm_` parameters do not make a
+second page. Clef then judges each candidate, and the best six reach the model, which is as
+many as one search returned before ranking.
+
+`src/server/llm/decide.ts` names Clef — `@cf/cloudflare/clef`, Cloudflare's decision model
+on Workers AI — as `llm/model.ts` names the language model. A decision model answers typed
+questions about one state with calibrated probabilities rather than text, so it can rank
+and cannot write an Offer's note. It rides the same `env.AI` binding and the same Gateway,
+and needs no key.
+
+Each candidate gets one call, with the Article's title and Section intents, the queries, and
+the result as the state, and up to two questions:
+
+| Question    | Type     | Asks                                                              |
+| ----------- | -------- | ----------------------------------------------------------------- |
+| `merit`     | `score`  | Off the subject, thin, useful, or strong, as 0 to 3               |
+| `favourite` | `choice` | Which of the writer's Favourites the result belongs to, or `none` |
+
+`merit` never sees the Favourites, and `favourite` is asked only where the House holds some.
+A result below 1.5 merit is dropped. The rest sort by merit rounded to a tier, then
+Favourite first, then merit — so a Favourite goes ahead of equally good results and never
+ahead of better ones (`house.md`). A Favourite counts where Clef gives it 0.5 or more.
+
+The ranking fails soft. If any Clef call fails, the turn gets the pool unranked and the
+Worker logs a warning. The unranked order takes each query's first result, then each one's
+second, so every query's best survives the cap.
+
+Cost does not constrain this either. Clef bills input only. A ranking of twenty candidates
+sends ≈20k tokens, which is about half a cent at the $0.24 per million input tokens reported
+at launch — an estimate, unmeasured against a real Gateway log.
+[ADR 0005](./adr/0005-research-ranking.md) records why the ranking is built this way.
 
 ## Validation
 

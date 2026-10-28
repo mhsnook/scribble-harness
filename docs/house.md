@@ -1,7 +1,8 @@
 # The House
 
 The writer's own standing material, held across every Article: the Lexicon, the standing
-rules, the Skills, and the House Voice and Adjectives. One party-db room persisted to D1,
+rules, the Skills, the House Voice and Adjectives, and the Favourites. One party-db room
+persisted to D1,
 served by `src/server/house.ts` and read on the client through `src/client/house/`.
 [ADR 0001](./adr/0001-phase-1-storage-shape.md) chose the home and
 [ADR 0004](./adr/0004-the-house.md) chose the shape.
@@ -9,19 +10,20 @@ served by `src/server/house.ts` and read on the client through `src/client/house
 The House is not "everything that spans Articles". It holds what the writer authors and
 reuses. Where accumulated research lives is issue #40, still open.
 
-## Four collections
+## Five collections
 
 `src/shared/house.ts` declares them the way `src/shared/sync.ts` declares the Article
 Agent's three: snake_case columns, JSON columns as the text they store, and one pair of
-mappers each. The tables are `migrations/0002_house.sql`, because party-db's D1 adapter
-CRUDs the app's tables and creates only its own `_oplog`.
+mappers each. The tables are `migrations/0002_house.sql` and `0003_favourite.sql`, because
+party-db's D1 adapter CRUDs the app's tables and creates only its own `_oplog`.
 
-| Collection | One row is                                                   |
-| ---------- | ------------------------------------------------------------ |
-| `lexicon`  | A term, its definition, and its Provenance                   |
-| `rule`     | One standing rule, at a fractional `ord` the writer sets     |
-| `skill`    | A saved review prompt, under a name                          |
-| `tone`     | The House Voice and Adjectives — exactly one row, id `house` |
+| Collection  | One row is                                                   |
+| ----------- | ------------------------------------------------------------ |
+| `lexicon`   | A term, its definition, and its Provenance                   |
+| `rule`      | One standing rule, at a fractional `ord` the writer sets     |
+| `skill`     | A saved review prompt, under a name                          |
+| `tone`      | The House Voice and Adjectives — exactly one row, id `house` |
+| `favourite` | A publication, a person, or an idea research ranks first     |
 
 A Lexicon entry carries Provenance the way a Reference does, so an entry the writer accepted
 from something the Chat turned up can say where it came from. Nothing builds one from an
@@ -92,6 +94,32 @@ Skills lived in `localStorage` until the House arrived, so a Skill saved on one 
 not on the other. `carryOldSkills` moves those into the room once, on the first open, and
 clears the key.
 
+## Favourites
+
+A Favourite is a publication, a person, or an idea the writer wants research to rank first
+— the 1(f) mockup, with Ideas as a third group beside its Publications and People. Each
+carries a name and, optionally, why the writer prefers it, the subjects it is trusted on
+(**Prefer for**), and what it is not for. An Idea carries only the first two, because the
+other two describe a source.
+
+**A Favourite ranks and never filters.** The mockup puts it as "ahead of equally relevant
+results, never instead of better ones", and three things hold that:
+
+- The Favourites never reach a prompt pack, so they are not in `HouseContext`. A Chat that
+  knew them would aim its queries at them, and a query aimed at a Favourite is a filter.
+- Clef judges a result's merit without seeing the Favourites. A second question asks which
+  Favourite, if any, the result belongs to.
+- The pick sorts by merit tier first and Favourite second, so a Favourite moves ahead only
+  of results in its own tier.
+
+`readFavourites` in `src/server/house.ts` reads them off D1 once per Chat turn, and only
+when the turn has a search. How the ranking uses them is [`llm.md`](./llm.md), and why it
+is built this way is [ADR 0005](./adr/0005-research-ranking.md).
+
+The unique index is per type and name, case-insensitive. Two rows under one name would reach
+Clef as two options to choose between, and the choice would split its probability across
+them.
+
 ## Not built
 
 The showcase's three settings mockups draw a richer House: a Voice as a named record with
@@ -102,3 +130,8 @@ the exemplar pieces in `later.md` before it is worth building.
 
 Also not built: a Lexicon entry accepted from an Offer, and any use of a Skill beyond a
 Review prompt — `later.md` records why a Skill that rewrites prose is out of v1.
+
+Of 1(f), the usage counts are not built — "cited in 6 articles", "pulled in research 14
+times". Both count across Articles, which is the accumulated research #40 has not housed
+yet. Favourites at a Beat's Scope wait on the Beat itself (`later.md`), and an Article that
+states its own Favourites over the House's waits on a writer asking for one.

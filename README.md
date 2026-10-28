@@ -70,6 +70,11 @@ echo 'EXA_API_KEY=your-key-here' >> .dev.vars
 Leaving it unset takes the search tool out of the Chat and tells the guide to answer from
 memory, which is what a fresh clone and `pnpm test` run as.
 
+The search ranks what it finds with [Clef](./docs/llm.md#research-ranking), Cloudflare's
+decision model, over the same `AI` binding as the Chat's model. It needs no key of its own,
+but it needs remote bindings on like any model call. Without them a search still works and
+returns its results unranked.
+
 ### Deploying
 
 The article index has a D1 database of its own, named in `wrangler.jsonc`. Apply the schema

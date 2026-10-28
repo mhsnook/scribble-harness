@@ -182,9 +182,24 @@ constraint, and we can change the DX later if we want to.
 The first record that belongs to one person rather than to the Team is what makes this
 change. party-db's `authorize` runs in the partyserver lobby and needs a verified identity
 before the object wakes, and Access injects the assertion as a header where party-db expects
-`?token=` on connect — so `authorize` would read the header. Issue #12 tracks whether that
-header survives a WebSocket upgrade into the Durable Object, and it is still unproven.
-WorkOS is the documented upgrade if it does not.
+`?token=` on connect — so `authorize` would read the header.
+
+Issue #12 asked whether that header survives a WebSocket upgrade into the Durable Object.
+Part of the answer is in:
+
+- **Access gates the upgrade at the edge.** On the deploy, an upgrade to `/parties/house/house`
+  with no Access session answers 302 to the Access login, and the Worker never runs.
+- **The hop into the Durable Object does not matter to `authorize`.** party-db's `authHooks`
+  runs it as partyserver's `onBeforeConnect`, inside the Worker and on the request the edge
+  delivered, before any Durable Object is reached.
+- **Unproven: whether Access sets `Cf-Access-Jwt-Assertion` on an upgrade that carries a
+  session.** Cloudflare's docs describe the header without mentioning WebSockets. One deploy
+  that logs whether the header is present on `/parties/*` settles it.
+
+If the header is absent, the `CF_Authorization` cookie should still ride a same-origin upgrade
+— an inference from how browsers send cookies on a WebSocket handshake, not a measurement —
+and `authorize` can verify that instead. WorkOS stays the documented upgrade if neither
+arrives.
 
 Attributing Chat messages to people is wanted and deferred past 1a. The Agents SDK stores a
 role rather than a person, so this needs a field on the `UIMessage` or a parallel table.

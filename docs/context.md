@@ -15,10 +15,17 @@ workspace, account
 
 **House** (or house style):
 The writer's own material, held across every Article — the Lexicon, the standing rules,
-the Skills, and the House Voice and Adjectives. Named for house style, and reached from
-its own top-level entry point rather than from inside an Article. What it holds and how
-it reaches the Guide is [`house.md`](./house.md).
+the Skills, the House Voice and Adjectives, and the Favourites. Named for house style, and
+reached from its own top-level entry point rather than from inside an Article. What it
+holds and how it reaches the Guide is [`house.md`](./house.md).
 _Avoid_: layer 4, global settings, user settings, workspace
+
+**Favourite**:
+A publication, a person, or an idea the writer wants research to rank first, held in the
+House. A Favourite ranks and never filters: research puts its results ahead of results of
+equal merit, and never ahead of better ones. Its type is Publication, Person, or Idea.
+_Avoid_: favourite source (an Idea is not a source), preferred source, allowlist, boost,
+pin, star
 
 **Standing rule**:
 One thing the writer holds every piece to, in their own words — "never open on a

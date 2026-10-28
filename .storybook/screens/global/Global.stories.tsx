@@ -111,7 +111,10 @@ export const G_House: Story = {
 				the writer types rather than a record with its own prompt and examples, so the
 				Tone here is two fields rather than a library. The Lexicon and the standing rules
 				are the material the guide reads on every turn, which is why they lead; the Skills
-				are saved from a Review and only dropped here.
+				are saved from a Review and only dropped here. The favourites are 1(f) as a list
+				rather than a settings tab, with Ideas as a third group beside Publications and
+				People. They never reach the guide: research reads them to rank results, and only
+				among results of equal merit.
 			</Annotation>
 		</div>
 	),

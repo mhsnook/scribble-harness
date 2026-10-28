@@ -1,16 +1,17 @@
 import { Link } from '@tanstack/react-router'
 
-import type { HouseContext, Skill } from '../../shared/house'
+import type { Favourite, HouseContext, Skill } from '../../shared/house'
 import type { ScopeTerms } from '../../shared/plan'
 import { GroupHeading } from '../components/Divider'
 import { FrameBody } from '../components/Frame'
 import { Notice } from '../components/Notice'
 import { BackLink, TitleBar } from '../components/TitleBar'
 import { ToneFields } from '../plan/ToneFields'
+import { FavouriteList } from './FavouriteList'
 import { LexiconList } from './LexiconList'
 import { SkillList } from './SkillList'
 import { StandingRules } from './StandingRules'
-import type { LexiconDraft } from './useHouse'
+import type { FavouriteDraft, LexiconDraft } from './useHouse'
 
 /**
  * The House screen — `docs/house.md`. Takes its actions as props the way
@@ -21,6 +22,7 @@ import type { LexiconDraft } from './useHouse'
 export interface HouseScreenProps {
 	house: HouseContext
 	skills: readonly Skill[]
+	favourites: readonly Favourite[]
 	loading?: boolean
 	/** Why the last write did not land. */
 	failure?: string | null
@@ -33,11 +35,15 @@ export interface HouseScreenProps {
 	onRemoveRule: (id: string) => void
 	onMoveRule: (id: string, to: number) => void
 	onRemoveSkill: (name: string) => void
+	onAddFavourite: (draft: FavouriteDraft) => void
+	onEditFavourite: (id: string, draft: FavouriteDraft) => void
+	onRemoveFavourite: (id: string) => void
 }
 
 export function HouseScreen({
 	house,
 	skills,
+	favourites,
 	loading = false,
 	failure = null,
 	onTone,
@@ -49,6 +55,9 @@ export function HouseScreen({
 	onRemoveRule,
 	onMoveRule,
 	onRemoveSkill,
+	onAddFavourite,
+	onEditFavourite,
+	onRemoveFavourite,
 }: HouseScreenProps) {
 	return (
 		<>
@@ -62,7 +71,9 @@ export function HouseScreen({
 				{loading ? <p className="text-12 text-faint">Opening the House…</p> : null}
 
 				{/* Two columns at the width we design for, one below it. The Tone and
-				    the rules are what the guide reads on every turn, so they lead. */}
+				    the rules are what the guide reads on every turn, so they lead, and
+				    the favourites sit under them so the two columns run to a similar
+				    length. */}
 				<div className="grid gap-6 lg:grid-cols-2">
 					<div className="flex flex-col gap-6">
 						<HouseTone tone={house.tone} onTone={onTone} />
@@ -72,6 +83,12 @@ export function HouseScreen({
 							onMove={onMoveRule}
 							onRemove={onRemoveRule}
 							rules={house.rules}
+						/>
+						<FavouriteList
+							favourites={favourites}
+							onAdd={onAddFavourite}
+							onEdit={onEditFavourite}
+							onRemove={onRemoveFavourite}
 						/>
 					</div>
 					<div className="flex flex-col gap-6">

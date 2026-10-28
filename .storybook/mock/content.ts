@@ -1,5 +1,5 @@
 import type { ArticleEntry } from '../../src/shared/article'
-import type { HouseContext, Skill } from '../../src/shared/house'
+import type { Favourite, HouseContext, Skill } from '../../src/shared/house'
 import type { Offer } from '../../src/shared/offer'
 import type { OutlineNode, Plan } from '../../src/shared/plan'
 
@@ -394,5 +394,45 @@ export const houseSkills: Skill[] = [
 		prompt: 'Read the first paragraph of each Section. Does it earn the one after it?',
 		createdAt: Date.UTC(2026, 6, 1),
 		updatedAt: Date.UTC(2026, 6, 1),
+	},
+]
+
+/** The favourites 1(f) draws, as the House holds them. */
+export const houseFavourites: Favourite[] = [
+	{
+		id: 'fav-field-notes',
+		type: 'publication',
+		name: 'Field Notes',
+		why: 'Reports its own numbers and prints its method. Corrections are dated and visible.',
+		preferFor: ['policy', 'primary data', 'interviews'],
+		notFor: 'Opinion columns and the weekend essay.',
+		createdAt: 1,
+		updatedAt: 1,
+	},
+	{
+		id: 'fav-quarterly',
+		type: 'publication',
+		name: 'the Quarterly',
+		preferFor: [],
+		createdAt: 1,
+		updatedAt: 1,
+	},
+	{
+		id: 'fav-weill',
+		type: 'person',
+		name: 'A. Weill',
+		why: 'Goes to the primary sources, and says when they are thin.',
+		preferFor: ['housing'],
+		createdAt: 1,
+		updatedAt: 1,
+	},
+	{
+		id: 'fav-degrowth',
+		type: 'idea',
+		name: 'degrowth',
+		why: 'Growth as a choice a city makes rather than a law it obeys.',
+		preferFor: [],
+		createdAt: 1,
+		updatedAt: 1,
 	},
 ]

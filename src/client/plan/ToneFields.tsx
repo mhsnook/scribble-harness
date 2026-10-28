@@ -1,8 +1,7 @@
-import { useState } from 'react'
-
 import type { ResolvedScope } from '../../shared/plan'
 import { Chip } from '../components/Chip'
-import { FieldRow, InlineInput, TextField } from '../components/Field'
+import { FieldRow, TextField } from '../components/Field'
+import { TermChips } from '../components/TermChips'
 import { cx } from '../lib/cx'
 
 /**
@@ -34,20 +33,10 @@ export function ToneFields({
 	onAdjectives,
 	className,
 }: ToneFieldsProps) {
-	const [adding, setAdding] = useState('')
-
 	const inherited = voice === null ? resolved.voice : null
 	const inheritedAdjectives = resolved.adjectives.filter(
 		(adjective) => !adjectives.includes(adjective),
 	)
-
-	const add = () => {
-		const adjective = adding.trim()
-		setAdding('')
-		if (adjective === '' || adjectives.includes(adjective)) return
-
-		onAdjectives([...adjectives, adjective])
-	}
 
 	// `FieldRow` puts both labels in the same gutter every other minor field
 	// uses, so Voice and Adjectives line up with the References beneath them.
@@ -64,40 +53,18 @@ export function ToneFields({
 			</FieldRow>
 
 			<FieldRow label="Adjectives">
-				<div className="flex flex-wrap items-center gap-1.5">
-					{inheritedAdjectives.map((adjective) => (
+				<TermChips
+					addLabel={`Add an Adjective to ${scopeName}`}
+					leading={inheritedAdjectives.map((adjective) => (
 						<Chip key={adjective} dimmed title="inherited" variant="outline">
 							{adjective}
 						</Chip>
 					))}
-					{adjectives.map((adjective) => (
-						<Chip key={adjective}>
-							{adjective}
-							<button
-								aria-label={`Remove ${adjective} from ${scopeName}`}
-								className="text-faint hover:text-ink"
-								onClick={() =>
-									onAdjectives(adjectives.filter((held) => held !== adjective))
-								}
-								type="button"
-							>
-								×
-							</button>
-						</Chip>
-					))}
-					<InlineInput
-						className="w-24 text-11"
-						label={`Add an Adjective to ${scopeName}`}
-						onChange={setAdding}
-						onKeyDown={(event) => {
-							if (event.key !== 'Enter') return
-							event.preventDefault()
-							add()
-						}}
-						placeholder="+ adjective"
-						value={adding}
-					/>
-				</div>
+					onTerms={onAdjectives}
+					placeholder="+ adjective"
+					removeLabel={(adjective) => `Remove ${adjective} from ${scopeName}`}
+					terms={adjectives}
+				/>
 			</FieldRow>
 		</div>
 	)

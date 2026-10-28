@@ -16,14 +16,18 @@ function HouseRoute() {
 		<Screen>
 			<HouseScreen
 				failure={house.failure}
+				favourites={house.favourites}
 				house={house.house}
 				loading={house.loading}
 				onAddEntry={house.addEntry}
+				onAddFavourite={house.addFavourite}
 				onAddRule={house.addRule}
 				onEditEntry={house.editEntry}
+				onEditFavourite={house.editFavourite}
 				onEditRule={house.editRule}
 				onMoveRule={house.moveRule}
 				onRemoveEntry={house.removeEntry}
+				onRemoveFavourite={house.removeFavourite}
 				onRemoveRule={house.removeRule}
 				onRemoveSkill={house.removeSkill}
 				onTone={house.setTone}

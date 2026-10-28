@@ -11,7 +11,7 @@ import {
 } from './plan'
 
 /**
- * The House's four collections — `docs/house.md`. Spelled the way
+ * The House's five collections — `docs/house.md`. Spelled the way
  * `src/shared/sync.ts` spells the Article Agent's three: snake_case column
  * names, JSON columns as the text they store, and one pair of mappers per
  * collection.
@@ -74,6 +74,27 @@ export const toneRowSchema = z.object({
 })
 export type ToneRow = z.infer<typeof toneRowSchema>
 
+/** What a favourite is: a publication or a person the writer trusts, or an
+ * idea they want research to gravitate toward. */
+export const favouriteTypeSchema = z.enum(['publication', 'person', 'idea'])
+export type FavouriteType = z.infer<typeof favouriteTypeSchema>
+
+/** One `favourite` row as it travels. */
+export const favouriteRowSchema = z.object({
+	id: idSchema,
+	type: favouriteTypeSchema,
+	name: z.string(),
+	/** Null where the writer gives no reason. */
+	why: z.string().nullable(),
+	/** JSON text of `string[]`. */
+	prefer_for: z.string(),
+	/** Null where the writer rules nothing out. */
+	not_for: z.string().nullable(),
+	created_at: z.number(),
+	updated_at: z.number(),
+})
+export type FavouriteRow = z.infer<typeof favouriteRowSchema>
+
 /** name === channel === table name, on both sides of the wire. */
 export const lexiconCollection = definePartyCollection({
 	name: 'lexicon',
@@ -99,11 +120,18 @@ export const toneCollection = definePartyCollection({
 	schema: toneRowSchema,
 })
 
+export const favouriteCollection = definePartyCollection({
+	name: 'favourite',
+	key: 'id',
+	schema: favouriteRowSchema,
+})
+
 export const houseCollections = [
 	lexiconCollection,
 	ruleCollection,
 	skillCollection,
 	toneCollection,
+	favouriteCollection,
 ]
 
 // ---------------------------------------------------------------------------
@@ -140,6 +168,24 @@ export type Skill = {
 	updatedAt: number
 }
 
+/**
+ * A publication, a person, or an idea the writer wants research to rank first
+ * — `docs/context.md`. Ranking rather than filtering: a favourite goes ahead of
+ * results of equal merit, never ahead of better ones.
+ */
+export type Favourite = {
+	id: string
+	type: FavouriteType
+	name: string
+	why?: string
+	/** The subjects this favourite is trusted on. Empty means every subject. */
+	preferFor: string[]
+	/** What the writer does not want from it, in their words. */
+	notFor?: string
+	createdAt: number
+	updatedAt: number
+}
+
 /** Everything the House puts in front of the Guide. The Skills are absent on
  * purpose: a Skill *is* the writer's prompt, so it reaches a Review by being
  * picked rather than by riding every pack. */
@@ -149,7 +195,9 @@ export type HouseContext = {
 	rules: readonly StandingRule[]
 }
 
-/** What a House with nothing in it says. */
+/** What a House with nothing in it says. The favourites are absent here on
+ * purpose too: they reach the search ranking rather than the prompt, so the
+ * Chat cannot steer its queries toward them — `docs/house.md`. */
 export const emptyHouse: HouseContext = { tone: {}, lexicon: [], rules: [] }
 
 export function toLexiconEntry(row: LexiconRow): LexiconEntry {
@@ -214,6 +262,34 @@ export function fromSkill(skill: Skill): SkillRow {
 	}
 }
 
+/** A null column comes back absent, so a favourite has one spelling for "says
+ * nothing" — `docs/plan.md`. */
+export function toFavourite(row: FavouriteRow): Favourite {
+	return {
+		id: row.id,
+		type: row.type,
+		name: row.name,
+		...(row.why === null ? {} : { why: row.why }),
+		preferFor: JSON.parse(row.prefer_for) as string[],
+		...(row.not_for === null ? {} : { notFor: row.not_for }),
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	}
+}
+
+export function fromFavourite(favourite: Favourite): FavouriteRow {
+	return {
+		id: favourite.id,
+		type: favourite.type,
+		name: favourite.name,
+		why: favourite.why ?? null,
+		prefer_for: JSON.stringify(favourite.preferFor),
+		not_for: favourite.notFor ?? null,
+		created_at: favourite.createdAt,
+		updated_at: favourite.updatedAt,
+	}
+}
+
 /**
  * The House row as the Scope resolver takes it. `resolveScope` reads an absent
  * field as "this Scope states nothing", so a null Voice and an empty Adjective
@@ -261,6 +337,19 @@ export function sortRules(rules: readonly StandingRule[]): StandingRule[] {
 
 export function sortSkills(skills: readonly Skill[]): Skill[] {
 	return [...skills].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** The order the House screen groups favourites in. */
+export const favouriteTypes: readonly FavouriteType[] = ['publication', 'person', 'idea']
+
+/** Grouped by type in `favouriteTypes` order, then alphabetical by name,
+ * because the writer looks a favourite up by name. */
+export function sortFavourites(favourites: readonly Favourite[]): Favourite[] {
+	return [...favourites].sort(
+		(a, b) =>
+			favouriteTypes.indexOf(a.type) - favouriteTypes.indexOf(b.type) ||
+			a.name.localeCompare(b.name),
+	)
 }
 
 /** The `ord` a rule appended to this list takes. Fractional indices, so

@@ -1,8 +1,9 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 
-import { readHouse } from '../../src/server/house'
+import { readFavourites, readHouse } from '../../src/server/house'
 import {
+	fromFavourite,
 	fromHouseTone,
 	fromLexiconEntry,
 	fromRule,
@@ -176,5 +177,73 @@ describe('readHouse', () => {
 		const house = await readHouse(env.DB)
 
 		expect(house.tone).toEqual({})
+	})
+})
+
+describe('readFavourites', () => {
+	it('reads what the room wrote, grouped and sorted', async () => {
+		const written = (type: 'publication' | 'idea', name: string, preferFor: string[]) =>
+			fromFavourite({
+				id: `f-${name}`,
+				type,
+				name,
+				preferFor,
+				createdAt: 1,
+				updatedAt: 1,
+			})
+
+		await postWrite(
+			HOUSE_ROOM,
+			[
+				{
+					channel: 'favourite',
+					ops: [
+						{ type: 'insert', value: written('idea', 'degrowth', []) },
+						{ type: 'insert', value: written('publication', 'Field Notes', ['policy']) },
+					],
+				},
+			],
+			HOUSE_PARTY,
+		)
+
+		const read = await readFavourites(env.DB)
+
+		expect(read.map((held) => [held.type, held.name, held.preferFor])).toEqual([
+			['publication', 'Field Notes', ['policy']],
+			['idea', 'degrowth', []],
+		])
+	})
+
+	it('refuses a second favourite of one type under the same name', async () => {
+		const field = (id: string, name: string) =>
+			fromFavourite({
+				id,
+				type: 'publication',
+				name,
+				preferFor: [],
+				createdAt: 1,
+				updatedAt: 1,
+			})
+
+		const first = await postWrite(
+			HOUSE_ROOM,
+			insert('favourite', field('a', 'Municipal Review')),
+			HOUSE_PARTY,
+		)
+		const second = await postWrite(
+			HOUSE_ROOM,
+			insert('favourite', field('b', 'municipal review')),
+			HOUSE_PARTY,
+		)
+
+		expect(first.status).toBe(200)
+		expect(second.status).not.toBe(200)
+
+		// Compares this name's rows alone, because the rows earlier tests in this
+		// file wrote are still in D1.
+		const held = (await readFavourites(env.DB)).filter(
+			(favourite) => favourite.name.toLowerCase() === 'municipal review',
+		)
+		expect(held.map((favourite) => favourite.id)).toEqual(['a'])
 	})
 })

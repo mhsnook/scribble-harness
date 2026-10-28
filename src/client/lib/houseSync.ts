@@ -2,6 +2,7 @@ import type { Collection } from '@tanstack/db'
 import { createPartyDb, partyTransport } from 'party-db/client'
 
 import {
+	type FavouriteRow,
 	HOUSE_ROOM,
 	houseCollections,
 	type LexiconRow,
@@ -22,6 +23,7 @@ export type HouseSync = {
 	rule: Collection<RuleRow>
 	skill: Collection<SkillRow>
 	tone: Collection<ToneRow>
+	favourite: Collection<FavouriteRow>
 }
 
 let held: HouseSync | undefined
@@ -43,6 +45,7 @@ export function houseSync(): HouseSync {
 		rule: db.rule as Collection<RuleRow>,
 		skill: db.skill as Collection<SkillRow>,
 		tone: db.tone as Collection<ToneRow>,
+		favourite: db.favourite as Collection<FavouriteRow>,
 	}
 
 	return held

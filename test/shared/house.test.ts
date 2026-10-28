@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	type Favourite,
+	fromFavourite,
 	fromHouseTone,
 	fromLexiconEntry,
 	fromRule,
@@ -10,9 +12,11 @@ import {
 	lexiconInPlay,
 	nextRuleOrd,
 	ordBetween,
+	sortFavourites,
 	sortLexicon,
 	sortRules,
 	type StandingRule,
+	toFavourite,
 	toHouseTone,
 	toLexiconEntry,
 	toRule,
@@ -62,6 +66,66 @@ describe('the row mappers', () => {
 		expect(JSON.parse(fromLexiconEntry(entry('Beat')).provenance)).toEqual({
 			type: 'writer',
 		})
+	})
+})
+
+function favourite(
+	type: Favourite['type'],
+	name: string,
+	extra: Partial<Favourite> = {},
+): Favourite {
+	return {
+		id: `f-${name}`,
+		type,
+		name,
+		preferFor: [],
+		createdAt: 1,
+		updatedAt: 1,
+		...extra,
+	}
+}
+
+describe('a favourite', () => {
+	it('carries every field through a row and back', () => {
+		const written = favourite('publication', 'Field Notes', {
+			why: 'Prints its method.',
+			preferFor: ['policy', 'primary data'],
+			notFor: 'Opinion columns.',
+		})
+
+		expect(toFavourite(fromFavourite(written))).toEqual(written)
+	})
+
+	// The same rule as the House Tone: a row says "nothing" with null, and the
+	// app says it by leaving the field out.
+	it('reads a null reason and a null exclusion as absent fields', () => {
+		const read = toFavourite(fromFavourite(favourite('idea', 'degrowth')))
+
+		expect(read).not.toHaveProperty('why')
+		expect(read).not.toHaveProperty('notFor')
+		expect(fromFavourite(read)).toMatchObject({
+			why: null,
+			not_for: null,
+			prefer_for: '[]',
+		})
+	})
+
+	it('groups by type, publications first, then sorts each group by name', () => {
+		const sorted = sortFavourites([
+			favourite('idea', 'degrowth'),
+			favourite('person', 'R. Okonkwo'),
+			favourite('publication', 'the Quarterly'),
+			favourite('person', 'A. Weill'),
+			favourite('publication', 'Field Notes'),
+		])
+
+		expect(sorted.map((held) => held.name)).toEqual([
+			'Field Notes',
+			'the Quarterly',
+			'A. Weill',
+			'R. Okonkwo',
+			'degrowth',
+		])
 	})
 })
 

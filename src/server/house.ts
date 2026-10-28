@@ -1,13 +1,17 @@
 import { D1Adapter, type PersistenceAdapter, PartyDbServer } from 'party-db/server'
 
 import {
+	type Favourite,
+	type FavouriteRow,
 	HOUSE_OPLOG_RETENTION,
 	type HouseContext,
 	houseCollections,
 	type LexiconRow,
 	type RuleRow,
+	sortFavourites,
 	sortLexicon,
 	sortRules,
+	toFavourite,
 	toHouseTone,
 	type ToneRow,
 	toLexiconEntry,
@@ -44,4 +48,12 @@ export async function readHouse(db: D1Database): Promise<HouseContext> {
 		lexicon: sortLexicon((lexicon.results as LexiconRow[]).map(toLexiconEntry)),
 		rules: sortRules((rules.results as RuleRow[]).map(toRule)),
 	}
+}
+
+/** The favourites, for the search ranking — read apart from `readHouse`,
+ * because they never reach a prompt pack. */
+export async function readFavourites(db: D1Database): Promise<Favourite[]> {
+	const { results } = await db.prepare('SELECT * FROM favourite').all<FavouriteRow>()
+
+	return sortFavourites(results.map(toFavourite))
 }

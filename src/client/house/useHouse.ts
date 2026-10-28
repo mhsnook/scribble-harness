@@ -2,6 +2,8 @@ import { useLiveQuery } from '@tanstack/react-db'
 import { useEffect, useState } from 'react'
 
 import {
+	type Favourite,
+	type FavouriteType,
 	fromHouseTone,
 	HOUSE_TONE_ID,
 	type HouseContext,
@@ -9,10 +11,12 @@ import {
 	nextRuleOrd,
 	ordBetween,
 	type Skill,
+	sortFavourites,
 	sortLexicon,
 	sortRules,
 	sortSkills,
 	type StandingRule,
+	toFavourite,
 	toHouseTone,
 	toLexiconEntry,
 	toRule,
@@ -32,9 +36,20 @@ import { carryOldSkills } from './carrySkills'
 
 export type LexiconDraft = { term: string; definition: string }
 
+/** A favourite as the writer types it. An empty `why` or `notFor` is written as
+ * saying nothing. */
+export type FavouriteDraft = {
+	type: FavouriteType
+	name: string
+	why: string
+	preferFor: string[]
+	notFor: string
+}
+
 export type HouseHandle = {
 	house: HouseContext
 	skills: readonly Skill[]
+	favourites: readonly Favourite[]
 	loading: boolean
 	/** Why the last write did not land. */
 	failure: string | null
@@ -49,6 +64,9 @@ export type HouseHandle = {
 	moveRule: (id: string, to: number) => void
 	saveSkill: (skill: { name: string; prompt: string }) => void
 	removeSkill: (name: string) => void
+	addFavourite: (draft: FavouriteDraft) => void
+	editFavourite: (id: string, draft: FavouriteDraft) => void
+	removeFavourite: (id: string) => void
 }
 
 export function useHouse(): HouseHandle {
@@ -62,14 +80,23 @@ export function useHouse(): HouseHandle {
 	const ruleRows = useLiveQuery((q) => q.from({ rule: sync.rule }), [sync.rule])
 	const skillRows = useLiveQuery((q) => q.from({ skill: sync.skill }), [sync.skill])
 	const toneRows = useLiveQuery((q) => q.from({ tone: sync.tone }), [sync.tone])
+	const favouriteRows = useLiveQuery(
+		(q) => q.from({ favourite: sync.favourite }),
+		[sync.favourite],
+	)
 
 	const lexicon = sortLexicon(lexiconRows.data.map(toLexiconEntry))
 	const rules = sortRules(ruleRows.data.map(toRule))
 	const skills = sortSkills(skillRows.data.map(toSkill))
 	const tone = toHouseTone(toneRows.data[0])
+	const favourites = sortFavourites(favouriteRows.data.map(toFavourite))
 
 	const loading =
-		!lexiconRows.isReady || !ruleRows.isReady || !skillRows.isReady || !toneRows.isReady
+		!lexiconRows.isReady ||
+		!ruleRows.isReady ||
+		!skillRows.isReady ||
+		!toneRows.isReady ||
+		!favouriteRows.isReady
 
 	// The Skills the writer saved before the House existed. Keyed on the room
 	// being open, because the carry writes into it.
@@ -98,6 +125,7 @@ export function useHouse(): HouseHandle {
 	return {
 		house: { tone, lexicon, rules },
 		skills,
+		favourites,
 		loading,
 		failure,
 
@@ -204,6 +232,42 @@ export function useHouse(): HouseHandle {
 
 				return sync.skill.delete(held.id)
 			}),
+
+		addFavourite: (draft) =>
+			write('The favourite did not save.', () =>
+				sync.favourite.insert({
+					id: crypto.randomUUID(),
+					...favouriteColumns(draft),
+					created_at: now(),
+					updated_at: now(),
+				}),
+			),
+
+		editFavourite: (id, draft) =>
+			write('The favourite did not save.', () =>
+				sync.favourite.update(id, (row) => {
+					Object.assign(row, favouriteColumns(draft))
+					row.updated_at = now()
+				}),
+			),
+
+		removeFavourite: (id) =>
+			write('The favourite was not deleted.', () => sync.favourite.delete(id)),
+	}
+}
+
+/** The columns a draft writes. Blank text is stored as null, so the row says
+ * "nothing here" one way. */
+function favouriteColumns(draft: FavouriteDraft) {
+	const why = draft.why.trim()
+	const notFor = draft.notFor.trim()
+
+	return {
+		type: draft.type,
+		name: draft.name.trim(),
+		why: why === '' ? null : why,
+		prefer_for: JSON.stringify(draft.preferFor),
+		not_for: notFor === '' ? null : notFor,
 	}
 }
 
@@ -216,4 +280,4 @@ export function useHouseStyle(): ScopeTerms {
 	return toHouseTone(toneRows.data[0])
 }
 
-export type { LexiconEntry, StandingRule }
+export type { Favourite, LexiconEntry, StandingRule }

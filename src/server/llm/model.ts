@@ -24,7 +24,7 @@ const modelId = '@cf/zai-org/glm-5.2'
  * no Gateway. Leave the Gateway itself unauthenticated, because a binding call is
  * same-account and `GatewayOptions` carries nowhere to put a token.
  */
-function gatewayFor(env: Env) {
+export function gatewayFor(env: Env) {
 	return env.AI_GATEWAY_ID ? { id: env.AI_GATEWAY_ID, skipCache: true } : undefined
 }
 

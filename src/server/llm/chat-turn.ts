@@ -9,10 +9,12 @@ import {
 } from 'ai'
 
 import { reasonFor } from '../../shared/failure'
-import { emptyHouse, type HouseContext } from '../../shared/house'
+import { emptyHouse, type Favourite, type HouseContext } from '../../shared/house'
 import type { Plan } from '../../shared/plan'
+import type { Decide } from './decide'
 import { chatPackMessages, chatSystemPrompt } from './prompt'
 import { repairToolCall } from './repair'
+import { research } from './research'
 import type { WebSearch } from './search'
 import { chatTools } from './tools'
 
@@ -32,6 +34,11 @@ export type ChatTurn = {
 	/** Absent takes the search tool out of the registry and switches the guide
 	 * rules to say the Chat cannot browse. One value decides both. */
 	search?: WebSearch
+	/** Ranks what the search finds. Absent leaves results in the order the
+	 * searches returned them. */
+	decide?: Decide
+	/** What the ranking puts first among results of equal merit. */
+	favourites?: readonly Favourite[]
 	plan: Plan
 	messages: UIMessage[]
 	/** The writer's standing material, which the pack puts in front of the
@@ -44,6 +51,8 @@ export type ChatTurn = {
 export async function chatTurn({
 	model,
 	search,
+	decide,
+	favourites = [],
 	plan,
 	messages,
 	house = emptyHouse,
@@ -55,7 +64,9 @@ export async function chatTurn({
 		// Rules, then the House, then conversation and Plan, per `docs/llm.md`
 		system: chatSystemPrompt(search !== undefined),
 		messages: chatPackMessages(await convertToModelMessages(messages), plan, house),
-		tools: chatTools(search),
+		tools: chatTools(
+			search === undefined ? undefined : research({ search, decide, favourites, plan }),
+		),
 		// A turn runs until it answers, rather than stopping at its first tool
 		// call. The AI SDK stops after one step by default, which throws away
 		// every result a tool with an `execute` produced: the model calls

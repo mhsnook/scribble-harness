@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { WebSearch } from '../../src/server/llm/search'
+import type { Research } from '../../src/server/llm/research'
 import { chatTools } from '../../src/server/llm/tools'
 import {
 	proposePlanChangeTool,
@@ -10,7 +10,7 @@ import {
 import { chatOpNames } from '../../src/shared/plan'
 
 /** A search that answers nothing. */
-const noResults: WebSearch = async () => ({ status: 'ok', results: [] })
+const noResults: Research = async () => ({ status: 'ok', results: [], considered: 0 })
 
 /** The registry as a deployment with a search key gets it. */
 const tools = chatTools(noResults)

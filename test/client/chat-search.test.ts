@@ -22,7 +22,7 @@ describe('a search in the transcript', () => {
 	it('counts what a finished search returned', () => {
 		const call = readWebSearch(part('output-available', { output: found(3) }) as never)
 
-		expect(call).toEqual({ query: 'permit backlog', outcome: 3 })
+		expect(call).toEqual({ queries: ['permit backlog'], outcome: 3 })
 	})
 
 	it('is running until the output arrives', () => {
@@ -37,13 +37,13 @@ describe('a search in the transcript', () => {
 			input: { query: 'permit backlog' },
 		})
 
-		expect(readWebSearch(streaming as never).query).toBe('permit backlog')
+		expect(readWebSearch(streaming as never).queries).toEqual(['permit backlog'])
 	})
 
 	it('has no query until the model has streamed one', () => {
 		const empty = toolPart(webSearchTool, 'input-streaming', { input: {} })
 
-		expect(readWebSearch(empty as never).query).toBeNull()
+		expect(readWebSearch(empty as never).queries).toEqual([])
 	})
 
 	// The tool never throws, so this is how a failed search arrives rather than
@@ -52,7 +52,7 @@ describe('a search in the transcript', () => {
 		const out = { status: 'unavailable', reason: 'The provider answered 429.' }
 
 		expect(readWebSearch(part('output-available', { output: out }) as never)).toEqual({
-			query: 'permit backlog',
+			queries: ['permit backlog'],
 			outcome: 'failed',
 		})
 	})
@@ -71,13 +71,37 @@ describe('a search in the transcript', () => {
 
 		expect(readWebSearch(empty as never).outcome).toBe(0)
 	})
+
+	it('reads every query of a call that searched several', () => {
+		const several = toolPart(webSearchTool, 'output-available', {
+			input: { queries: ['permit backlog', 'housing starts 2026'] },
+			output: { ...found(2), considered: 11 },
+		})
+
+		expect(readWebSearch(several as never)).toEqual({
+			queries: ['permit backlog', 'housing starts 2026'],
+			outcome: 2,
+			considered: 11,
+		})
+	})
+
+	// The model streams the array in, so a query that has not started yet is not
+	// a string.
+	it('skips a query the model has not written yet', () => {
+		const streaming = toolPart(webSearchTool, 'input-streaming', {
+			input: { queries: ['permit backlog', null] },
+		})
+
+		expect(readWebSearch(streaming as never).queries).toEqual(['permit backlog'])
+	})
 })
 
 describe('the line a search gets', () => {
 	const line = (
 		outcome: number | 'running' | 'failed',
-		query: string | null = 'permit backlog',
-	) => searchNote({ query, outcome })
+		queries: string[] = ['permit backlog'],
+		considered?: number,
+	) => searchNote({ queries, outcome, ...(considered !== undefined && { considered }) })
 
 	it('names what the guide searched for', () => {
 		expect(line('running')).toBe('Searching “permit backlog”…')
@@ -103,6 +127,24 @@ describe('the line a search gets', () => {
 
 	// The query is absent while the call streams, and the line still has to read.
 	it('falls back to naming the web when there is no query yet', () => {
-		expect(line('running', null)).toBe('Searching the web…')
+		expect(line('running', [])).toBe('Searching the web…')
+	})
+
+	it('names every query, joined the way a sentence lists them', () => {
+		expect(line('running', ['a', 'b'])).toBe('Searching “a” and “b”…')
+		expect(line('running', ['a', 'b', 'c'])).toBe('Searching “a”, “b” and “c”…')
+	})
+
+	// The ranking keeps fewer than it pooled, and the writer sees both numbers.
+	it('says how many it kept out of how many it pooled', () => {
+		expect(line(6, ['a', 'b'], 20)).toBe('Searched “a” and “b” — kept 6 of 20.')
+		expect(line(3, ['a'], 3)).toBe('Searched “a” — 3 results.')
+	})
+
+	it('tells finding nothing apart from finding nothing worth showing', () => {
+		expect(line(0, ['a'], 0)).toBe('Searched “a”, and found nothing.')
+		expect(line(0, ['a'], 9)).toBe(
+			'Searched “a”, and none of 9 results was worth showing.',
+		)
 	})
 })

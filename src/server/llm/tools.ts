@@ -11,14 +11,14 @@ import {
 } from '../../shared/chat'
 import { offerBatchSchema } from '../../shared/offer'
 import type { ArticleAgent } from '../article-agent'
-import { type WebSearch, webSearchInput, webSearchOutput } from './search'
+import { type Research, researchInput, researchOutput } from './research'
 
 /**
  * The tools a Chat turn is given, and the descriptions that teach a model to
  * use them. A tool's name is `src/shared/chat.ts`, because the Chat Panel
  * matches on it. Its schemas go there only where the Panel parses them too —
  * the Proposal's input and the Offer tool's output. The search tool's are in
- * `llm/search.ts`, because nothing on the client reads them.
+ * `llm/research.ts`, because the client reads them field by field instead.
  *
  * The Proposal tool is **`execute`-less**, because a tool with no `execute`
  * suspends for the client, and that suspension is the Proposal the writer rules
@@ -104,12 +104,15 @@ const recordOffers = tool({
 })
 
 const searchDescription = [
-	'Search the web. Use it before you offer a link or a quote, so what you offer is',
-	'something you retrieved rather than something you remember.',
+	'Search the web, with up to four queries in one call. Use it before you offer a link',
+	'or a quote, so what you offer is something you retrieved rather than something you',
+	'remember.',
 	'',
-	'Search more than once in a turn when the first query comes back thin, or when the',
-	'writer\'s question has several sides worth searching separately. Pass "since" as',
-	'YYYY-MM-DD where only recent material counts.',
+	'Give four queries where the question has that many sides - different angles, terms,',
+	'or kinds of source - rather than four phrasings of one query. The results are pooled,',
+	'duplicates are dropped, and only the ones worth showing come back, best first;',
+	'"considered" says how many were pooled. Call it again when what comes back is thin.',
+	'Pass "since" as YYYY-MM-DD where only recent material counts.',
 	'',
 	'Each result carries a url, and usually a title, an author, a published date, and an',
 	'excerpt - a passage pulled off the page for this query. Only offer urls this tool',
@@ -117,20 +120,23 @@ const searchDescription = [
 	'start or end mid-sentence, so trim it back to a whole sentence rather than writing',
 	'the missing words yourself.',
 	'',
+	'A result carrying "favourite" comes from, or engages, one of the writer\'s own',
+	'favourites, named there. Say so in the note of any Offer you make from it.',
+	'',
 	'A status of "unavailable" means the search did not happen, and the reason says why.',
 	'Tell the writer search is down, answer from what you know, and mark any Offer you',
 	'make as coming from memory.',
 ].join('\n')
 
-/** Takes the search rather than importing one, so the Article Agent supplies
- * it the way it supplies the model and a test can script it. */
-function searchTool(search: WebSearch) {
+/** Takes the research rather than importing one, so the Chat turn composes it
+ * from what the Article Agent supplies and a test can script it. */
+function searchTool(research: Research) {
 	return tool({
 		description: searchDescription,
-		inputSchema: webSearchInput,
-		outputSchema: webSearchOutput,
-		// `search` never rejects, so a failed search does not end the turn.
-		execute: (input, { abortSignal }) => search(input, abortSignal),
+		inputSchema: researchInput,
+		outputSchema: researchOutput,
+		// `research` never rejects, so a failed search does not end the turn.
+		execute: (input, { abortSignal }) => research(input, abortSignal),
 	})
 }
 
@@ -142,10 +148,10 @@ function searchTool(search: WebSearch) {
  * `execute` and so no return type to infer, and the wide type is what lets the
  * Agent's `onFinish` callback fit `streamText`'s.
  */
-export function chatTools(search?: WebSearch): ToolSet {
+export function chatTools(research?: Research): ToolSet {
 	return {
 		[proposePlanChangeTool]: proposePlanChange,
 		[recordOffersTool]: recordOffers,
-		...(search !== undefined && { [webSearchTool]: searchTool(search) }),
+		...(research !== undefined && { [webSearchTool]: searchTool(research) }),
 	}
 }

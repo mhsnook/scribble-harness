@@ -1,6 +1,7 @@
 import { env, runInDurableObject } from 'cloudflare:test'
 
 import type { ArticleAgent } from '../../src/server/article-agent'
+import type { Decide } from '../../src/server/llm/decide'
 import type { WebSearch } from '../../src/server/llm/search'
 
 /**
@@ -59,5 +60,13 @@ export function scriptModel(
 export function scriptSearch(name: string, search: WebSearch): Promise<void> {
 	return inAgent(name, (agent) => {
 		agent.chatSearch = () => search
+	})
+}
+
+/** The same for the Chat's decision model. A test that scripts a search scripts
+ * this too, because the unscripted one is a remote binding no test may reach. */
+export function scriptDecide(name: string, decide: Decide): Promise<void> {
+	return inAgent(name, (agent) => {
+		agent.chatDecide = () => decide
 	})
 }

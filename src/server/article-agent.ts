@@ -70,8 +70,9 @@ import {
 	toOffer,
 	toRound,
 } from '../shared/sync'
-import { readHouse } from './house'
+import { readFavourites, readHouse } from './house'
 import { chatTurn } from './llm/chat-turn'
+import { type Decide, decisionModel } from './llm/decide'
 import { model } from './llm/model'
 import { reviewTurn } from './llm/review'
 import { anchorFor, type ReviewPack } from './llm/review-pack'
@@ -359,6 +360,12 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		return webSearch(this.env)
 	}
 
+	/** The decision model a Chat turn ranks research with. `llm/decide.ts` is the
+	 * boundary; this reads it so a test can replace it, as `chatModel` does. */
+	chatDecide(): Decide {
+		return decisionModel(this.env)
+	}
+
 	/** The model a Review runs on — the same one, read separately so a test can
 	 * script a Review without scripting the Chat. */
 	reviewModel(): LanguageModel {
@@ -374,9 +381,13 @@ export class ArticleAgent extends AIChatAgent<Env, Plan> {
 		onFinish: GenerateTextOnFinishCallback<ToolSet>,
 		options?: OnChatMessageOptions,
 	): Promise<Response> {
+		const search = this.chatSearch()
+
 		return chatTurn({
 			model: this.chatModel(),
-			search: this.chatSearch(),
+			search,
+			decide: this.chatDecide(),
+			favourites: search === undefined ? [] : await readFavourites(this.env.DB),
 			plan: this.planForTurn(options?.body),
 			messages: this.messages,
 			house: await readHouse(this.env.DB),

@@ -4,12 +4,20 @@ import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 
 import { chatTurn } from '../../src/server/llm/chat-turn'
+import type { Decide } from '../../src/server/llm/decide'
 import { chatPackMessages } from '../../src/server/llm/prompt'
 import type { WebSearch } from '../../src/server/llm/search'
 import type { ProposalInput } from '../../src/shared/plan'
 import { makeNode, makePlan } from '../shared/plan-fixtures'
 import { type Frame, openAgentSocket } from './agent-socket'
-import { calledATool, noUsage, scriptModel, scriptSearch, stopped } from './scripted'
+import {
+	calledATool,
+	noUsage,
+	scriptDecide,
+	scriptModel,
+	scriptSearch,
+	stopped,
+} from './scripted'
 
 /**
  * The server side of a Chat turn — `docs/chat.md` and `docs/llm.md`.
@@ -88,7 +96,7 @@ function speaks(text: string) {
 /** One turn calling the search tool. It carries an `execute`, so the call
  * resolves on the server and the model reads the result in the step after. */
 function searchTurn(query: string): StreamPart[] {
-	const input = JSON.stringify({ query })
+	const input = JSON.stringify({ queries: [query] })
 
 	return [
 		{ type: 'stream-start', warnings: [] },
@@ -126,15 +134,24 @@ function proposes(...inputs: string[]) {
 
 /** Put a scripted model, and optionally a scripted search, behind the Chat's
  * boundaries. The model records the calls made against it, so the caller keeps
- * its own reference and reads the prompt pack off `doStreamCalls`. */
+ * its own reference and reads the prompt pack off `doStreamCalls`. A search
+ * comes with a decision model, which keeps everything unless the test says
+ * otherwise. */
 async function scriptChat(
 	name: string,
 	model: MockLanguageModelV3,
 	search?: WebSearch,
+	decide: Decide = keepsAll,
 ): Promise<void> {
 	await scriptModel(name, 'chatModel', model)
-	if (search !== undefined) await scriptSearch(name, search)
+	if (search !== undefined) {
+		await scriptSearch(name, search)
+		await scriptDecide(name, decide)
+	}
 }
+
+/** A Clef that judges every result strong and no result a favourite's. */
+const keepsAll: Decide = async () => ({ merit: { type: 'score', score: 3 } })
 
 /** A search that finds one thing, so a turn has something to read back. */
 const findsOne: WebSearch = async () => ({
@@ -276,6 +293,43 @@ describe('a Chat turn', () => {
 		expect(call.prompt.at(-2)?.role).toBe('tool')
 	})
 
+	// A transcript keeps each call in the shape it was made in, so an Article
+	// that searched before the search took several queries carries `{ query }`
+	// calls the current schema would refuse as new ones.
+	it('carries on a transcript holding a search from before it took several queries', async () => {
+		const model = speaks('Noted.')
+		const before = [
+			{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Anything on permits?' }] },
+			{
+				id: 'm2',
+				role: 'assistant',
+				parts: [
+					{
+						type: 'tool-webSearch',
+						toolCallId: 'call-old',
+						state: 'output-available',
+						input: { query: 'permit backlog' },
+						output: { status: 'ok', results: [] },
+					},
+					{ type: 'text', text: 'Nothing turned up.' },
+				],
+			},
+			{ id: 'm3', role: 'user', parts: [{ type: 'text', text: 'Try again.' }] },
+		] as unknown as UIMessage[]
+
+		const response = await chatTurn({
+			model,
+			search: findsOne,
+			decide: keepsAll,
+			plan,
+			messages: before,
+			onFinish: async () => {},
+		})
+
+		expect(await response.text()).toContain('Noted.')
+		expect(JSON.stringify(model.doStreamCalls[0]?.prompt)).toContain('permit backlog')
+	})
+
 	// No search key in the test env, so `chatSearch()` hands back nothing.
 	it('offers the tools the deployment can reach', async () => {
 		const writer = await openAgentSocket('chat-tools')
@@ -353,6 +407,44 @@ describe('a Chat turn', () => {
 
 		expect(types(chunks)).toContain('tool-output-available')
 		expect(types(chunks)).toContain('text-delta')
+	})
+
+	// The favourites live in the House, and the turn reads them off D1 for the
+	// ranking alone — they never reach the prompt pack.
+	it('ranks research against the House favourites', async () => {
+		await env.DB.prepare(
+			`INSERT INTO favourite (id, type, name, why, prefer_for, not_for, created_at, updated_at)
+			 VALUES ('f1', 'publication', 'Field Notes', NULL, '[]', NULL, 1, 1)`,
+		).run()
+
+		const asked: Parameters<Decide>[] = []
+		const decide: Decide = async (...call) => {
+			asked.push(call)
+
+			return {
+				merit: { type: 'score', score: 2.8 },
+				favourite: {
+					type: 'choice',
+					choice: 'Publication: Field Notes',
+					probabilities: { 'Publication: Field Notes': 0.9 },
+				},
+			}
+		}
+
+		const writer = await openAgentSocket('chat-favourites')
+		const model = scripted([searchTurn('permit backlog'), proseTurn('Found one.')])
+		await scriptChat('chat-favourites', model, findsOne, decide)
+
+		await writer.chat('What is the permit backlog?', { plan })
+
+		const [, questions] = asked[0]!
+		expect(questions.favourite).toMatchObject({
+			criteria: { 'Publication: Field Notes': expect.any(String) },
+		})
+
+		const [first, resumed] = model.doStreamCalls
+		expect(JSON.stringify(resumed.prompt)).toContain('"favourite":"Field Notes"')
+		expect(JSON.stringify(first.prompt)).not.toContain('Field Notes')
 	})
 
 	it('falls back to the Plan in state when the turn carries no body', async () => {

@@ -20,7 +20,7 @@ export type WebSearchInput = z.infer<typeof webSearchInput>
 
 /** One result, in the shape an Offer is written from — a source and, for a
  * Quote, a passage off the page. */
-const webSearchResult = z.object({
+export const webSearchResult = z.object({
 	url: z.url(),
 	title: z.string().min(1).optional(),
 	author: z.string().min(1).optional(),

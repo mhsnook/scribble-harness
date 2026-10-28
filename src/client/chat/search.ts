@@ -8,9 +8,12 @@ import { z } from 'zod'
 export type SearchOutcome = number | 'running' | 'failed'
 
 export type SearchCall = {
-	/** Null while the model is still streaming the call. */
-	query: string | null
+	/** Empty while the model is still streaming the call. */
+	queries: string[]
 	outcome: SearchOutcome
+	/** How many results the search pooled before it kept `outcome` of them.
+	 * Absent on a search from before results were ranked. */
+	considered?: number
 }
 
 /** A search that worked. The Panel needs the status and a count, so results are
@@ -21,6 +24,7 @@ export type SearchCall = {
 const answered = z.object({
 	status: z.literal('ok'),
 	results: z.array(z.unknown()),
+	considered: z.number().int().optional(),
 })
 
 /**
@@ -30,23 +34,40 @@ const answered = z.object({
  * because it would refuse the half-object a streaming call carries.
  */
 export function readWebSearch(part: ToolUIPart | DynamicToolUIPart): SearchCall {
-	const asked = (part.input as { query?: unknown } | undefined)?.query
-	const query = typeof asked === 'string' && asked !== '' ? asked : null
+	const queries = askedOf(part.input)
 
-	if (part.state === 'output-error') return { query, outcome: 'failed' }
-	if (part.state !== 'output-available') return { query, outcome: 'running' }
+	if (part.state === 'output-error') return { queries, outcome: 'failed' }
+	if (part.state !== 'output-available') return { queries, outcome: 'running' }
 
 	// The tool never throws, so a failed search arrives as an ordinary output
 	// saying so rather than as `output-error`.
 	const answer = answered.safeParse(part.output)
+	if (!answer.success) return { queries, outcome: 'failed' }
 
-	return { query, outcome: answer.success ? answer.data.results.length : 'failed' }
+	const { results, considered } = answer.data
+
+	return {
+		queries,
+		outcome: results.length,
+		...(considered !== undefined && { considered }),
+	}
+}
+
+/** Reads `queries`, and `query` where there is none, because a transcript keeps
+ * each call in the shape it was made in, and calls from before the search took
+ * several queries carry one. */
+function askedOf(input: unknown): string[] {
+	const { queries, query } = (input ?? {}) as { queries?: unknown; query?: unknown }
+	const asked: unknown[] = Array.isArray(queries) ? queries : [query]
+
+	return asked.filter((one): one is string => typeof one === 'string' && one !== '')
 }
 
 /** A failure stays short here, because the guide relays the provider's own
  * reason in its reply. */
-export function searchNote({ query, outcome }: SearchCall): string {
-	const asked = query === null ? 'the web' : `“${query}”`
+export function searchNote({ queries, outcome, considered }: SearchCall): string {
+	const asked =
+		queries.length === 0 ? 'the web' : listed(queries.map((one) => `“${one}”`))
 
 	switch (outcome) {
 		case 'failed':
@@ -54,10 +75,22 @@ export function searchNote({ query, outcome }: SearchCall): string {
 		case 'running':
 			return `Searching ${asked}…`
 		case 0:
-			return `Searched ${asked}, and found nothing.`
-		case 1:
-			return `Searched ${asked} — 1 result.`
+			return considered === undefined || considered === 0
+				? `Searched ${asked}, and found nothing.`
+				: `Searched ${asked}, and none of ${considered} results was worth showing.`
 		default:
-			return `Searched ${asked} — ${outcome} results.`
+			if (considered !== undefined && considered > outcome)
+				return `Searched ${asked} — kept ${outcome} of ${considered}.`
+
+			return outcome === 1
+				? `Searched ${asked} — 1 result.`
+				: `Searched ${asked} — ${outcome} results.`
 	}
+}
+
+/** “a”, “b” and “c”. */
+function listed(items: readonly string[]): string {
+	if (items.length < 2) return items.join('')
+
+	return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
 }
